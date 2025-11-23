@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CheckSquare, DollarSign, ShoppingCart, Settings, LogOut } from "lucide-react";
+import { Home, CheckSquare, DollarSign, ShoppingCart, Settings, LogOut, Calendar } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 
 const Navbar = () => {
@@ -17,6 +17,7 @@ const Navbar = () => {
     { name: "Tasks", href: "/tasks", icon: CheckSquare },
     { name: "Shopping", href: "/shopping", icon: ShoppingCart },
     { name: "Expenses", href: "/expenses", icon: DollarSign },
+    { name: "Calendar", href: "/calendar", icon: Calendar },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
