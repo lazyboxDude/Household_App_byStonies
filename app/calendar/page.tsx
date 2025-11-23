@@ -27,6 +27,7 @@ interface CalendarEvent {
   time: string;
   type: 'task' | 'shopping' | 'event';
   location?: string;
+  photo?: string; // base64 or data URL
 }
 
 interface Suggestion {
@@ -57,6 +58,7 @@ export default function CalendarPage() {
   const [newEventTime, setNewEventTime] = useState('12:00');
   const [newEventType, setNewEventType] = useState<'task' | 'shopping' | 'event'>('event');
   const [newEventLocation, setNewEventLocation] = useState('');
+  const [newEventPhoto, setNewEventPhoto] = useState<string | null>(null);
 
 
   // ...existing code...
@@ -167,6 +169,7 @@ export default function CalendarPage() {
       setNewEventTime('12:00');
       setNewEventType('event');
       setNewEventLocation('');
+      setNewEventPhoto(null);
     }
     setIsModalOpen(true);
   };
@@ -179,7 +182,7 @@ export default function CalendarPage() {
       // Update existing event
       const updatedEvents = events.map(ev => 
         ev.id === editingEvent.id 
-          ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation }
+          ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto }
           : ev
       );
       setEvents(updatedEvents);
@@ -191,12 +194,14 @@ export default function CalendarPage() {
         date: selectedDate,
         time: newEventTime,
         type: newEventType,
-        location: newEventLocation
+        location: newEventLocation,
+        photo: newEventPhoto || undefined
       };
       setEvents([...events, newEvent]);
     }
 
     setIsModalOpen(false);
+    setNewEventPhoto(null);
   };
 
   const handleDeleteEvent = () => {
@@ -352,6 +357,9 @@ export default function CalendarPage() {
                           </span>
                         )}
                       </div>
+                      {event.photo && (
+                        <img src={event.photo} alt="Event" className="mt-2 rounded-lg max-h-32 object-cover border" />
+                      )}
                     </div>
                   </div>
                 ))
@@ -411,6 +419,28 @@ export default function CalendarPage() {
             </div>
             
             <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo (Optional)</label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (ev) => {
+                                      setNewEventPhoto(ev.target?.result as string);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                              />
+                              {newEventPhoto && (
+                                <img src={newEventPhoto} alt="Event" className="mt-2 rounded-lg max-h-40 object-cover border" />
+                              )}
+                            </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Title</label>
                 <input
