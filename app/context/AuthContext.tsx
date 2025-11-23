@@ -20,7 +20,8 @@ interface Household {
 interface AuthContextType {
   user: User | null;
   household: Household | null;
-  login: (name: string) => void;
+  login: (name: string, email?: string, avatar?: string) => void;
+  loginWithGoogle: () => void;
   logout: () => void;
   createHousehold: (name: string) => void;
   joinHousehold: (code: string) => boolean;
@@ -45,17 +46,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = (name: string) => {
+  const login = (name: string, email?: string, avatar?: string) => {
     const newUser = {
       id: Date.now().toString(),
       name,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
+      email,
+      avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
     };
     setUser(newUser);
     localStorage.setItem("household_user", JSON.stringify(newUser));
+  };
+
+  const loginWithGoogle = () => {
+    // SIMULATION: In a real app, this would use Firebase/NextAuth
+    // We'll simulate a successful Google login
+    const mockGoogleUser = {
+      name: "Stonie (Google)",
+      email: "stonie@gmail.com",
+      avatar: "https://lh3.googleusercontent.com/a/ACg8ocIq8d_...=s96-c" // Generic placeholder or keep using dicebear
+    };
     
-    // If no household exists, prompt to create/join (handled in UI)
-    // For now, if they have no household, we might auto-create one or leave it null
+    // Use a slight delay to simulate network request
+    setTimeout(() => {
+      login(mockGoogleUser.name, mockGoogleUser.email, `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockGoogleUser.name}`);
+    }, 800);
   };
 
   const logout = () => {
@@ -111,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       household, 
       login, 
+      loginWithGoogle,
       logout, 
       createHousehold, 
       joinHousehold,
