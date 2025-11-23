@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { account } from "../lib/appwrite";
+import { OAuthProvider } from "appwrite";
 
 interface User {
   id: string;
@@ -37,14 +38,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Load from localStorage on mount
+  // Load from Appwrite or localStorage on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("household_user");
-    const storedHousehold = localStorage.getItem("household_data");
+    const initAuth = async () => {
+      try {
+        // 1. Try Appwrite Session
+        const appwriteUser = await account.get();
+        setUser({
+          id: appwriteUser.$id,
+          name: appwriteUser.name,
+          email: appwriteUser.email,
+          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${appwriteUser.name}`
+        });
+      } catch (error) {
+        // 2. Fallback to LocalStorage (for "Name only" login)
+        const storedUser = localStorage.getItem("household_user");
+        if (storedUser) setUser(JSON.parse(storedUser));
+      }
 
-    if (storedUser) setUser(JSON.parse(storedUser));
-    if (storedHousehold) setHousehold(JSON.parse(storedHousehold));
-    setIsLoading(false);
+      // Load household data
+      const storedHousehold = localStorage.getItem("household_data");
+      if (storedHousehold) setHousehold(JSON.parse(storedHousehold));
+      
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = (name: string, email?: string, avatar?: string) => {
@@ -59,19 +78,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithGoogle = () => {
-    // SIMULATION: High-fidelity mock for demo purposes
-    // This allows the app to be "published" and tested without needing
-    // complex Google Cloud API key setup for every user.
-    const mockGoogleUser = {
-      name: "Stonie (Google)",
-      email: "stonie@gmail.com",
-      avatar: "https://lh3.googleusercontent.com/a/ACg8ocIq8d_...=s96-c" 
-    };
-    
-    login(mockGoogleUser.name, mockGoogleUser.email, `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockGoogleUser.name}`);
+    try {
+      // Redirects to Google OAuth flow
+      account.createOAuth2Session(
+        OAuthProvider.Google,
+        window.location.origin, // Success URL (Home)
+        `${window.location.origin}/login` // Failure URL
+      );
+    } catch (error) {
+      console.error("Appwrite Login Error:", error);
+      alert("Failed to initialize Google Login. Check Appwrite config.");
+    }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await account.deleteSession('current');
+    } catch (error) {
+      // Ignore error if already logged out
+    }
     setUser(null);
     setHousehold(null);
     localStorage.removeItem("household_user");
