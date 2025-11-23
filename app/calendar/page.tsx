@@ -35,7 +35,7 @@ interface Suggestion {
   category: string;
   location?: string;
   description: string;
-  isReal?: boolean;
+  // ...existing code...
 }
 
 export default function CalendarPage() {
@@ -50,7 +50,7 @@ export default function CalendarPage() {
   // Discovery State
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  // ...existing code...
   
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -59,37 +59,7 @@ export default function CalendarPage() {
   const [newEventLocation, setNewEventLocation] = useState('');
 
 
-  const fetchRealEvents = async (latitude: number, longitude: number) => {
-    const apiKey = process.env.NEXT_PUBLIC_TICKETMASTER_API_KEY;
-    if (!apiKey) return null;
-
-    try {
-      // Format date for API (ISO 8601)
-      const startDateTime = startOfDay(selectedDate).toISOString().split('.')[0] + 'Z';
-      const endDateTime = endOfDay(selectedDate).toISOString().split('.')[0] + 'Z';
-
-      const response = await fetch(
-        `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&latlong=${latitude},${longitude}&radius=50&unit=km&startDateTime=${startDateTime}&endDateTime=${endDateTime}&sort=date,asc&size=5`
-      );
-      
-      if (!response.ok) return null;
-      
-      const data = await response.json();
-      if (!data._embedded || !data._embedded.events) return [];
-
-      return data._embedded.events.map((event: any) => ({
-        id: event.id,
-        title: event.name,
-        category: event.classifications?.[0]?.segment?.name || 'Event',
-        location: event._embedded?.venues?.[0]?.name || 'Unknown Location',
-        description: `Live event at ${event.dates.start.localTime?.slice(0, 5) || 'TBA'}`,
-        isReal: true
-      }));
-    } catch (error) {
-      console.error("Failed to fetch Ticketmaster events", error);
-      return null;
-    }
-  };
+  // ...existing code...
 
   // Mock Suggestions Generator (Fallback)
   const getMockSuggestions = (date: Date): Suggestion[] => {
@@ -121,7 +91,7 @@ export default function CalendarPage() {
   useEffect(() => {
     const loadSuggestions = async () => {
       setIsLoadingSuggestions(true);
-      setLocationError(null);
+      // ...existing code...
 
       // 1. Try to get location
       if (!navigator.geolocation) {
@@ -130,31 +100,9 @@ export default function CalendarPage() {
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          // 2. Fetch Real Events
-          const realEvents = await fetchRealEvents(position.coords.latitude, position.coords.longitude);
-          
-          if (realEvents && realEvents.length > 0) {
-            setSuggestions(realEvents);
-          } else {
-            // 3. Fallback to Mock if no real events or no API key
-            setSuggestions(getMockSuggestions(selectedDate));
-            if (!process.env.NEXT_PUBLIC_TICKETMASTER_API_KEY) {
-              setLocationError("Add Ticketmaster API Key to .env.local for real events.");
-            } else if (realEvents && realEvents.length === 0) {
-              setLocationError("No events found nearby for this date.");
-            }
-          }
-          setIsLoadingSuggestions(false);
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setSuggestions(getMockSuggestions(selectedDate));
-          setLocationError("Enable location to see local events.");
-          setIsLoadingSuggestions(false);
-        }
-      );
+      // Only use mock suggestions for now
+      setSuggestions(getMockSuggestions(selectedDate));
+      setIsLoadingSuggestions(false);
     };
 
     loadSuggestions();
@@ -416,12 +364,7 @@ export default function CalendarPage() {
               Discover Nearby
             </h3>
             
-            {locationError && (
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs rounded-lg flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <p>{locationError}</p>
-              </div>
-            )}
+            {/* ...existing code... */}
 
             {isLoadingSuggestions ? (
               <div className="flex justify-center py-8">
@@ -430,7 +373,7 @@ export default function CalendarPage() {
             ) : (
               <div className="space-y-3">
                 {suggestions.map(suggestion => (
-                  <div key={suggestion.id} className={`p-3 rounded-xl border transition-all bg-white dark:bg-gray-800 ${suggestion.isReal ? 'border-orange-200 dark:border-orange-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700'}`}>
+                  <div key={suggestion.id} className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 transition-all bg-white dark:bg-gray-800">
                     <div className="flex justify-between items-start mb-1">
                       <h4 className="font-semibold text-sm text-gray-900 dark:text-white">{suggestion.title}</h4>
                       <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">{suggestion.category}</span>
