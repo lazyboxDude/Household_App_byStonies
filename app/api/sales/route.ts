@@ -34,9 +34,14 @@ export async function GET(request: Request) {
       const title = $(el).find('h3, h4, .product-name, [data-testid="product-name"]').text().trim();
       const price = $(el).find('.price, [data-testid="price"]').text().trim();
       const image = $(el).find('img').attr('src');
+      let link = $(el).find('a').attr('href');
+      
+      if (link && !link.startsWith('http')) {
+        link = `https://www.migros.ch${link}`;
+      }
       
       if (title) {
-        offers.push({ title, price, image });
+        offers.push({ title, price, image, link });
       }
     });
 
@@ -44,12 +49,48 @@ export async function GET(request: Request) {
     // so the user can see how the feature is intended to work.
     if (offers.length === 0) {
       offers.push(
-        { title: "M-Budget Milk", price: "1.20 (was 1.40)", image: "https://image.migros.ch/product-zoom/46252616254656/m-budget-vollmilch.jpg", category: "Dairy" },
-        { title: "Frey Chocolate Tourist", price: "50% OFF", image: "https://image.migros.ch/product-zoom/12345/chocolate.jpg", category: "Sweets" },
-        { title: "Iceberg Lettuce", price: "0.95", image: "https://image.migros.ch/product-zoom/67890/lettuce.jpg", category: "Fruits & Vegetables" },
-        { title: "Ground Beef 500g", price: "8.50 (Action)", image: "https://image.migros.ch/product-zoom/11223/beef.jpg", category: "Meat" },
-        { title: "Gala Apples 1kg", price: "3.20", image: "https://image.migros.ch/product-zoom/44556/apples.jpg", category: "Fruits & Vegetables" },
-        { title: "Butter Gipfel", price: "1.10", image: "", category: "Bakery" }
+        { 
+          title: "M-Budget Milk Drink", 
+          price: "1.20 (was 1.40)", 
+          image: "https://image.migros.ch/product-zoom/46252616254656/m-budget-vollmilch.jpg", 
+          category: "Dairy",
+          link: "https://www.migros.ch/de/product/204017500000"
+        },
+        { 
+          title: "Frey Chocolate Tourist", 
+          price: "50% OFF", 
+          image: "https://image.migros.ch/product-zoom/12345/chocolate.jpg", 
+          category: "Sweets",
+          link: "https://www.migros.ch/de/brand/chocolat-frey"
+        },
+        { 
+          title: "Iceberg Lettuce", 
+          price: "0.95", 
+          image: "https://image.migros.ch/product-zoom/67890/lettuce.jpg", 
+          category: "Fruits & Vegetables",
+          link: "https://www.migros.ch/de/product/130301400000"
+        },
+        { 
+          title: "Ground Beef 500g", 
+          price: "8.50 (Action)", 
+          image: "https://image.migros.ch/product-zoom/11223/beef.jpg", 
+          category: "Meat",
+          link: "https://www.migros.ch/de/product/230106500000"
+        },
+        { 
+          title: "Gala Apples 1kg", 
+          price: "3.20", 
+          image: "https://image.migros.ch/product-zoom/44556/apples.jpg", 
+          category: "Fruits & Vegetables",
+          link: "https://www.migros.ch/de/product/131035000000"
+        },
+        { 
+          title: "Butter Gipfel", 
+          price: "1.10", 
+          image: "", 
+          category: "Bakery",
+          link: "https://www.migros.ch/de/product/111000100000"
+        }
       );
     }
 

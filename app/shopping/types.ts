@@ -11,4 +11,5 @@ export interface SaleOffer {
   price: string;
   image?: string;
   category?: string;
+  link?: string;
 }

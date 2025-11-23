@@ -116,11 +116,25 @@ export default function DealsTab({
                             </h3>
                           </div>
                           <p className="text-green-600 font-bold text-lg">{offer.price}</p>
-                          {offer.category && (
-                            <span className="inline-block mt-1 text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-                              {offer.category}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            {offer.category && (
+                              <span className="inline-block text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                                {offer.category}
+                              </span>
+                            )}
+                            {offer.link && (
+                              <a
+                                href={offer.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-400 hover:text-orange-500 transition-colors p-1"
+                                title="View on store website"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                          </div>
                         </div>
 
                         <button
