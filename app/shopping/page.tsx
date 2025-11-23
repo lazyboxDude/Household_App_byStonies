@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign, ExternalLink, Percent } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign, ExternalLink, Percent, X, Loader2 } from "lucide-react";
 
 interface ShoppingItem {
   id: string;
@@ -9,6 +9,12 @@ interface ShoppingItem {
   completed: boolean;
   price?: number;
   store?: string;
+}
+
+interface SaleOffer {
+  title: string;
+  price: string;
+  image?: string;
 }
 
 const STORE_LINKS: Record<string, string> = {
@@ -29,6 +35,13 @@ export default function ShoppingPage() {
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
+  
+  // Sales Modal State
+  const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
+  const [currentStoreSales, setCurrentStoreSales] = useState<string>("");
+  const [salesOffers, setSalesOffers] = useState<SaleOffer[]>([]);
+  const [isLoadingSales, setIsLoadingSales] = useState(false);
+  const [salesError, setSalesError] = useState("");
 
   const addItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,17 +100,92 @@ export default function ShoppingPage() {
     }
   };
 
-  const viewSales = (storeName: string) => {
-    // Normalize store name to match keys (simple check)
-    const key = Object.keys(STORE_LINKS).find(k => storeName.toLowerCase().includes(k.toLowerCase()));
-    const url = key ? STORE_LINKS[key] : `https://www.google.com/search?q=${encodeURIComponent(storeName)}+weekly+ad`;
-    
-    // Open in a popup-like window
-    window.open(url, 'StoreSales', 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
+  const viewSales = async (storeName: string) => {
+    setCurrentStoreSales(storeName);
+    setIsSalesModalOpen(true);
+    setIsLoadingSales(true);
+    setSalesError("");
+    setSalesOffers([]);
+
+    if (storeName.toLowerCase() === 'migros') {
+      try {
+        const res = await fetch(`/api/sales?store=${storeName}`);
+        const data = await res.json();
+        
+        if (data.offers && data.offers.length > 0) {
+          setSalesOffers(data.offers);
+        } else {
+          // Fallback if scraping fails (likely due to SPA)
+          setSalesError("Could not load live offers (site is protected).");
+        }
+      } catch (err) {
+        setSalesError("Failed to fetch offers.");
+      } finally {
+        setIsLoadingSales(false);
+      }
+    } else {
+      // For other stores, just show the link for now
+      setIsLoadingSales(false);
+      setSalesError("Live preview only available for Migros (Experimental).");
+    }
+  };
+
+  const closeSalesModal = () => {
+    setIsSalesModalOpen(false);
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto relative">
+      {/* Sales Modal */}
+      {isSalesModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                <Percent className="w-5 h-5 mr-2 text-orange-500" />
+                {currentStoreSales} Offers
+              </h2>
+              <button onClick={closeSalesModal} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {isLoadingSales ? (
+                <div className="flex flex-col items-center justify-center h-40 space-y-4">
+                  <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                  <p className="text-gray-500">Fetching latest deals...</p>
+                </div>
+              ) : salesOffers.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {salesOffers.map((offer, idx) => (
+                    <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex gap-4 hover:shadow-md transition-shadow">
+                      {offer.image && <img src={offer.image} alt={offer.title} className="w-20 h-20 object-cover rounded-md" />}
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white line-clamp-2">{offer.title}</h3>
+                        <p className="text-green-600 font-bold mt-1">{offer.price}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-gray-500 mb-4">{salesError || "No offers found directly."}</p>
+                  <a 
+                    href={STORE_LINKS[Object.keys(STORE_LINKS).find(k => currentStoreSales.toLowerCase().includes(k.toLowerCase())) || ""] || "#"} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    Open {currentStoreSales} Website <ExternalLink className="w-4 h-4 ml-2" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
           <ShoppingCart className="mr-3 w-8 h-8 text-orange-500" />
