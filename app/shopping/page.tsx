@@ -17,6 +17,7 @@ export default function ShoppingPage() {
     { id: "2", text: "Eggs", completed: false, price: 4.00 },
     { id: "3", text: "Bread", completed: true, store: "Bakery" },
   ]);
+  const [shops, setShops] = useState<string[]>(["Walmart", "Target", "Costco", "Whole Foods", "Trader Joe's"]);
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
@@ -25,18 +26,35 @@ export default function ShoppingPage() {
     e.preventDefault();
     if (!newItem.trim()) return;
 
+    const storeName = newStore.trim();
+    if (storeName && !shops.includes(storeName)) {
+      setShops(prev => [...prev, storeName].sort());
+    }
+
     const item: ShoppingItem = {
       id: Date.now().toString(),
       text: newItem.trim(),
       completed: false,
       price: newPrice ? parseFloat(newPrice) : undefined,
-      store: newStore.trim() || undefined,
+      store: storeName || undefined,
     };
 
     setItems([item, ...items]);
     setNewItem("");
     setNewPrice("");
     setNewStore("");
+  };
+
+  const simulateFindShops = () => {
+    // In a real app, this would use the Google Places API
+    const nearby = ["Local Market", "Fresh Grocer", "City Supermarket"];
+    const newShops = nearby.filter(s => !shops.includes(s));
+    if (newShops.length > 0) {
+      setShops(prev => [...prev, ...newShops].sort());
+      alert(`Found ${newShops.length} nearby shops!`);
+    } else {
+      alert("No new shops found nearby.");
+    }
   };
 
   const toggleItem = (id: string) => {
@@ -98,8 +116,14 @@ export default function ShoppingPage() {
                 value={newStore}
                 onChange={(e) => setNewStore(e.target.value)}
                 placeholder="Store (optional)"
+                list="shops-list"
                 className="w-full p-3 pl-9 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
               />
+              <datalist id="shops-list">
+                {shops.map(shop => (
+                  <option key={shop} value={shop} />
+                ))}
+              </datalist>
             </div>
 
             <button
@@ -112,6 +136,28 @@ export default function ShoppingPage() {
           </div>
         </div>
       </form>
+
+      {/* Shops Quick View */}
+      <div className="mb-6 overflow-x-auto pb-2">
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={simulateFindShops}
+            className="flex-shrink-0 px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center"
+          >
+            <MapPin className="w-3 h-3 mr-1" />
+            Find Nearby
+          </button>
+          {shops.map(shop => (
+            <button
+              key={shop}
+              onClick={() => setNewStore(shop)}
+              className="flex-shrink-0 px-3 py-1.5 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 rounded-full text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              {shop}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Shopping List */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
