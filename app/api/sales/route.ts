@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   try {
     // Note: This is a basic attempt. Modern sites often block this or use CSR.
     // We are using a specific search URL that might return HTML.
-    const response = await fetch('https://www.migros.ch/de/angebote', {
+    const response = await fetch('https://www.migros.ch/de/offers/home', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }

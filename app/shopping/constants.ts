@@ -1,7 +1,7 @@
 import { Apple, Milk, Drumstick, Croissant, Cookie, Package } from "lucide-react";
 
 export const STORE_LINKS: Record<string, string> = {
-  "Migros": "https://www.migros.ch/de/angebote",
+  "Migros": "https://www.migros.ch/de/offers/home",
   "Coop": "https://www.coop.ch/de/aktionen.html",
   "Denner": "https://www.denner.ch/de/aktionen/",
   "Aldi": "https://www.aldi-suisse.ch/de/angebote/",
