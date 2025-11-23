@@ -1,4 +1,6 @@
+import React from 'react';
 import { Loader2, ExternalLink, Plus, Package } from "lucide-react";
+import Image from 'next/image';
 import { SaleOffer } from "../types";
 import { STORE_LINKS, CATEGORIES } from "../constants";
 
@@ -92,16 +94,19 @@ export default function DealsTab({
                       <div key={idx} className="group border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex gap-4 hover:shadow-md transition-all bg-white dark:bg-gray-800 relative">
                         <div className="w-20 h-20 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden relative">
                           {offer.image ? (
-                            <img 
-                              src={offer.image} 
-                              alt={offer.title} 
+                            <Image
+                              src={offer.image}
+                              alt={offer.title}
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                // Show the icon sibling
-                                const iconContainer = e.currentTarget.parentElement?.querySelector('.icon-fallback');
+                              width={80}
+                              height={80}
+                              unoptimized
+                              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                                const target = e.currentTarget as HTMLImageElement;
+                                if (target) target.style.display = 'none';
+                                const iconContainer = target.parentElement?.querySelector('.icon-fallback');
                                 if (iconContainer) iconContainer.classList.remove('hidden');
-                              }} 
+                              }}
                             />
                           ) : null}
                           <div className={`icon-fallback flex flex-col items-center justify-center text-gray-400 w-full h-full absolute inset-0 bg-gray-100 dark:bg-gray-700 ${offer.image ? 'hidden' : ''}`}>

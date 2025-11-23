@@ -71,7 +71,7 @@ export default function LoginPage() {
           <form onSubmit={handleNameSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                What's your name?
+                What&apos;s your name?
               </label>
               <input
                 type="text"
@@ -171,7 +171,7 @@ export default function LoginPage() {
                     placeholder="e.g. The Stonies"
                   />
                   <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> You'll get an invite code to share
+                    <Sparkles className="w-3 h-3" /> You&apos;ll get an invite code to share
                   </p>
                 </div>
               ) : (

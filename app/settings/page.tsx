@@ -2,6 +2,7 @@
 
 import { useAuth } from "../context/AuthContext";
 import { Copy, LogOut, User, Home, Shield, ArrowRight } from "lucide-react";
+import Image from 'next/image';
 import { useState } from "react";
 
 export default function SettingsPage() {
@@ -123,11 +124,18 @@ export default function SettingsPage() {
           My Profile
         </h2>
         <div className="flex items-center gap-4">
-          <img 
-            src={user.avatar} 
-            alt={user.name} 
-            className="w-16 h-16 rounded-full bg-gray-100"
-          />
+          {user.avatar ? (
+            <Image
+              src={user.avatar}
+              alt={user.name}
+              width={64}
+              height={64}
+              unoptimized
+              className="w-16 h-16 rounded-full bg-gray-100"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-lg">{user.name?.[0] ?? 'U'}</div>
+          )}
           <div>
             <p className="font-bold text-lg text-gray-900 dark:text-white">{user.name}</p>
             <p className="text-sm text-gray-500">Member since Nov 2025</p>
@@ -176,7 +184,11 @@ export default function SettingsPage() {
                 {household.members.map((member) => (
                   <div key={member.id} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
                     <div className="flex items-center gap-3">
-                      <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full bg-gray-100" />
+                      {member.avatar ? (
+                        <Image src={member.avatar} alt={member.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full bg-gray-100" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm">{member.name?.[0] ?? 'U'}</div>
+                      )}
                       <span className="text-gray-700 dark:text-gray-300">{member.name}</span>
                     </div>
                     {member.id === user.id && (

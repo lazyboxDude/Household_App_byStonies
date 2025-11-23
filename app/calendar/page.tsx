@@ -1,6 +1,7 @@
 "use client";
 import Tesseract from 'tesseract.js';
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   format, 
   startOfMonth, 
@@ -42,8 +43,27 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>(() => {
+    try {
+      const storedEvents = localStorage.getItem('calendar_events');
+      if (storedEvents) {
+        const raw = JSON.parse(storedEvents) as Array<Record<string, unknown>>;
+        return raw.map(ev => ({
+          id: String(ev.id ?? Date.now().toString()),
+          title: String(ev.title ?? ''),
+          date: new Date(String(ev.date ?? new Date().toISOString())),
+          time: String(ev.time ?? '12:00'),
+          type: (ev.type as 'task' | 'shopping' | 'event') || 'event',
+          location: ev.location ? String(ev.location) : undefined,
+          photo: ev.photo ? String(ev.photo) : undefined,
+        } as CalendarEvent));
+      }
+    } catch (err) {
+      console.error('Failed to read calendar events from storage', err);
+    }
+    return [];
+  });
+  const [isLoaded, setIsLoaded] = useState(true);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'schedule' | 'discover'>('schedule');
   
@@ -119,22 +139,7 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   };
 
-  // Load events from localStorage
-  useEffect(() => {
-    const storedEvents = localStorage.getItem('calendar_events');
-    if (storedEvents) {
-      try {
-        const parsedEvents = JSON.parse(storedEvents).map((event: any) => ({
-          ...event,
-          date: new Date(event.date)
-        }));
-        setEvents(parsedEvents);
-      } catch (error) {
-        console.error('Failed to parse calendar events', error);
-      }
-    }
-    setIsLoaded(true);
-  }, []);
+  // events are initialized from localStorage above; isLoaded is true by default
 
   // Save events to localStorage
   useEffect(() => {
@@ -357,7 +362,7 @@ export default function CalendarPage() {
                         )}
                       </div>
                       {event.photo && (
-                        <img src={event.photo} alt="Event" className="mt-2 rounded-lg max-h-32 object-cover border" />
+                        <Image src={event.photo} alt="Event" width={160} height={120} unoptimized className="mt-2 rounded-lg max-h-32 object-cover border" />
                       )}
                     </div>
                   </div>
@@ -445,7 +450,7 @@ export default function CalendarPage() {
                                               className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                                             />
                                             {newEventPhoto && (
-                                              <img src={newEventPhoto} alt="Event" className="mt-2 rounded-lg max-h-40 object-cover border" />
+                                              <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
                                             )}
                                           </div>
                             <div>
@@ -467,7 +472,7 @@ export default function CalendarPage() {
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                               />
                               {newEventPhoto && (
-                                <img src={newEventPhoto} alt="Event" className="mt-2 rounded-lg max-h-40 object-cover border" />
+                                <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
                               )}
                             </div>
               <div>

@@ -26,3 +26,10 @@ jobs:
         with:
           name: next-build
           path: .next || .
+      - name: Deploy to Vercel (optional)
+        if: secrets.VERCEL_TOKEN != ''
+        uses: amondnet/vercel-action@v20
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: .
