@@ -1,7 +1,5 @@
-import Tesseract from 'tesseract.js';
 "use client";
-
-
+import Tesseract from 'tesseract.js';
 import React, { useState, useEffect } from 'react';
 import { 
   format, 

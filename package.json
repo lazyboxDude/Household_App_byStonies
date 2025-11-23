@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "agent:run": "node scripts/agent-runner.js"
   },
   "dependencies": {
     "appwrite": "^21.4.0",
