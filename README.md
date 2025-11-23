@@ -46,6 +46,32 @@ npm run dev
 - **Linting:** ESLint
 - **Icons:** [Lucide React](https://lucide.dev/)
 - **Scraping:** [Cheerio](https://cheerio.js.org/) (for fetching store deals)
+- **Authentication:** [Appwrite](https://appwrite.io/)
+
+## 🔐 Authentication Setup
+
+This project uses Appwrite for secure Google Login.
+
+### 1. Appwrite Configuration
+1. Create a project in the [Appwrite Console](https://cloud.appwrite.io/).
+2. Go to **Authentication** > **Settings** and enable **Google** OAuth provider.
+3. Go to **Overview** > **Platforms** and add two **Web** platforms:
+   - **Localhost:** `localhost` (for development)
+   - **Production:** `your-app-name.vercel.app` (for Vercel deployment)
+
+### 2. Environment Variables
+Create a `.env.local` file in the root directory:
+
+```env
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
+NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id_here
+```
+
+### 3. Vercel Deployment
+When deploying to Vercel, you must add these Environment Variables in the Vercel Dashboard:
+1. Go to **Settings** > **Environment Variables**.
+2. Add `NEXT_PUBLIC_APPWRITE_ENDPOINT` and `NEXT_PUBLIC_APPWRITE_PROJECT_ID`.
+3. **Redeploy** your application for the changes to take effect.
 
 ## ✨ Features
 
