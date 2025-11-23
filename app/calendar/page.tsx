@@ -1,4 +1,5 @@
 "use client";
+import { EventfrogService, EventfrogEventRequest } from "eventfrog-api";
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -13,9 +14,11 @@ import {
   isSameMonth, 
   isSameDay, 
   isToday,
-  getDay
+  getDay,
+  startOfDay,
+  endOfDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 
 interface CalendarEvent {
   id: string;
@@ -32,6 +35,7 @@ interface Suggestion {
   category: string;
   location?: string;
   description: string;
+  isReal?: boolean;
 }
 
 export default function CalendarPage() {
@@ -43,14 +47,80 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'schedule' | 'discover'>('schedule');
   
+  // Discovery State
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventTime, setNewEventTime] = useState('12:00');
   const [newEventType, setNewEventType] = useState<'task' | 'shopping' | 'event'>('event');
   const [newEventLocation, setNewEventLocation] = useState('');
 
-  // Mock Suggestions Generator
-  const getSuggestions = (date: Date): Suggestion[] => {
+  // Fetch Real Events from Eventfrog (DE/CH)
+  const fetchEventfrogEvents = async (latitude: number, longitude: number) => {
+    const apiKey = process.env.NEXT_PUBLIC_EVENTFROG_API_KEY;
+    if (!apiKey) return null;
+
+    const service = new EventfrogService(apiKey);
+    try {
+      // Build request for events near location
+      const request = new EventfrogEventRequest({
+        lat: latitude,
+        lng: longitude,
+        radius: 50,
+        perPage: 5,
+      });
+      const events = await service.loadEvents(request);
+      if (!events || events.length === 0) return [];
+      return events.map((event: any) => ({
+        id: event.id,
+        title: event.title,
+        category: event.category || "Event",
+        location: event.location?.name || "Unknown Location",
+        description: event.description || "Eventfrog event.",
+        isReal: true
+      }));
+    } catch (error) {
+      console.error("Failed to fetch Eventfrog events", error);
+      return null;
+    }
+  };
+  const fetchRealEvents = async (latitude: number, longitude: number) => {
+    const apiKey = process.env.NEXT_PUBLIC_TICKETMASTER_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+      // Format date for API (ISO 8601)
+      const startDateTime = startOfDay(selectedDate).toISOString().split('.')[0] + 'Z';
+      const endDateTime = endOfDay(selectedDate).toISOString().split('.')[0] + 'Z';
+
+      const response = await fetch(
+        `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${apiKey}&latlong=${latitude},${longitude}&radius=50&unit=km&startDateTime=${startDateTime}&endDateTime=${endDateTime}&sort=date,asc&size=5`
+      );
+      
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (!data._embedded || !data._embedded.events) return [];
+
+      return data._embedded.events.map((event: any) => ({
+        id: event.id,
+        title: event.name,
+        category: event.classifications?.[0]?.segment?.name || 'Event',
+        location: event._embedded?.venues?.[0]?.name || 'Unknown Location',
+        description: `Live event at ${event.dates.start.localTime?.slice(0, 5) || 'TBA'}`,
+        isReal: true
+      }));
+    } catch (error) {
+      console.error("Failed to fetch Ticketmaster events", error);
+      return null;
+    }
+  };
+
+  // Mock Suggestions Generator (Fallback)
+  const getMockSuggestions = (date: Date): Suggestion[] => {
     const dayOfWeek = getDay(date); // 0 = Sun, 6 = Sat
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
@@ -75,7 +145,48 @@ export default function CalendarPage() {
     }
   };
 
-  const suggestions = getSuggestions(selectedDate);
+  // Load Suggestions when tab changes or date changes
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      setIsLoadingSuggestions(true);
+      setLocationError(null);
+
+      // 1. Try to get location
+      if (!navigator.geolocation) {
+        setSuggestions(getMockSuggestions(selectedDate));
+        setIsLoadingSuggestions(false);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          // 2. Fetch Real Events
+          const realEvents = await fetchRealEvents(position.coords.latitude, position.coords.longitude);
+          
+          if (realEvents && realEvents.length > 0) {
+            setSuggestions(realEvents);
+          } else {
+            // 3. Fallback to Mock if no real events or no API key
+            setSuggestions(getMockSuggestions(selectedDate));
+            if (!process.env.NEXT_PUBLIC_TICKETMASTER_API_KEY) {
+              setLocationError("Add Ticketmaster API Key to .env.local for real events.");
+            } else if (realEvents && realEvents.length === 0) {
+              setLocationError("No events found nearby for this date.");
+            }
+          }
+          setIsLoadingSuggestions(false);
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          setSuggestions(getMockSuggestions(selectedDate));
+          setLocationError("Enable location to see local events.");
+          setIsLoadingSuggestions(false);
+        }
+      );
+    };
+
+    loadSuggestions();
+  }, [selectedDate]); // Reload when date changes
 
   const handleAddSuggestion = (suggestion: Suggestion) => {
     setNewEventTitle(suggestion.title);
@@ -286,45 +397,13 @@ export default function CalendarPage() {
             </span>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700">
-            <button 
-              onClick={() => setActiveTab('schedule')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
-                activeTab === 'schedule' 
-                  ? 'text-orange-600 dark:text-orange-400' 
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              My Schedule
-              {activeTab === 'schedule' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600 rounded-t-full" />
-              )}
-            </button>
-            <button 
-              onClick={() => setActiveTab('discover')}
-              className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
-                activeTab === 'discover' 
-                  ? 'text-orange-600 dark:text-orange-400' 
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              Discover
-              {activeTab === 'discover' && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-600 rounded-t-full" />
-              )}
-            </button>
-          </div>
-
-          {activeTab === 'schedule' ? (
-            <div className="space-y-4">
+          <div className="space-y-4 mb-8">
               {getEventsForDay(selectedDate).length === 0 ? (
-                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                  <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <p>No events scheduled</p>
                   <button 
                     onClick={() => openModal()}
-                    className="mt-4 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                    className="mt-2 text-sm text-orange-600 hover:text-orange-700 font-medium"
                   >
                     Create one now
                   </button>
@@ -357,42 +436,51 @@ export default function CalendarPage() {
                   </div>
                 ))
               )}
-            </div>
-          ) : (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl border border-orange-200 dark:border-orange-800/50">
-                <h3 className="font-bold text-orange-800 dark:text-orange-200 flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4" />
-                  Daily Inspiration
-                </h3>
-                <p className="text-sm text-orange-700 dark:text-orange-300">
-                  Looking for something to do? Here are some ideas for {format(selectedDate, 'EEEE')}.
-                </p>
-              </div>
+          </div>
 
-              {suggestions.map(suggestion => (
-                <div key={suggestion.id} className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700 transition-all bg-white dark:bg-gray-800">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-gray-900 dark:text-white">{suggestion.title}</h4>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">{suggestion.category}</span>
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{suggestion.description}</p>
-                  {suggestion.location && (
-                    <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
-                      <MapPin className="w-3 h-3" />
-                      {suggestion.location}
+          <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+              <Sparkles className="w-4 h-4 text-orange-500" />
+              Discover Nearby
+            </h3>
+            
+            {locationError && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-xs rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>{locationError}</p>
+              </div>
+            )}
+
+            {isLoadingSuggestions ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {suggestions.map(suggestion => (
+                  <div key={suggestion.id} className={`p-3 rounded-xl border transition-all bg-white dark:bg-gray-800 ${suggestion.isReal ? 'border-orange-200 dark:border-orange-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-700'}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-semibold text-sm text-gray-900 dark:text-white">{suggestion.title}</h4>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">{suggestion.category}</span>
                     </div>
-                  )}
-                  <button 
-                    onClick={() => handleAddSuggestion(suggestion)}
-                    className="w-full py-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 rounded-lg transition-colors flex items-center justify-center gap-1"
-                  >
-                    Add to Calendar <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{suggestion.description}</p>
+                    {suggestion.location && (
+                      <div className="flex items-center gap-1 text-xs text-gray-400 mb-2">
+                        <MapPin className="w-3 h-3" />
+                        {suggestion.location}
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => handleAddSuggestion(suggestion)}
+                      className="w-full py-1.5 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 rounded-lg transition-colors flex items-center justify-center gap-1"
+                    >
+                      Add <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
