@@ -1,0 +1,25 @@
+name: Scheduled Jobs
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # daily at 03:00 UTC
+    - cron: '0 4 * * 0'   # weekly on Sunday 04:00 UTC
+
+jobs:
+  nightly-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-build-${{ github.run_id }}
+          path: .next || .

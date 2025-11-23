@@ -1,3 +1,37 @@
+# Household App byStonies
+
+## Development
+- Install: `npm ci`
+- Dev: `npm run dev`
+- Build: `npm run build`
+
+## Agents, CI and Automation
+
+This project includes a CI workflow and helper scripts to run automated builds and optional deploys.
+
+- CI: `.github/workflows/ci.yml` — runs on push and pull_request and executes `npm ci`, `npm run build`, and `npm run lint`.
+- Scheduled: `.github/workflows/schedule.yml` — nightly and weekly scheduled builds that upload artifacts.
+- Local agent: `scripts/agent-runner.js` — runs install, lint, build and optionally deploys with Vercel when `VERCEL_TOKEN` and `VERCEL_PROJECT_ID` are present.
+- API trigger: `app/api/agent/route.ts` — a protected endpoint to trigger a GitHub Actions dispatch of the CI workflow. It expects the `x-agent-token` header to match the `AGENT_TRIGGER_TOKEN` environment variable.
+
+Required secrets (for full functionality):
+- `GITHUB_TOKEN` — (optional) used by the API route to dispatch GitHub Actions workflow. Set this as a secret in your Vercel/GitHub environment.
+- `AGENT_TRIGGER_TOKEN` — a secret token used to authorize requests to `/api/agent`.
+- `VERCEL_TOKEN` and `VERCEL_PROJECT_ID` — (optional) used by the local agent to deploy to Vercel.
+
+Quick local usage:
+
+```powershell
+npm ci
+npm run agent:run
+```
+
+To trigger the remote agent (if you set `AGENT_TRIGGER_TOKEN` and `GITHUB_TOKEN` in your environment):
+
+```bash
+curl -X POST https://your-deployment-url/api/agent -H "x-agent-token: $AGENT_TRIGGER_TOKEN"
+```
+
 # 🏠 Our Home Base
 
 A collaborative household management app designed for couples living together to manage their household tasks, finances, and shared plans.
