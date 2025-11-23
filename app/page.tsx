@@ -1,70 +1,112 @@
 import Link from "next/link";
-import { CheckSquare, DollarSign } from "lucide-react";
+import { 
+  CheckSquare, 
+  DollarSign, 
+  Calendar, 
+  ShoppingCart, 
+  Settings, 
+  Users 
+} from "lucide-react";
 
 export default function Home() {
+  const menuItems = [
+    {
+      title: "Tasks",
+      href: "/tasks",
+      icon: CheckSquare,
+      color: "text-blue-500",
+      bgColor: "bg-blue-100 dark:bg-blue-900/30",
+      description: "Manage chores & to-dos",
+      count: "3 Pending"
+    },
+    {
+      title: "Finances",
+      href: "/expenses",
+      icon: DollarSign,
+      color: "text-green-500",
+      bgColor: "bg-green-100 dark:bg-green-900/30",
+      description: "Track shared expenses",
+      count: "$45 Owed"
+    },
+    {
+      title: "Calendar",
+      href: "/calendar",
+      icon: Calendar,
+      color: "text-purple-500",
+      bgColor: "bg-purple-100 dark:bg-purple-900/30",
+      description: "Events & planning",
+      count: "2 Today"
+    },
+    {
+      title: "Shopping",
+      href: "/shopping",
+      icon: ShoppingCart,
+      color: "text-orange-500",
+      bgColor: "bg-orange-100 dark:bg-orange-900/30",
+      description: "Groceries & supplies",
+      count: "5 Items"
+    },
+    {
+      title: "Household",
+      href: "/settings", // Placeholder
+      icon: Users,
+      color: "text-pink-500",
+      bgColor: "bg-pink-100 dark:bg-pink-900/30",
+      description: "Members & roles",
+    },
+    {
+      title: "Settings",
+      href: "/settings",
+      icon: Settings,
+      color: "text-gray-500",
+      bgColor: "bg-gray-100 dark:bg-gray-800",
+      description: "App preferences",
+    }
+  ];
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <header className="mb-8">
+    <div className="p-6 max-w-6xl mx-auto">
+      <header className="mb-8 text-center md:text-left">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Welcome Home 🏠
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Here's what's happening today.
+          What would you like to do today?
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Tasks Summary Card */}
-        <Link href="/tasks" className="block group">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-all group-hover:shadow-md group-hover:border-blue-500 dark:group-hover:border-blue-500">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
-                <CheckSquare className="w-5 h-5 mr-2 text-blue-500" />
-                Tasks
-              </h2>
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
-                3 Pending
-              </span>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                <input type="checkbox" className="mr-3 rounded text-blue-600 focus:ring-blue-500" readOnly />
-                <span>Take out the trash</span>
-              </div>
-              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                <input type="checkbox" className="mr-3 rounded text-blue-600 focus:ring-blue-500" readOnly />
-                <span>Water the plants</span>
-              </div>
-              <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                <input type="checkbox" className="mr-3 rounded text-blue-600 focus:ring-blue-500" readOnly />
-                <span>Grocery shopping</span>
-              </div>
-            </div>
-          </div>
-        </Link>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link key={item.title} href={item.href} className="block group">
+              <div className="h-full bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:-translate-y-1">
+                <div className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <Icon className={`w-6 h-6 ${item.color}`} />
+                </div>
+                
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {item.title}
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
 
-        {/* Expenses Summary Card */}
-        <Link href="/expenses" className="block group">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-all group-hover:shadow-md group-hover:border-green-500 dark:group-hover:border-green-500">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
-                <DollarSign className="w-5 h-5 mr-2 text-green-500" />
-                Finances
-              </h2>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                This Month
-              </span>
-            </div>
-            <div className="flex flex-col space-y-1">
-              <span className="text-3xl font-bold text-gray-900 dark:text-white">$1,250.00</span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">Total Shared Expenses</span>
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-300">You owe</span>
-              <span className="font-medium text-red-500">$45.00</span>
-            </div>
-          </div>
-        </Link>
+                {item.count && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      {item.count}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
