@@ -86,11 +86,36 @@ export default function ShoppingPage() {
   };
 
   const toggleItem = (id: string) => {
-    setItems(
-      items.map((item) =>
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
+    const updated = items.map((item) =>
+      item.id === id ? { ...item, completed: !item.completed } : item
     );
+    // find the toggled item
+    const toggled = updated.find(i => i.id === id);
+    setItems(updated);
+
+    // If item was just marked completed, add it as an expense
+    const was = items.find(i => i.id === id);
+    if (toggled && was && !was.completed && toggled.completed) {
+      const expense = {
+        id: Date.now().toString(),
+        title: toggled.text,
+        amount: toggled.price ? Number(toggled.price) : 0,
+        date: new Date().toISOString(),
+        category: toggled.store || 'Uncategorized',
+        note: `Added from Shopping list (${toggled.store || 'unknown store'})`
+      };
+
+      try {
+        const raw = localStorage.getItem('expenses');
+        const arr = raw ? JSON.parse(raw) : [];
+        arr.push(expense);
+        localStorage.setItem('expenses', JSON.stringify(arr));
+        // notify other parts of the app
+        window.dispatchEvent(new CustomEvent('expense:added', { detail: expense }));
+      } catch (err) {
+        console.error('Failed to add expense from shopping item', err);
+      }
+    }
   };
 
   const deleteItem = (id: string) => {
