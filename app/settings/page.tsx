@@ -2,6 +2,7 @@
 
 import { useAuth } from "../context/AuthContext";
 import { Copy, LogOut, User, Home, Shield, ArrowRight } from "lucide-react";
+import Image from 'next/image';
 import { useState } from "react";
 
 export default function SettingsPage() {
@@ -123,9 +124,12 @@ export default function SettingsPage() {
           My Profile
         </h2>
         <div className="flex items-center gap-4">
-          <img 
-            src={user.avatar} 
-            alt={user.name} 
+          <Image
+            src={user.avatar}
+            alt={user.name}
+            width={64}
+            height={64}
+            unoptimized
             className="w-16 h-16 rounded-full bg-gray-100"
           />
           <div>
@@ -176,7 +180,7 @@ export default function SettingsPage() {
                 {household.members.map((member) => (
                   <div key={member.id} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
                     <div className="flex items-center gap-3">
-                      <img src={member.avatar} alt={member.name} className="w-8 h-8 rounded-full bg-gray-100" />
+                      <Image src={member.avatar} alt={member.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full bg-gray-100" />
                       <span className="text-gray-700 dark:text-gray-300">{member.name}</span>
                     </div>
                     {member.id === user.id && (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from 'next/image';
 import { usePathname } from "next/navigation";
 import { Home, CheckSquare, DollarSign, ShoppingCart, Settings, LogOut, Calendar } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
@@ -55,9 +56,12 @@ const Navbar = () => {
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   {user.name}
                 </span>
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
+                <Image
+                  src={user.avatar}
+                  alt={user.name}
+                  width={32}
+                  height={32}
+                  unoptimized
                   className="w-8 h-8 rounded-full bg-gray-100"
                 />
                 <button 

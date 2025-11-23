@@ -1,6 +1,7 @@
 "use client";
 import Tesseract from 'tesseract.js';
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   format, 
   startOfMonth, 
@@ -361,7 +362,7 @@ export default function CalendarPage() {
                         )}
                       </div>
                       {event.photo && (
-                        <img src={event.photo} alt="Event" className="mt-2 rounded-lg max-h-32 object-cover border" />
+                        <Image src={event.photo} alt="Event" width={160} height={120} unoptimized className="mt-2 rounded-lg max-h-32 object-cover border" />
                       )}
                     </div>
                   </div>
@@ -449,7 +450,7 @@ export default function CalendarPage() {
                                               className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                                             />
                                             {newEventPhoto && (
-                                              <img src={newEventPhoto} alt="Event" className="mt-2 rounded-lg max-h-40 object-cover border" />
+                                              <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
                                             )}
                                           </div>
                             <div>
@@ -471,7 +472,7 @@ export default function CalendarPage() {
                                 className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
                               />
                               {newEventPhoto && (
-                                <img src={newEventPhoto} alt="Event" className="mt-2 rounded-lg max-h-40 object-cover border" />
+                                <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
                               )}
                             </div>
               <div>
