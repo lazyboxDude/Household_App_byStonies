@@ -1,42 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign, ExternalLink, Percent, X, Loader2,
-  Apple, Milk, Drumstick, Croissant, Cookie, Package, Check
-} from "lucide-react";
-
-interface ShoppingItem {
-  id: string;
-  text: string;
-  completed: boolean;
-  price?: number;
-  store?: string;
-}
-
-interface SaleOffer {
-  title: string;
-  price: string;
-  image?: string;
-  category?: string;
-}
-
-const STORE_LINKS: Record<string, string> = {
-  "Migros": "https://www.migros.ch/de/angebote",
-  "Coop": "https://www.coop.ch/de/aktionen.html",
-  "Denner": "https://www.denner.ch/de/aktionen/",
-  "Aldi": "https://www.aldi-suisse.ch/de/angebote/",
-  "Lidl": "https://www.lidl.ch/c/de-CH/angebote/a10006068"
-};
-
-const CATEGORIES = [
-  { name: "All", icon: Package },
-  { name: "Fruits & Vegetables", icon: Apple },
-  { name: "Dairy", icon: Milk },
-  { name: "Meat", icon: Drumstick },
-  { name: "Bakery", icon: Croissant },
-  { name: "Sweets", icon: Cookie },
-];
+import { ShoppingCart } from "lucide-react";
+import { ShoppingItem, SaleOffer } from "./types";
+import ShoppingList from "./components/ShoppingList";
+import DealsTab from "./components/DealsTab";
 
 export default function ShoppingPage() {
   const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
@@ -193,338 +161,33 @@ export default function ShoppingPage() {
       </div>
 
       {activeTab === "list" ? (
-        <>
-          <div className="flex justify-end mb-4">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {items.filter((i) => !i.completed).length} items left
-            </span>
-          </div>
-
-          {/* Add Item Form */}
-          <form onSubmit={addItem} className="mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                value={newItem}
-                onChange={(e) => setNewItem(e.target.value)}
-                placeholder="What do we need? (e.g. Milk)"
-                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
-              />
-              
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="Price"
-                    className="w-full p-3 pl-9 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                  />
-                </div>
-                
-                <div className="relative flex-1">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={newStore}
-                    onChange={(e) => setNewStore(e.target.value)}
-                    placeholder="Store (optional)"
-                    list="shops-list"
-                    className="w-full p-3 pl-9 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
-                  />
-                  <datalist id="shops-list">
-                    {shops.map(shop => (
-                      <option key={shop} value={shop} />
-                    ))}
-                  </datalist>
-                  {newStore && (
-                    <button
-                      type="button"
-                      onClick={() => viewSales(newStore)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-full transition-colors"
-                      title="View current sales"
-                    >
-                      <Percent className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={!newItem.trim()}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <Plus className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-          </form>
-
-          {/* Shops Quick View */}
-          <div className="mb-6 overflow-x-auto pb-2">
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={simulateFindShops}
-                className="flex-shrink-0 px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors flex items-center"
-              >
-                <MapPin className="w-3 h-3 mr-1" />
-                Find Nearby
-              </button>
-              {shops.map(shop => (
-                <button
-                  key={shop}
-                  onClick={() => setNewStore(shop)}
-                  className="flex-shrink-0 px-3 py-1.5 bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 rounded-full text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  {shop}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Shopping List */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {items.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                <p>Your shopping list is empty!</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                {items.map((item) => (
-                  <li
-                    key={item.id}
-                    className={`flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
-                      item.completed ? "bg-gray-50 dark:bg-gray-800/50" : ""
-                    }`}
-                  >
-                    <div className="flex items-center flex-1 gap-3">
-                      <div 
-                        className="cursor-pointer"
-                        onClick={() => toggleItem(item.id)}
-                      >
-                        <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                            item.completed
-                              ? "bg-orange-500 border-orange-500"
-                              : "border-gray-300 dark:border-gray-600 hover:border-orange-500"
-                          }`}
-                        >
-                          {item.completed && (
-                            <svg
-                              className="w-4 h-4 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={3}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-lg font-medium transition-all ${
-                              item.completed
-                                ? "text-gray-400 line-through"
-                                : "text-gray-900 dark:text-white"
-                            }`}
-                          >
-                            {item.text}
-                          </span>
-                          <button 
-                            onClick={() => searchItem(item)}
-                            className={`p-1 rounded-full transition-colors ${
-                              item.store?.toLowerCase().includes('migros') 
-                                ? "text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
-                                : "text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            }`}
-                            title={item.store?.toLowerCase().includes('migros') ? "Search on Migros.ch" : "Find prices nearby"}
-                          >
-                            {item.store?.toLowerCase().includes('migros') ? <ExternalLink className="w-4 h-4" /> : <Search className="w-4 h-4" />}
-                          </button>
-                        </div>
-                        
-                        <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400">
-                          {item.price && (
-                            <span className="flex items-center text-green-600 dark:text-green-400">
-                              <DollarSign className="w-3 h-3 mr-0.5" />
-                              {item.price.toFixed(2)}
-                            </span>
-                          )}
-                          {item.store && (
-                            <button 
-                              onClick={() => viewSales(item.store!)}
-                              className="flex items-center hover:text-orange-500 transition-colors group/store"
-                              title="View store sales"
-                            >
-                              <MapPin className="w-3 h-3 mr-1 group-hover/store:text-orange-500" />
-                              <span className="border-b border-transparent group-hover/store:border-orange-500">
-                                {item.store}
-                              </span>
-                              <Percent className="w-3 h-3 ml-1 opacity-0 group-hover/store:opacity-100 transition-opacity text-orange-500" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => deleteItem(item.id)}
-                      className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2"
-                      aria-label="Delete item"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
+        <ShoppingList
+          items={items}
+          shops={shops}
+          newItem={newItem}
+          setNewItem={setNewItem}
+          newPrice={newPrice}
+          setNewPrice={setNewPrice}
+          newStore={newStore}
+          setNewStore={setNewStore}
+          addItem={addItem}
+          simulateFindShops={simulateFindShops}
+          toggleItem={toggleItem}
+          deleteItem={deleteItem}
+          searchItem={searchItem}
+          viewSales={viewSales}
+        />
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex flex-col gap-4 mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Current Offers at {currentStoreSales}
-              </h2>
-              <div className="flex gap-2">
-                {Object.keys(STORE_LINKS).map(store => (
-                  <button
-                    key={store}
-                    onClick={() => loadDeals(store)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      currentStoreSales === store
-                        ? "bg-orange-500 text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    {store}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Category Filters */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {CATEGORIES.map((cat) => {
-                const Icon = cat.icon;
-                return (
-                  <button
-                    key={cat.name}
-                    onClick={() => setSelectedCategory(cat.name)}
-                    className={`flex items-center whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      selectedCategory === cat.name
-                        ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800"
-                        : "bg-gray-50 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4 mr-1.5" />
-                    {cat.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {isLoadingSales ? (
-            <div className="flex flex-col items-center justify-center h-60 space-y-4">
-              <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-              <p className="text-gray-500">Fetching latest deals...</p>
-            </div>
-          ) : (
-            <>
-              {(() => {
-                const filteredOffers = salesOffers.filter(
-                  (o) => selectedCategory === "All" || o.category === selectedCategory
-                );
-
-                if (filteredOffers.length > 0) {
-                  return (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {filteredOffers.map((offer, idx) => {
-                        // Determine icon based on category if image fails or is missing
-                        const CategoryIcon = CATEGORIES.find(c => c.name === offer.category)?.icon || Package;
-                        
-                        return (
-                          <div key={idx} className="group border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex gap-4 hover:shadow-md transition-all bg-white dark:bg-gray-800 relative">
-                            <div className="w-20 h-20 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden relative">
-                              {offer.image ? (
-                                <img 
-                                  src={offer.image} 
-                                  alt={offer.title} 
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    // Show the icon sibling
-                                    const iconContainer = e.currentTarget.parentElement?.querySelector('.icon-fallback');
-                                    if (iconContainer) iconContainer.classList.remove('hidden');
-                                  }} 
-                                />
-                              ) : null}
-                              <div className={`icon-fallback flex flex-col items-center justify-center text-gray-400 w-full h-full absolute inset-0 bg-gray-100 dark:bg-gray-700 ${offer.image ? 'hidden' : ''}`}>
-                                <CategoryIcon className="w-8 h-8 mb-1" />
-                              </div>
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start">
-                                <h3 className="font-medium text-gray-900 dark:text-white line-clamp-2 text-sm mb-1 pr-6">
-                                  {offer.title}
-                                </h3>
-                              </div>
-                              <p className="text-green-600 font-bold text-lg">{offer.price}</p>
-                              {offer.category && (
-                                <span className="inline-block mt-1 text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
-                                  {offer.category}
-                                </span>
-                              )}
-                            </div>
-
-                            <button
-                              onClick={() => addDealToList(offer)}
-                              className="absolute top-3 right-3 p-2 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                              title="Add to shopping list"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div className="text-center py-10">
-                      <p className="text-gray-500 mb-4">
-                        {salesOffers.length > 0 
-                          ? `No offers found in "${selectedCategory}".` 
-                          : (salesError || "No offers found directly.")}
-                      </p>
-                      <a 
-                        href={STORE_LINKS[Object.keys(STORE_LINKS).find(k => currentStoreSales.toLowerCase().includes(k.toLowerCase())) || ""] || "#"} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-                      >
-                        Open {currentStoreSales} Website <ExternalLink className="w-4 h-4 ml-2" />
-                      </a>
-                    </div>
-                  );
-                }
-              })()}
-            </>
-          )}
-        </div>
+        <DealsTab
+          currentStoreSales={currentStoreSales}
+          salesOffers={salesOffers}
+          isLoadingSales={isLoadingSales}
+          salesError={salesError}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          loadDeals={loadDeals}
+          addDealToList={addDealToList}
+        />
       )}
     </div>
   );

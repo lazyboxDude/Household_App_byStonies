@@ -44,12 +44,36 @@ npm run dev
 - **Language:** [TypeScript](https://www.typescriptlang.org/)
 - **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
 - **Linting:** ESLint
+- **Icons:** [Lucide React](https://lucide.dev/)
+- **Scraping:** [Cheerio](https://cheerio.js.org/) (for fetching store deals)
+
+## ✨ Features
+
+### 🛒 Smart Shopping List
+- **Interactive List**: Add, check off, and delete items easily.
+- **Store Categorization**: Tag items with specific stores (Migros, Coop, etc.).
+- **Price Tracking**: Optional price input for budgeting.
+- **Nearby Stores**: "Find Nearby" simulation to discover local shops.
+
+### 🏷️ Deals & Sales
+- **Live Sales Browser**: View current offers from major Swiss supermarkets directly in the app.
+- **Category Filtering**: Filter deals by Fruits, Dairy, Meat, Bakery, etc.
+- **Smart Fallbacks**: Automatically displays category icons if product images fail to load.
+- **One-Click Add**: Instantly add sale items to your shopping list.
+- **Store Support**: Currently optimized for Migros, with links for Coop, Denner, Aldi, and Lidl.
 
 ## 📁 Project Structure
 
 ```
 Household_App_byStonies/
 ├── app/                    # Next.js App Router directory
+│   ├── api/               # API Routes
+│   │   └── sales/        # Backend logic for fetching store deals
+│   ├── shopping/          # Shopping List Feature
+│   │   ├── components/   # Reusable UI components (ShoppingList, DealsTab)
+│   │   ├── page.tsx      # Main Shopping page
+│   │   ├── types.ts      # TypeScript interfaces
+│   │   └── constants.ts  # App constants (Stores, Categories)
 │   ├── layout.tsx         # Root layout component
 │   ├── page.tsx           # Home page
 │   └── globals.css        # Global styles
