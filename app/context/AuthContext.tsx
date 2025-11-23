@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signIn, signOut } from "next-auth/react";
 
 interface User {
   id: string;
@@ -31,6 +32,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +48,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Sync NextAuth session with local state
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      const sessionUser = {
+        id: session.user.email || Date.now().toString(),
+        name: session.user.name || "User",
+        email: session.user.email || "",
+        avatar: session.user.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.name}`
+      };
+      
+      // Only update if different to avoid loops
+      if (!user || user.email !== sessionUser.email) {
+        setUser(sessionUser);
+        localStorage.setItem("household_user", JSON.stringify(sessionUser));
+      }
+    }
+  }, [session, status]);
+
   const login = (name: string, email?: string, avatar?: string) => {
     const newUser = {
       id: Date.now().toString(),
@@ -58,18 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithGoogle = () => {
-    // SIMULATION: In a real app, this would use Firebase/NextAuth
-    // We'll simulate a successful Google login
-    const mockGoogleUser = {
-      name: "Stonie (Google)",
-      email: "stonie@gmail.com",
-      avatar: "https://lh3.googleusercontent.com/a/ACg8ocIq8d_...=s96-c" // Generic placeholder or keep using dicebear
-    };
-    
-    // Use a slight delay to simulate network request
-    setTimeout(() => {
-      login(mockGoogleUser.name, mockGoogleUser.email, `https://api.dicebear.com/7.x/avataaars/svg?seed=${mockGoogleUser.name}`);
-    }, 800);
+    signIn("google", { callbackUrl: "/" });
   };
 
   const logout = () => {
@@ -77,7 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setHousehold(null);
     localStorage.removeItem("household_user");
     localStorage.removeItem("household_data");
-    router.push("/login");
+    
+    if (status === "authenticated") {
+      signOut({ callbackUrl: "/login" });
+    } else {
+      router.push("/login");
+    }
   };
 
   const createHousehold = (name: string) => {
