@@ -33,7 +33,7 @@ export function showToast(message: string, type: 'info' | 'success' | 'error' = 
     }, duration);
   } catch (err) {
     // non-fatal
-    // eslint-disable-next-line no-console
+     
     console.error('showToast failed', err);
   }
 }

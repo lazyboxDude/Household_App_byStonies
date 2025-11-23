@@ -42,8 +42,27 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [events, setEvents] = useState<CalendarEvent[]>(() => {
+    try {
+      const storedEvents = localStorage.getItem('calendar_events');
+      if (storedEvents) {
+        const raw = JSON.parse(storedEvents) as Array<Record<string, unknown>>;
+        return raw.map(ev => ({
+          id: String(ev.id ?? Date.now().toString()),
+          title: String(ev.title ?? ''),
+          date: new Date(String(ev.date ?? new Date().toISOString())),
+          time: String(ev.time ?? '12:00'),
+          type: (ev.type as 'task' | 'shopping' | 'event') || 'event',
+          location: ev.location ? String(ev.location) : undefined,
+          photo: ev.photo ? String(ev.photo) : undefined,
+        } as CalendarEvent));
+      }
+    } catch (err) {
+      console.error('Failed to read calendar events from storage', err);
+    }
+    return [];
+  });
+  const [isLoaded, setIsLoaded] = useState(true);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [activeTab, setActiveTab] = useState<'schedule' | 'discover'>('schedule');
   
@@ -119,22 +138,7 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   };
 
-  // Load events from localStorage
-  useEffect(() => {
-    const storedEvents = localStorage.getItem('calendar_events');
-    if (storedEvents) {
-      try {
-        const parsedEvents = JSON.parse(storedEvents).map((event: any) => ({
-          ...event,
-          date: new Date(event.date)
-        }));
-        setEvents(parsedEvents);
-      } catch (error) {
-        console.error('Failed to parse calendar events', error);
-      }
-    }
-    setIsLoaded(true);
-  }, []);
+  // events are initialized from localStorage above; isLoaded is true by default
 
   // Save events to localStorage
   useEffect(() => {

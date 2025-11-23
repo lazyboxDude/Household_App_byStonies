@@ -26,8 +26,18 @@ interface Pot {
 }
 
 export default function ExpensesPage() {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>(() => {
+    try {
+      const s = localStorage.getItem('budgets');
+      return s ? JSON.parse(s) as Budget[] : [];
+    } catch { return []; }
+  });
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    try {
+      const e = localStorage.getItem('expenses');
+      return e ? JSON.parse(e) as Expense[] : [];
+    } catch { return []; }
+  });
 
   const [categoryInput, setCategoryInput] = useState('');
   const [budgetAmountInput, setBudgetAmountInput] = useState('');
@@ -43,36 +53,39 @@ export default function ExpensesPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Load from localStorage
+  // budgets and expenses are initialized from localStorage in state initializers
+
+  // Undoable expense UI state (move before listeners)
+  const [undoableExpense, setUndoableExpense] = useState<Expense | null>(null);
   useEffect(() => {
-    try {
-      const s = localStorage.getItem('budgets');
-      if (s) setBudgets(JSON.parse(s));
-      const e = localStorage.getItem('expenses');
-      if (e) setExpenses(JSON.parse(e));
-    } catch (err) {
-      console.error('Failed to load budgets/expenses', err);
-    }
-  }, []);
+    if (!undoableExpense) return;
+    const t = setTimeout(() => setUndoableExpense(null), 8000);
+    return () => clearTimeout(t);
+  }, [undoableExpense]);
 
   // Listen for expenses added from other parts of the app (e.g., Shopping list)
   useEffect(() => {
-    const handler = (ev: any) => {
-      const expense = ev.detail as Expense;
+    const handler = (ev: Event) => {
+      const custom = ev as CustomEvent<Expense>;
+      const expense = custom.detail;
       if (expense && expense.id) {
         setExpenses(prev => [...prev, expense]);
       }
     };
-    window.addEventListener('expense:added', handler as EventListener);
-    const undoHandler = (ev: any) => {
-      const expense = ev.detail as Expense;
+    const undoHandler = (ev: Event) => {
+      const custom = ev as CustomEvent<Expense>;
+      const expense = custom.detail;
       if (expense && expense.id) {
         // show undoable banner by setting temporary state
         setUndoableExpense(expense);
       }
     };
+    window.addEventListener('expense:added', handler as EventListener);
     window.addEventListener('expense:undoable', undoHandler as EventListener);
-    return () => window.removeEventListener('expense:added', handler as EventListener);
+    return () => {
+      window.removeEventListener('expense:added', handler as EventListener);
+      window.removeEventListener('expense:undoable', undoHandler as EventListener);
+    };
   }, []);
 
   // Pots (savings goals)
@@ -91,13 +104,7 @@ export default function ExpensesPage() {
     setPots(prev => prev.map(p => p.id === id ? { ...p, saved: p.saved + amount } : p));
   };
 
-  // Undoable expense UI state
-  const [undoableExpense, setUndoableExpense] = useState<Expense | null>(null);
-  useEffect(() => {
-    if (!undoableExpense) return;
-    const t = setTimeout(() => setUndoableExpense(null), 8000);
-    return () => clearTimeout(t);
-  }, [undoableExpense]);
+  
 
   // CSV import/export helpers
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -124,14 +131,14 @@ export default function ExpensesPage() {
         if (lines.length < 2) return showToast('CSV empty or invalid', 'error');
         const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, ''));
         const imported: Expense[] = lines.slice(1).map(line => {
-          const parts = line.match(/(?:\"((?:\\\"|[^"])*)\"|[^,]+)/g) || [];
-          const vals = parts.map(p => p.replace(/^"|"$/g, ''));
-          const obj: any = {};
-          headers.forEach((h, i) => obj[h.trim()] = vals[i] || '');
+            const parts = line.match(/(?:\"((?:\\\"|[^\"])*)\"|[^,]+)/g) || [];
+            const vals = parts.map(p => p.replace(/^"|"$/g, ''));
+            const obj: Record<string, string> = {};
+            headers.forEach((h, i) => { obj[h.trim()] = vals[i] || ''; });
           return {
             id: obj.id || Date.now().toString() + Math.floor(Math.random()*1000),
             title: obj.title || 'Imported',
-            amount: parseFloat(obj.amount) || 0,
+            amount: parseFloat(obj.amount || '0') || 0,
             date: obj.date || new Date().toISOString(),
             category: obj.category || 'Uncategorized',
             note: obj.note || undefined,
@@ -221,9 +228,7 @@ export default function ExpensesPage() {
 
   const deleteExpense = (id: string) => setExpenses(prev => prev.filter(e => e.id !== id));
 
-  const [summaryCache, setSummaryCache] = useState<Record<string, { spent: number }>>({});
-
-  useEffect(() => {
+  const summaryCache = React.useMemo(() => {
     // compute spent per category for selected month
     const [y, m] = selectedMonth.split('-').map(Number);
     const start = new Date(y, m - 1, 1);
@@ -237,7 +242,7 @@ export default function ExpensesPage() {
         sums[cat].spent += exp.amount;
       }
     });
-    setSummaryCache(sums);
+    return sums;
   }, [expenses, selectedMonth]);
 
   const handleUndoExpense = (id?: string) => {
@@ -246,8 +251,8 @@ export default function ExpensesPage() {
     setExpenses(prev => prev.filter(e => e.id !== eid));
     try {
       const raw = localStorage.getItem('expenses');
-      const arr = raw ? JSON.parse(raw) : [];
-      const filtered = arr.filter((ex: any) => ex.id !== eid);
+      const arr = raw ? JSON.parse(raw) as Expense[] : [];
+      const filtered = arr.filter((ex: Expense) => ex.id !== eid);
       localStorage.setItem('expenses', JSON.stringify(filtered));
     } catch (err) { console.error('Failed to remove expense on undo', err); }
     setUndoableExpense(null);
