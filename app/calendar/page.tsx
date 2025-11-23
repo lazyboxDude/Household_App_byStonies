@@ -1,5 +1,5 @@
 "use client";
-import { EventfrogService, EventfrogEventRequest } from "eventfrog-api";
+
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -58,35 +58,7 @@ export default function CalendarPage() {
   const [newEventType, setNewEventType] = useState<'task' | 'shopping' | 'event'>('event');
   const [newEventLocation, setNewEventLocation] = useState('');
 
-  // Fetch Real Events from Eventfrog (DE/CH)
-  const fetchEventfrogEvents = async (latitude: number, longitude: number) => {
-    const apiKey = process.env.NEXT_PUBLIC_EVENTFROG_API_KEY;
-    if (!apiKey) return null;
 
-    const service = new EventfrogService(apiKey);
-    try {
-      // Build request for events near location
-      const request = new EventfrogEventRequest({
-        lat: latitude,
-        lng: longitude,
-        radius: 50,
-        perPage: 5,
-      });
-      const events = await service.loadEvents(request);
-      if (!events || events.length === 0) return [];
-      return events.map((event: any) => ({
-        id: event.id,
-        title: event.title,
-        category: event.category || "Event",
-        location: event.location?.name || "Unknown Location",
-        description: event.description || "Eventfrog event.",
-        isReal: true
-      }));
-    } catch (error) {
-      console.error("Failed to fetch Eventfrog events", error);
-      return null;
-    }
-  };
   const fetchRealEvents = async (latitude: number, longitude: number) => {
     const apiKey = process.env.NEXT_PUBLIC_TICKETMASTER_API_KEY;
     if (!apiKey) return null;
