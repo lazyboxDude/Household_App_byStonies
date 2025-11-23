@@ -1,3 +1,4 @@
+import Tesseract from 'tesseract.js';
 "use client";
 
 
@@ -419,6 +420,36 @@ export default function CalendarPage() {
             </div>
             
             <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
+                                          <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo (Optional)</label>
+                                            <input
+                                              type="file"
+                                              accept="image/*"
+                                              capture="environment"
+                                              onChange={async e => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                  const reader = new FileReader();
+                                                  reader.onload = async (ev) => {
+                                                    const imageData = ev.target?.result as string;
+                                                    setNewEventPhoto(imageData);
+                                                    // OCR: extract text from image
+                                                    const { data } = await Tesseract.recognize(imageData, 'eng');
+                                                    if (data.text) {
+                                                      // Try to autofill event title with first line of text
+                                                      const firstLine = data.text.split('\n').find(line => line.trim().length > 0);
+                                                      if (firstLine) setNewEventTitle(firstLine.trim());
+                                                    }
+                                                  };
+                                                  reader.readAsDataURL(file);
+                                                }
+                                              }}
+                                              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                            />
+                                            {newEventPhoto && (
+                                              <img src={newEventPhoto} alt="Event" className="mt-2 rounded-lg max-h-40 object-cover border" />
+                                            )}
+                                          </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo (Optional)</label>
                               <input
