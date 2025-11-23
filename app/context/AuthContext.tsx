@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { account } from "../lib/appwrite";
 
 interface User {
   id: string;
