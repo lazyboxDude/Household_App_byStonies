@@ -25,11 +25,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: next-build
-          path: .next || .
+          path: .next
       - name: Deploy to Vercel (optional)
-        if: secrets.VERCEL_TOKEN != ''
+        if: ${{ secrets.VERCEL_TOKEN }}
         uses: amondnet/vercel-action@v20
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: set these secrets in your repo if you want to target a specific Vercel project/org
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: .
