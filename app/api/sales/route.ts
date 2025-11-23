@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
-import * as cheerio from 'cheerio';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const store = searchParams.get('store');
 
-  if (store?.toLowerCase() !== 'migros') {
-    return NextResponse.json({ error: 'Only Migros is supported for now' }, { status: 400 });
-  }
-
   try {
-    // FALLBACK: Return realistic mock data
-    // so the user can see how the feature is intended to work.
-    offers.push(
+    // Mock data for demonstration purposes
+    const offers = [
       { 
         title: "M-Budget Milk Drink", 
         price: "1.20 (was 1.40)", 
@@ -55,11 +49,11 @@ export async function GET(request: Request) {
         category: "Bakery",
         link: "https://www.migros.ch/de/product/111000100000"
       }
-    );
+    ];
 
     return NextResponse.json({ offers });
   } catch (error) {
-    console.error('Scraping error:', error);
+    console.error('Error:', error);
     return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 });
   }
 }
