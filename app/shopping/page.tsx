@@ -1,21 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, ShoppingCart } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign } from "lucide-react";
 
 interface ShoppingItem {
   id: string;
   text: string;
   completed: boolean;
+  price?: number;
+  store?: string;
 }
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([
-    { id: "1", text: "Milk", completed: false },
-    { id: "2", text: "Eggs", completed: false },
-    { id: "3", text: "Bread", completed: true },
+    { id: "1", text: "Milk", completed: false, price: 2.50, store: "Walmart" },
+    { id: "2", text: "Eggs", completed: false, price: 4.00 },
+    { id: "3", text: "Bread", completed: true, store: "Bakery" },
   ]);
   const [newItem, setNewItem] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newStore, setNewStore] = useState("");
 
   const addItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,10 +29,14 @@ export default function ShoppingPage() {
       id: Date.now().toString(),
       text: newItem.trim(),
       completed: false,
+      price: newPrice ? parseFloat(newPrice) : undefined,
+      store: newStore.trim() || undefined,
     };
 
     setItems([item, ...items]);
     setNewItem("");
+    setNewPrice("");
+    setNewStore("");
   };
 
   const toggleItem = (id: string) => {
@@ -41,6 +49,10 @@ export default function ShoppingPage() {
 
   const deleteItem = (id: string) => {
     setItems(items.filter((item) => item.id !== id));
+  };
+
+  const searchNearby = (text: string) => {
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(text)}+price+near+me`, '_blank');
   };
 
   return (
@@ -56,22 +68,48 @@ export default function ShoppingPage() {
       </div>
 
       {/* Add Item Form */}
-      <form onSubmit={addItem} className="mb-8">
-        <div className="flex gap-2">
+      <form onSubmit={addItem} className="mb-8 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col gap-3">
           <input
             type="text"
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
-            placeholder="Add something to buy..."
-            className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+            placeholder="What do we need? (e.g. Milk)"
+            className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
           />
-          <button
-            type="submit"
-            disabled={!newItem.trim()}
-            className="bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
+          
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="number"
+                step="0.01"
+                value={newPrice}
+                onChange={(e) => setNewPrice(e.target.value)}
+                placeholder="Price"
+                className="w-full p-3 pl-9 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+            
+            <div className="relative flex-1">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                value={newStore}
+                onChange={(e) => setNewStore(e.target.value)}
+                placeholder="Store (optional)"
+                className="w-full p-3 pl-9 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!newItem.trim()}
+              className="bg-orange-500 hover:bg-orange-600 text-white px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+          </div>
         </div>
       </form>
 
@@ -90,43 +128,76 @@ export default function ShoppingPage() {
                   item.completed ? "bg-gray-50 dark:bg-gray-800/50" : ""
                 }`}
               >
-                <div className="flex items-center flex-1 gap-3 cursor-pointer" onClick={() => toggleItem(item.id)}>
-                  <div
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      item.completed
-                        ? "bg-orange-500 border-orange-500"
-                        : "border-gray-300 dark:border-gray-600 hover:border-orange-500"
-                    }`}
+                <div className="flex items-center flex-1 gap-3">
+                  <div 
+                    className="cursor-pointer"
+                    onClick={() => toggleItem(item.id)}
                   >
-                    {item.completed && (
-                      <svg
-                        className="w-4 h-4 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
+                    <div
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        item.completed
+                          ? "bg-orange-500 border-orange-500"
+                          : "border-gray-300 dark:border-gray-600 hover:border-orange-500"
+                      }`}
+                    >
+                      {item.completed && (
+                        <svg
+                          className="w-4 h-4 text-white"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                    </div>
                   </div>
-                  <span
-                    className={`text-lg transition-all ${
-                      item.completed
-                        ? "text-gray-400 line-through"
-                        : "text-gray-900 dark:text-white"
-                    }`}
-                  >
-                    {item.text}
-                  </span>
+                  
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-lg font-medium transition-all ${
+                          item.completed
+                            ? "text-gray-400 line-through"
+                            : "text-gray-900 dark:text-white"
+                        }`}
+                      >
+                        {item.text}
+                      </span>
+                      <button 
+                        onClick={() => searchNearby(item.text)}
+                        className="text-blue-500 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        title="Find prices nearby"
+                      >
+                        <Search className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+                      {item.price && (
+                        <span className="flex items-center text-green-600 dark:text-green-400">
+                          <DollarSign className="w-3 h-3 mr-0.5" />
+                          {item.price.toFixed(2)}
+                        </span>
+                      )}
+                      {item.store && (
+                        <span className="flex items-center">
+                          <MapPin className="w-3 h-3 mr-1" />
+                          {item.store}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
                 <button
                   onClick={() => deleteItem(item.id)}
-                  className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2"
                   aria-label="Delete item"
                 >
                   <Trash2 className="w-5 h-5" />
