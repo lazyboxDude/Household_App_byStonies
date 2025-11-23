@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign, ExternalLink } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign, ExternalLink, Percent } from "lucide-react";
 
 interface ShoppingItem {
   id: string;
@@ -10,6 +10,14 @@ interface ShoppingItem {
   price?: number;
   store?: string;
 }
+
+const STORE_LINKS: Record<string, string> = {
+  "Migros": "https://www.migros.ch/de/angebote",
+  "Coop": "https://www.coop.ch/de/aktionen.html",
+  "Denner": "https://www.denner.ch/de/aktionen/",
+  "Aldi": "https://www.aldi-suisse.ch/de/angebote/",
+  "Lidl": "https://www.lidl.ch/c/de-CH/angebote/a10006068"
+};
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([
@@ -79,6 +87,15 @@ export default function ShoppingPage() {
     }
   };
 
+  const viewSales = (storeName: string) => {
+    // Normalize store name to match keys (simple check)
+    const key = Object.keys(STORE_LINKS).find(k => storeName.toLowerCase().includes(k.toLowerCase()));
+    const url = key ? STORE_LINKS[key] : `https://www.google.com/search?q=${encodeURIComponent(storeName)}+weekly+ad`;
+    
+    // Open in a popup-like window
+    window.open(url, 'StoreSales', 'width=1200,height=800,menubar=no,toolbar=no,location=no,status=no');
+  };
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -130,6 +147,16 @@ export default function ShoppingPage() {
                   <option key={shop} value={shop} />
                 ))}
               </datalist>
+              {newStore && (
+                <button
+                  type="button"
+                  onClick={() => viewSales(newStore)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-full transition-colors"
+                  title="View current sales"
+                >
+                  <Percent className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             <button
@@ -242,10 +269,17 @@ export default function ShoppingPage() {
                         </span>
                       )}
                       {item.store && (
-                        <span className="flex items-center">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {item.store}
-                        </span>
+                        <button 
+                          onClick={() => viewSales(item.store!)}
+                          className="flex items-center hover:text-orange-500 transition-colors group/store"
+                          title="View store sales"
+                        >
+                          <MapPin className="w-3 h-3 mr-1 group-hover/store:text-orange-500" />
+                          <span className="border-b border-transparent group-hover/store:border-orange-500">
+                            {item.store}
+                          </span>
+                          <Percent className="w-3 h-3 ml-1 opacity-0 group-hover/store:opacity-100 transition-opacity text-orange-500" />
+                        </button>
                       )}
                     </div>
                   </div>
