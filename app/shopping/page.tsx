@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign } from "lucide-react";
+import { Plus, Trash2, ShoppingCart, MapPin, Search, DollarSign, ExternalLink } from "lucide-react";
 
 interface ShoppingItem {
   id: string;
@@ -13,11 +13,11 @@ interface ShoppingItem {
 
 export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([
-    { id: "1", text: "Milk", completed: false, price: 2.50, store: "Walmart" },
-    { id: "2", text: "Eggs", completed: false, price: 4.00 },
+    { id: "1", text: "Milk", completed: false, price: 1.95, store: "Migros" },
+    { id: "2", text: "Chocolate", completed: false, price: 3.50, store: "Migros" },
     { id: "3", text: "Bread", completed: true, store: "Bakery" },
   ]);
-  const [shops, setShops] = useState<string[]>(["Walmart", "Target", "Costco", "Whole Foods", "Trader Joe's"]);
+  const [shops, setShops] = useState<string[]>(["Migros", "Coop", "Denner", "Aldi", "Lidl"]);
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
@@ -69,8 +69,14 @@ export default function ShoppingPage() {
     setItems(items.filter((item) => item.id !== id));
   };
 
-  const searchNearby = (text: string) => {
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(text)}+price+near+me`, '_blank');
+  const searchItem = (item: ShoppingItem) => {
+    if (item.store?.toLowerCase().includes('migros')) {
+      window.open(`https://www.migros.ch/de/search?query=${encodeURIComponent(item.text)}`, '_blank');
+    } else if (item.store?.toLowerCase().includes('coop')) {
+      window.open(`https://www.coop.ch/de/search/?text=${encodeURIComponent(item.text)}`, '_blank');
+    } else {
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(item.text)}+price+near+me`, '_blank');
+    }
   };
 
   return (
@@ -216,11 +222,15 @@ export default function ShoppingPage() {
                         {item.text}
                       </span>
                       <button 
-                        onClick={() => searchNearby(item.text)}
-                        className="text-blue-500 hover:text-blue-600 p-1 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        title="Find prices nearby"
+                        onClick={() => searchItem(item)}
+                        className={`p-1 rounded-full transition-colors ${
+                          item.store?.toLowerCase().includes('migros') 
+                            ? "text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                            : "text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        }`}
+                        title={item.store?.toLowerCase().includes('migros') ? "Search on Migros.ch" : "Find prices nearby"}
                       >
-                        <Search className="w-4 h-4" />
+                        {item.store?.toLowerCase().includes('migros') ? <ExternalLink className="w-4 h-4" /> : <Search className="w-4 h-4" />}
                       </button>
                     </div>
                     
