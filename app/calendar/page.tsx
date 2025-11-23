@@ -182,7 +182,7 @@ export default function CalendarPage() {
       // Update existing event
       const updatedEvents = events.map(ev => 
         ev.id === editingEvent.id 
-          ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto }
+          ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto || undefined }
           : ev
       );
       setEvents(updatedEvents);
