@@ -1,0 +1,35 @@
+# 🏠 Our Home Base - Project Plan
+
+A collaborative app designed for couples living together to manage their household tasks, finances, and shared plans.
+
+## 🎯 Core Features
+
+### 1. 🧹 Task Tracking (The "Chore Wars" Peacekeeper)
+*   **Shared Todo List:** Real-time sync of household chores.
+*   **Recurring Tasks:** Set daily, weekly, or monthly repeats (e.g., "Take out trash on Tuesdays").
+*   **Assignee System:** Tag who is responsible for a specific task.
+*   **Gamification (Optional):** Earn points for completing tasks to redeem for "rewards" (e.g., partner cooks dinner).
+
+### 2. 💰 Finance Manager
+*   **Expense Splitting:** Log expenses and track who paid what.
+*   **Settlement Calculator:** Simple "Who owes who" view (similar to Splitwise).
+*   **Monthly Budget:** Set shared budget limits for groceries, utilities, and dates.
+*   **Receipt Storage:** (MVP+) Upload photos of receipts.
+
+### 3. 📅 Planning & Calendar
+*   **Shared Calendar:** View upcoming events, dates, and deadlines.
+*   **Meal Planner:** Weekly drag-and-drop meal planning board.
+*   **Shopping List:** Auto-generate grocery lists based on the meal plan.
+
+## 🛠 Recommended Tech Stack
+
+*   **Frontend:** React Native or Flutter (for easy iOS/Android mobile apps).
+*   **Backend:** Node.js or Firebase (Firebase is great for real-time updates/syncing).
+*   **Database:** PostgreSQL (structured data) or Firestore (NoSQL for flexible lists).
+*   **Auth:** Google Auth or simple email/password shared login.
+
+## 🚀 Phase 1: MVP (Minimum Viable Product)
+1.  **User Auth:** Simple login for two users.
+2.  **Dashboard:** View today's tasks and current balance.
+3.  **Task List:** Add, edit, complete, and delete tasks.
+4.  **Expense Log:** Add an expense and view total split.
