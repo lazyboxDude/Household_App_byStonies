@@ -85,7 +85,7 @@ export default function ShoppingPage() {
     }
   };
 
-  const toggleItem = (id: string) => {
+  const toggleItem = async (id: string) => {
     const updated = items.map((item) =>
       item.id === id ? { ...item, completed: !item.completed } : item
     );
@@ -96,12 +96,35 @@ export default function ShoppingPage() {
     // If item was just marked completed, add it as an expense
     const was = items.find(i => i.id === id);
     if (toggled && was && !was.completed && toggled.completed) {
+      // If price missing, prompt user for it
+      let amount = toggled.price ? Number(toggled.price) : undefined;
+      if (amount === undefined) {
+        const input = window.prompt(`Enter price for "${toggled.text}" (e.g. 2.50):`, '');
+        if (input !== null) {
+          const parsed = parseFloat(input.replace(/[^0-9.\\-]/g, ''));
+          if (!isNaN(parsed)) {
+            amount = parsed;
+            // update the item price in state
+            setItems(prev => prev.map(it => it.id === toggled.id ? { ...it, price: amount } : it));
+          } else {
+            amount = 0;
+          }
+        } else {
+          // user cancelled prompt; default to 0
+          amount = 0;
+        }
+      }
+
+      // Map store to budget category when possible (centralized)
+      const { mapStoreToCategory } = await import('../../lib/storeMapping');
+      const category = mapStoreToCategory(toggled.store);
+
       const expense = {
         id: Date.now().toString(),
         title: toggled.text,
-        amount: toggled.price ? Number(toggled.price) : 0,
+        amount: amount || 0,
         date: new Date().toISOString(),
-        category: toggled.store || 'Uncategorized',
+        category,
         note: `Added from Shopping list (${toggled.store || 'unknown store'})`
       };
 
@@ -112,6 +135,11 @@ export default function ShoppingPage() {
         localStorage.setItem('expenses', JSON.stringify(arr));
         // notify other parts of the app
         window.dispatchEvent(new CustomEvent('expense:added', { detail: expense }));
+        // notify for undo UI; expenses page will handle the undoable banner
+        window.dispatchEvent(new CustomEvent('expense:undoable', { detail: expense }));
+        // lightweight toast
+        const { showToast } = await import('../../lib/toast');
+        showToast(`Added expense ${expense.title} — $${expense.amount.toFixed(2)}`, 'success');
       } catch (err) {
         console.error('Failed to add expense from shopping item', err);
       }
