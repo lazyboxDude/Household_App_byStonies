@@ -348,27 +348,78 @@ export default function ExpensesPage() {
         <div className="lg:col-span-3">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-4">
             <h2 className="font-semibold mb-3">Budget Summary — {selectedMonth}</h2>
-            {budgets.length === 0 && <p className="text-sm text-gray-500">No budgets to summarize. Add budgets to track spending.</p>}
-            <div className="space-y-3">
-              {budgets.map(b => {
-                const spent = summaryCache[b.category]?.spent || 0;
-                const pct = b.amount > 0 ? Math.min(100, Math.round((spent / b.amount) * 100)) : 0;
-                return (
-                  <div key={b.id} className="border rounded p-3">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="font-medium">{b.category}</div>
-                        <div className="text-xs text-gray-500">${spent.toFixed(2)} spent of ${b.amount.toFixed(2)}</div>
+              {budgets.length === 0 && <p className="text-sm text-gray-500">No budgets to summarize. Add budgets to track spending.</p>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {budgets.map(b => {
+                  const spent = summaryCache[b.category]?.spent || 0;
+                  const pct = b.amount > 0 ? Math.min(100, Math.round((spent / b.amount) * 100)) : 0;
+                  // health is inverse of pct (more health = more under budget)
+                  const health = Math.max(0, Math.min(100, 100 - pct));
+                  const level = Math.max(1, Math.ceil(health / 20));
+                  const coins = Math.max(0, Math.round((Math.max(0, b.amount - spent))));
+
+                  const ringSize = 64;
+                  const stroke = 8;
+                  const radius = (ringSize - stroke) / 2;
+                  const circumference = 2 * Math.PI * radius;
+                  const progress = Math.min(100, Math.max(0, 100 - pct));
+                  const dashoffset = circumference - (progress / 100) * circumference;
+
+                  return (
+                    <div key={b.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 hover:scale-[1.01] transition-transform">
+                      <div className="flex items-center gap-4">
+                        <div style={{ width: ringSize, height: ringSize, position: 'relative' }}>
+                          <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
+                            <defs>
+                              <linearGradient id={`g-${b.id}`} x1="0%" x2="100%">
+                                <stop offset="0%" stopColor="#60a5fa" />
+                                <stop offset="100%" stopColor="#fb923c" />
+                              </linearGradient>
+                            </defs>
+                            <g transform={`translate(${ringSize/2}, ${ringSize/2})`}>
+                              <circle r={radius} stroke="#e6e9ee" strokeWidth={stroke} fill="none" />
+                              <circle r={radius} stroke={`url(#g-${b.id})`} strokeWidth={stroke} fill="none"
+                                strokeLinecap="round"
+                                strokeDasharray={`${circumference} ${circumference}`}
+                                strokeDashoffset={dashoffset}
+                                style={{ transition: 'stroke-dashoffset 600ms ease' }}
+                              />
+                            </g>
+                          </svg>
+                          <div style={{ position: 'absolute', left: 0, top: 0, width: ringSize, height: ringSize }} className="flex items-center justify-center">
+                            <div className="text-sm font-semibold">{Math.round(progress)}%</div>
+                          </div>
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold text-lg">{b.category}</div>
+                              <div className="text-xs text-gray-500">${spent.toFixed(2)} spent of ${b.amount.toFixed(2)}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm text-yellow-500 font-semibold">⭐ Level {level}</div>
+                              <div className="text-xs text-gray-500">{coins} coins</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
+                              <div style={{ width: `${pct}%`, height: '100%', background: pct > 90 ? '#ef4444' : '#fb923c', transition: 'width 600ms ease' }} />
+                            </div>
+                            <button onClick={() => showToast(`${b.category}: ${Math.round(health)}% healthy — Level ${level}`, 'info')} className="px-2 py-1 bg-white rounded border text-sm">Info</button>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2">
+                            <button onClick={() => { editBudget(b.id); showToast('Edited budget', 'success'); }} className="px-3 py-1 bg-blue-600 text-white rounded">Manage</button>
+                            <button onClick={() => { /* quick reward: add to pot as coins placeholder */ showToast(`Saved ${coins} coins to your wallet!`, 'success'); }} className="px-3 py-1 bg-amber-400 text-black rounded">Bank Coins</button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm font-medium">{pct}%</div>
                     </div>
-                    <div className="w-full bg-gray-100 h-2 rounded mt-2 overflow-hidden">
-                      <div style={{ width: `${pct}%`, height: '100%', backgroundColor: pct > 80 ? '#f87171' : '#fb923c' }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-4">
