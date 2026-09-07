@@ -1,14 +1,54 @@
+"use client";
+
 import Link from "next/link";
-import { 
-  CheckSquare, 
-  DollarSign, 
-  Calendar, 
-  ShoppingCart, 
-  Settings, 
-  Users 
+import { useState } from "react";
+import {
+  CheckSquare,
+  DollarSign,
+  Calendar,
+  ShoppingCart,
+  Settings,
+  Users
 } from "lucide-react";
 
+interface StoredTask { completed: boolean; }
+interface StoredShoppingItem { completed: boolean; }
+interface StoredExpense { amount: number; date: string; }
+interface StoredCalendarEvent { date: string; }
+
+function readJSON<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function Home() {
+  const [counts] = useState(() => {
+    const tasks = readJSON<StoredTask[]>("tasks", []);
+    const items = readJSON<StoredShoppingItem[]>("shopping_items", []);
+    const expenses = readJSON<StoredExpense[]>("expenses", []);
+    const events = readJSON<StoredCalendarEvent[]>("calendar_events", []);
+
+    const now = new Date();
+    const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const spentThisMonth = expenses
+      .filter((e) => e.date?.startsWith(monthPrefix))
+      .reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    const todayStr = now.toDateString();
+    const eventsToday = events.filter((ev) => new Date(ev.date).toDateString() === todayStr).length;
+
+    return {
+      tasksPending: tasks.filter((t) => !t.completed).length,
+      shoppingItems: items.filter((i) => !i.completed).length,
+      eventsToday,
+      spentThisMonth,
+    };
+  });
+
   const menuItems = [
     {
       title: "Tasks",
@@ -17,7 +57,7 @@ export default function Home() {
       color: "text-blue-500",
       bgColor: "bg-blue-100 dark:bg-blue-900/30",
       description: "Manage chores & to-dos",
-      count: "3 Pending"
+      count: `${counts.tasksPending} Pending`
     },
     {
       title: "Finances",
@@ -26,7 +66,7 @@ export default function Home() {
       color: "text-green-500",
       bgColor: "bg-green-100 dark:bg-green-900/30",
       description: "Track shared expenses",
-      count: "$45 Owed"
+      count: `$${counts.spentThisMonth.toFixed(2)} this month`
     },
     {
       title: "Calendar",
@@ -35,7 +75,7 @@ export default function Home() {
       color: "text-purple-500",
       bgColor: "bg-purple-100 dark:bg-purple-900/30",
       description: "Events & planning",
-      count: "2 Today"
+      count: `${counts.eventsToday} Today`
     },
     {
       title: "Shopping",
@@ -44,7 +84,7 @@ export default function Home() {
       color: "text-orange-500",
       bgColor: "bg-orange-100 dark:bg-orange-900/30",
       description: "Groceries & supplies",
-      count: "5 Items"
+      count: `${counts.shoppingItems} Items`
     },
     {
       title: "Household",
@@ -84,7 +124,7 @@ export default function Home() {
                 <div className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                   <Icon className={`w-6 h-6 ${item.color}`} />
                 </div>
-                
+
                 <div className="flex justify-between items-start">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

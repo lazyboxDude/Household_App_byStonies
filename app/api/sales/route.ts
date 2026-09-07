@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       }
     ];
 
-    return NextResponse.json({ offers });
+    return NextResponse.json({ offers, store: store || 'Migros' });
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 });

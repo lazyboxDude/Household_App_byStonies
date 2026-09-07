@@ -20,7 +20,7 @@ try {
   if (env.VERCEL_TOKEN && env.VERCEL_PROJECT_ID) {
     // Optional deploy using Vercel CLI
     console.log('VERCEL_TOKEN detected, attempting optional deploy (requires vercel CLI installed)');
-    try { run('npx', ['vercel', 'deploy', '--prod', '--token', env.VERCEL_TOKEN]); } catch (e) { console.warn('Vercel deploy failed or not installed'); }
+    try { run('npx', ['vercel', 'deploy', '--prod', '--token', env.VERCEL_TOKEN]); } catch { console.warn('Vercel deploy failed or not installed'); }
   } else {
     console.log('VERCEL_TOKEN not set — skipping deploy');
   }

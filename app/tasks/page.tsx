@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { 
-  CheckCircle2, 
-  Circle, 
-  Plus, 
-  Trophy, 
-  Star, 
-  Trash2, 
-  Calendar,
+import {
+  CheckCircle2,
+  Plus,
+  Trophy,
+  Star,
+  Trash2,
   User,
   Medal
 } from "lucide-react";
@@ -29,19 +27,36 @@ interface UserStats {
   totalTasksCompleted: number;
 }
 
-export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: "1", title: "Clean the kitchen", points: 50, completed: false, assignee: "Dad" },
-    { id: "2", title: "Take out trash", points: 20, completed: false, assignee: "Mom" },
-    { id: "3", title: "Water plants", points: 15, completed: true, assignee: "Kid" },
-  ]);
+const DEFAULT_TASKS: Task[] = [
+  { id: "1", title: "Clean the kitchen", points: 50, completed: false, assignee: "Dad" },
+  { id: "2", title: "Take out trash", points: 20, completed: false, assignee: "Mom" },
+  { id: "3", title: "Water plants", points: 15, completed: true, assignee: "Kid" },
+];
 
-  const [stats, setStats] = useState<UserStats>({
-    level: 1,
-    currentXP: 15,
-    xpToNextLevel: 100,
-    totalTasksCompleted: 1
+const DEFAULT_STATS: UserStats = {
+  level: 1,
+  currentXP: 15,
+  xpToNextLevel: 100,
+  totalTasksCompleted: 1
+};
+
+export default function TasksPage() {
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    try {
+      const s = localStorage.getItem('tasks');
+      return s ? JSON.parse(s) as Task[] : DEFAULT_TASKS;
+    } catch { return DEFAULT_TASKS; }
   });
+
+  const [stats, setStats] = useState<UserStats>(() => {
+    try {
+      const s = localStorage.getItem('task_stats');
+      return s ? JSON.parse(s) as UserStats : DEFAULT_STATS;
+    } catch { return DEFAULT_STATS; }
+  });
+
+  useEffect(() => { localStorage.setItem('tasks', JSON.stringify(tasks)); }, [tasks]);
+  useEffect(() => { localStorage.setItem('task_stats', JSON.stringify(stats)); }, [stats]);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPoints, setNewTaskPoints] = useState(10);

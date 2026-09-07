@@ -1,19 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ShoppingCart } from "lucide-react";
 import { ShoppingItem, SaleOffer } from "./types";
 import ShoppingList from "./components/ShoppingList";
 import DealsTab from "./components/DealsTab";
 
+const DEFAULT_ITEMS: ShoppingItem[] = [
+  { id: "1", text: "Milk", completed: false, price: 1.95, store: "Migros" },
+  { id: "2", text: "Chocolate", completed: false, price: 3.50, store: "Migros" },
+  { id: "3", text: "Bread", completed: true, store: "Bakery" },
+];
+
+const DEFAULT_SHOPS = ["Migros", "Coop", "Denner", "Aldi", "Lidl"];
+
 export default function ShoppingPage() {
   const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
-  const [items, setItems] = useState<ShoppingItem[]>([
-    { id: "1", text: "Milk", completed: false, price: 1.95, store: "Migros" },
-    { id: "2", text: "Chocolate", completed: false, price: 3.50, store: "Migros" },
-    { id: "3", text: "Bread", completed: true, store: "Bakery" },
-  ]);
-  const [shops, setShops] = useState<string[]>(["Migros", "Coop", "Denner", "Aldi", "Lidl"]);
+  const [items, setItems] = useState<ShoppingItem[]>(() => {
+    try {
+      const s = localStorage.getItem('shopping_items');
+      return s ? JSON.parse(s) as ShoppingItem[] : DEFAULT_ITEMS;
+    } catch { return DEFAULT_ITEMS; }
+  });
+  const [shops, setShops] = useState<string[]>(() => {
+    try {
+      const s = localStorage.getItem('shopping_shops');
+      return s ? JSON.parse(s) as string[] : DEFAULT_SHOPS;
+    } catch { return DEFAULT_SHOPS; }
+  });
+
+  useEffect(() => { localStorage.setItem('shopping_items', JSON.stringify(items)); }, [items]);
+  useEffect(() => { localStorage.setItem('shopping_shops', JSON.stringify(shops)); }, [shops]);
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
@@ -43,7 +60,7 @@ export default function ShoppingPage() {
       } else {
         setSalesError("Could not load live offers.");
       }
-    } catch (err) {
+    } catch {
       setSalesError("Failed to fetch offers.");
     } finally {
       setIsLoadingSales(false);

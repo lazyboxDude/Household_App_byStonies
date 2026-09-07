@@ -8,17 +8,15 @@ import {
   endOfMonth, 
   startOfWeek, 
   endOfWeek, 
-  eachDayOfInterval, 
-  addMonths, 
-  subMonths, 
-  isSameMonth, 
-  isSameDay, 
+  eachDayOfInterval,
+  addMonths,
+  subMonths,
+  isSameMonth,
+  isSameDay,
   isToday,
-  getDay,
-  startOfDay,
-  endOfDay
+  getDay
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 
 interface CalendarEvent {
   id: string;
@@ -63,10 +61,8 @@ export default function CalendarPage() {
     }
     return [];
   });
-  const [isLoaded, setIsLoaded] = useState(true);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const [activeTab, setActiveTab] = useState<'schedule' | 'discover'>('schedule');
-  
+
   // Discovery State
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -139,14 +135,10 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   };
 
-  // events are initialized from localStorage above; isLoaded is true by default
-
   // Save events to localStorage
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('calendar_events', JSON.stringify(events));
-    }
-  }, [events, isLoaded]);
+    localStorage.setItem('calendar_events', JSON.stringify(events));
+  }, [events]);
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -423,58 +415,36 @@ export default function CalendarPage() {
             </div>
             
             <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
-                                          <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo (Optional)</label>
-                                            <input
-                                              type="file"
-                                              accept="image/*"
-                                              capture="environment"
-                                              onChange={async e => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                  const reader = new FileReader();
-                                                  reader.onload = async (ev) => {
-                                                    const imageData = ev.target?.result as string;
-                                                    setNewEventPhoto(imageData);
-                                                    // OCR: extract text from image
-                                                    const { data } = await Tesseract.recognize(imageData, 'eng');
-                                                    if (data.text) {
-                                                      // Try to autofill event title with first line of text
-                                                      const firstLine = data.text.split('\n').find(line => line.trim().length > 0);
-                                                      if (firstLine) setNewEventTitle(firstLine.trim());
-                                                    }
-                                                  };
-                                                  reader.readAsDataURL(file);
-                                                }
-                                              }}
-                                              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                                            />
-                                            {newEventPhoto && (
-                                              <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
-                                            )}
-                                          </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo (Optional)</label>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={e => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = (ev) => {
-                                      setNewEventPhoto(ev.target?.result as string);
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }
-                                }}
-                                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                              />
-                              {newEventPhoto && (
-                                <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
-                              )}
-                            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo (Optional)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const imageData = ev.target?.result as string;
+                        setNewEventPhoto(imageData);
+                        // OCR: extract text from image
+                        const { data } = await Tesseract.recognize(imageData, 'eng');
+                        if (data.text) {
+                          // Try to autofill event title with first line of text
+                          const firstLine = data.text.split('\n').find(line => line.trim().length > 0);
+                          if (firstLine) setNewEventTitle(firstLine.trim());
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                />
+                {newEventPhoto && (
+                  <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border" />
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event Title</label>
                 <input

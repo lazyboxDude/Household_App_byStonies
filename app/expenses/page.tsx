@@ -119,7 +119,7 @@ export default function ExpensesPage() {
       a.href = url; a.download = `expenses_${new Date().toISOString().slice(0,10)}.csv`; a.click();
       URL.revokeObjectURL(url);
       showToast('Exported expenses CSV', 'success');
-    } catch (err) { showToast('Failed to export CSV', 'error'); }
+    } catch { showToast('Failed to export CSV', 'error'); }
   };
 
   const importCSV = (file: File) => {
@@ -195,7 +195,6 @@ export default function ExpensesPage() {
     const newCat = window.prompt('Edit category', ex.category) || ex.category;
     const newNote = window.prompt('Edit note', ex.note || '') || undefined;
     setExpenses(prev => prev.map(x => x.id === id ? { ...x, title: newTitle, amount: newAmt, category: newCat, note: newNote } : x));
-    localStorage.setItem('expenses', JSON.stringify(expenses.map(x => x.id === id ? { ...x, title: newTitle, amount: newAmt, category: newCat, note: newNote } : x)));
     showToast('Expense updated', 'success');
   };
 

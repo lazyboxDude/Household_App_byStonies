@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: appwriteUser.email,
           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${appwriteUser.name}`
         });
-      } catch (error) {
+      } catch {
         // 2. Fallback to LocalStorage (for "Name only" login)
         const storedUser = localStorage.getItem("household_user");
         if (storedUser) setUser(JSON.parse(storedUser));
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await account.deleteSession('current');
-    } catch (error) {
+    } catch {
       // Ignore error if already logged out
     }
     setUser(null);

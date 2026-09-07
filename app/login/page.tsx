@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Home, UserPlus, ArrowRight, Sparkles, Mail } from "lucide-react";
+import { Home, ArrowRight, Sparkles } from "lucide-react";
 
 export default function LoginPage() {
   const { login, loginWithGoogle, createHousehold, joinHousehold, user, household } = useAuth();
