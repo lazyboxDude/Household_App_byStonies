@@ -44,6 +44,14 @@ below so we know what's next after the current work (Cleaning Plan in Tasks).
 
 ## TODO — roadmap for later sessions
 
+### ⚠️ Manual setup required (Supabase dashboard — cannot be done from code)
+- [ ] **Authentication → Providers → Google**: add a real Google OAuth Client
+      ID/Secret (from the Google Cloud Console). Without this, "Continue with
+      Google" in `AuthContext.tsx` fails.
+- [ ] **Authentication → Sign In / Providers**: enable **Anonymous Sign-Ins**.
+      Without this, the "just your name" quick login
+      (`supabase.auth.signInAnonymously`) fails.
+
 ### Now
 - [ ] Tasks page: general household tasks (one-off + daily), e.g. "buy a toolbox",
       "set up smart home" — keep the existing gamified list.

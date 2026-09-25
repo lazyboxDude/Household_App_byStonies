@@ -1,36 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShoppingCart } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { ShoppingCart, Loader2 } from "lucide-react";
 import { ShoppingItem, SaleOffer } from "./types";
 import ShoppingList from "./components/ShoppingList";
 import DealsTab from "./components/DealsTab";
-
-const DEFAULT_ITEMS: ShoppingItem[] = [
-  { id: "1", text: "Milk", completed: false, price: 1.95, store: "Migros" },
-  { id: "2", text: "Chocolate", completed: false, price: 3.50, store: "Migros" },
-  { id: "3", text: "Bread", completed: true, store: "Bakery" },
-];
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 
 const DEFAULT_SHOPS = ["Migros", "Coop", "Denner", "Aldi", "Lidl"];
 
 export default function ShoppingPage() {
-  const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
-  const [items, setItems] = useState<ShoppingItem[]>(() => {
-    try {
-      const s = localStorage.getItem('shopping_items');
-      return s ? JSON.parse(s) as ShoppingItem[] : DEFAULT_ITEMS;
-    } catch { return DEFAULT_ITEMS; }
-  });
-  const [shops, setShops] = useState<string[]>(() => {
-    try {
-      const s = localStorage.getItem('shopping_shops');
-      return s ? JSON.parse(s) as string[] : DEFAULT_SHOPS;
-    } catch { return DEFAULT_SHOPS; }
-  });
+  const { household } = useAuth();
+  const householdId = household?.id;
 
-  useEffect(() => { localStorage.setItem('shopping_items', JSON.stringify(items)); }, [items]);
-  useEffect(() => { localStorage.setItem('shopping_shops', JSON.stringify(shops)); }, [shops]);
+  const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
+  const [items, setItems] = useState<ShoppingItem[]>([]);
+  const [shops, setShops] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
@@ -43,6 +33,72 @@ export default function ShoppingPage() {
 
   // Category State
   const [selectedCategory, setSelectedCategory] = useState("All");
+
+  const loadData = useCallback(async () => {
+    if (!householdId) return;
+    setLoadError("");
+
+    const [itemsRes, shopsRes] = await Promise.all([
+      supabase
+        .from("shopping_items")
+        .select("*")
+        .eq("household_id", householdId)
+        .order("created_at", { ascending: false }),
+      supabase.from("shops").select("*").eq("household_id", householdId).order("name"),
+    ]);
+
+    if (itemsRes.error || shopsRes.error) {
+      console.error(itemsRes.error || shopsRes.error);
+      setLoadError("Could not load the shopping list.");
+      setIsLoading(false);
+      return;
+    }
+
+    setItems(itemsRes.data as ShoppingItem[]);
+
+    let shopNames = (shopsRes.data ?? []).map((s) => s.name);
+    if (shopNames.length === 0) {
+      // First time this household opens Shopping — seed the starter shops.
+      // ignoreDuplicates guards against two members racing to seed at once.
+      const { data: seeded, error: seedError } = await supabase
+        .from("shops")
+        .upsert(
+          DEFAULT_SHOPS.map((name) => ({ household_id: householdId, name })),
+          { onConflict: "household_id,name", ignoreDuplicates: true }
+        )
+        .select();
+      shopNames = seedError ? DEFAULT_SHOPS : (seeded ?? []).map((s) => s.name);
+    }
+    setShops(shopNames.sort());
+    setIsLoading(false);
+  }, [householdId]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    loadData();
+  }, [loadData]);
+
+  // Live sync: reload whenever any household member adds/edits/removes an
+  // item or shop (including our own writes, which is harmless).
+  useEffect(() => {
+    if (!householdId) return;
+    const channel = supabase
+      .channel(`shopping-${householdId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shopping_items", filter: `household_id=eq.${householdId}` },
+        loadData
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shops", filter: `household_id=eq.${householdId}` },
+        loadData
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId, loadData]);
 
   // Fetch deals
   const loadDeals = async (storeName: string = "Migros") => {
@@ -67,82 +123,113 @@ export default function ShoppingPage() {
     }
   };
 
-  const addItem = (e: React.FormEvent) => {
+  const addItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItem.trim()) return;
+    if (!newItem.trim() || !householdId) return;
 
-    const storeName = newStore.trim();
-    if (storeName && !shops.includes(storeName)) {
-      setShops(prev => [...prev, storeName].sort());
+    const storeName = newStore.trim() || null;
+    const price = newPrice ? parseFloat(newPrice) : null;
+
+    const { data, error } = await supabase
+      .from("shopping_items")
+      .insert({ household_id: householdId, text: newItem.trim(), price, store: storeName })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to add item:", error);
+      return;
     }
 
-    const item: ShoppingItem = {
-      id: Date.now().toString(),
-      text: newItem.trim(),
-      completed: false,
-      price: newPrice ? parseFloat(newPrice) : undefined,
-      store: storeName || undefined,
-    };
+    setItems((prev) => [data as ShoppingItem, ...prev]);
 
-    setItems([item, ...items]);
+    if (storeName && !shops.includes(storeName)) {
+      const { data: shop } = await supabase
+        .from("shops")
+        .upsert({ household_id: householdId, name: storeName }, { onConflict: "household_id,name", ignoreDuplicates: true })
+        .select()
+        .maybeSingle();
+      if (shop) setShops((prev) => [...prev, shop.name].sort());
+    }
+
     setNewItem("");
     setNewPrice("");
     setNewStore("");
   };
 
-  const simulateFindShops = () => {
+  const simulateFindShops = async () => {
+    if (!householdId) return;
     // In a real app, this would use the Google Places API
     const nearby = ["Local Market", "Fresh Grocer", "City Supermarket"];
-    const newShops = nearby.filter(s => !shops.includes(s));
-    if (newShops.length > 0) {
-      setShops(prev => [...prev, ...newShops].sort());
-      alert(`Found ${newShops.length} nearby shops!`);
-    } else {
+    const newShopNames = nearby.filter((s) => !shops.includes(s));
+    if (newShopNames.length === 0) {
       alert("No new shops found nearby.");
+      return;
     }
+    const { data, error } = await supabase
+      .from("shops")
+      .upsert(
+        newShopNames.map((name) => ({ household_id: householdId, name })),
+        { onConflict: "household_id,name", ignoreDuplicates: true }
+      )
+      .select();
+    if (error) {
+      console.error("Failed to add nearby shops:", error);
+      return;
+    }
+    setShops((prev) => [...new Set([...prev, ...(data ?? []).map((s) => s.name)])].sort());
+    alert(`Found ${data?.length ?? 0} nearby shops!`);
   };
 
   const toggleItem = async (id: string) => {
-    const updated = items.map((item) =>
-      item.id === id ? { ...item, completed: !item.completed } : item
-    );
-    // find the toggled item
-    const toggled = updated.find(i => i.id === id);
-    setItems(updated);
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    const nextCompleted = !target.completed;
 
-    // If item was just marked completed, add it as an expense
-    const was = items.find(i => i.id === id);
-    if (toggled && was && !was.completed && toggled.completed) {
-      // If price missing, prompt user for it
-      let amount = toggled.price ? Number(toggled.price) : undefined;
-      if (amount === undefined) {
-        const input = window.prompt(`Enter price for "${toggled.text}" (e.g. 2.50):`, '');
+    const { data, error } = await supabase
+      .from("shopping_items")
+      .update({ completed: nextCompleted })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Failed to toggle item:", error);
+      return;
+    }
+    setItems((prev) => prev.map((i) => (i.id === id ? (data as ShoppingItem) : i)));
+
+    // If the item was just marked completed, log it as an expense. Expenses
+    // itself still lives in localStorage (not migrated yet), so this keeps
+    // writing there for now rather than to the new `expenses` table.
+    if (!target.completed && nextCompleted) {
+      let amount: number | null = target.price;
+      if (amount === null) {
+        const input = window.prompt(`Enter price for "${target.text}" (e.g. 2.50):`, '');
         if (input !== null) {
           const parsed = parseFloat(input.replace(/[^0-9.\\-]/g, ''));
           if (!isNaN(parsed)) {
             amount = parsed;
-            // update the item price in state
-            setItems(prev => prev.map(it => it.id === toggled.id ? { ...it, price: amount } : it));
+            await supabase.from("shopping_items").update({ price: parsed }).eq("id", id);
+            setItems((prev) => prev.map((i) => (i.id === id ? { ...i, price: parsed } : i)));
           } else {
             amount = 0;
           }
         } else {
-          // user cancelled prompt; default to 0
           amount = 0;
         }
       }
 
-      // Map store to budget category when possible (centralized)
       const { mapStoreToCategory } = await import('../../lib/storeMapping');
-      const category = mapStoreToCategory(toggled.store);
+      const category = mapStoreToCategory(target.store);
 
       const expense = {
         id: Date.now().toString(),
-        title: toggled.text,
+        title: target.text,
         amount: amount || 0,
         date: new Date().toISOString(),
         category,
-        note: `Added from Shopping list (${toggled.store || 'unknown store'})`
+        note: `Added from Shopping list (${target.store || 'unknown store'})`
       };
 
       try {
@@ -150,11 +237,8 @@ export default function ShoppingPage() {
         const arr = raw ? JSON.parse(raw) : [];
         arr.push(expense);
         localStorage.setItem('expenses', JSON.stringify(arr));
-        // notify other parts of the app
         window.dispatchEvent(new CustomEvent('expense:added', { detail: expense }));
-        // notify for undo UI; expenses page will handle the undoable banner
         window.dispatchEvent(new CustomEvent('expense:undoable', { detail: expense }));
-        // lightweight toast
         const { showToast } = await import('../../lib/toast');
         showToast(`Added expense ${expense.title} — $${expense.amount.toFixed(2)}`, 'success');
       } catch (err) {
@@ -163,8 +247,13 @@ export default function ShoppingPage() {
     }
   };
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id));
+  const deleteItem = async (id: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+    const { error } = await supabase.from("shopping_items").delete().eq("id", id);
+    if (error) {
+      console.error("Failed to delete item:", error);
+      loadData();
+    }
   };
 
   const searchItem = (item: ShoppingItem) => {
@@ -179,21 +268,23 @@ export default function ShoppingPage() {
 
   // Called when clicking the % icon on a list item
   const viewSales = async (storeName: string) => {
-    // Switch to the tab for a better experience
     setActiveTab("deals");
     loadDeals(storeName);
   };
 
-  const addDealToList = (offer: SaleOffer) => {
-    const item: ShoppingItem = {
-      id: Date.now().toString(),
-      text: offer.title,
-      completed: false,
-      // Simple parsing for price, removing text like "was 1.40"
-      price: parseFloat(offer.price.split(' ')[0].replace(/[^0-9.]/g, '')) || undefined,
-      store: currentStoreSales,
-    };
-    setItems(prev => [item, ...prev]);
+  const addDealToList = async (offer: SaleOffer) => {
+    if (!householdId) return;
+    const price = parseFloat(offer.price.split(' ')[0].replace(/[^0-9.]/g, '')) || null;
+    const { data, error } = await supabase
+      .from("shopping_items")
+      .insert({ household_id: householdId, text: offer.title, price, store: currentStoreSales || null })
+      .select()
+      .single();
+    if (error) {
+      console.error("Failed to add deal to list:", error);
+      return;
+    }
+    setItems((prev) => [data as ShoppingItem, ...prev]);
   };
 
   return (
@@ -203,68 +294,94 @@ export default function ShoppingPage() {
           <ShoppingCart className="mr-3 w-8 h-8 text-orange-500" />
           Shopping
         </h1>
-        <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
-          <span
-            aria-hidden
-            className="absolute inset-y-1 rounded-[calc(var(--radius-md)-2px)] bg-[var(--surface)] shadow-sm"
-            style={{
-              width: "calc(50% - 4px)",
-              left: 4,
-              transform: activeTab === "deals" ? "translateX(calc(100% + 0px))" : "translateX(0)",
-              transitionProperty: "transform",
-              transitionDuration: "var(--dur-base)",
-              transitionTimingFunction: "var(--ease-spring)",
-            }}
-          />
-          <button
-            onClick={() => setActiveTab("list")}
-            className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
-          >
-            My List
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("deals");
-              loadDeals("Migros");
-            }}
-            className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
-          >
-            Deals
-          </button>
-        </div>
-      </div>
-
-      <div className="animate-rise">
-        {activeTab === "list" ? (
-          <ShoppingList
-            items={items}
-            shops={shops}
-            newItem={newItem}
-            setNewItem={setNewItem}
-            newPrice={newPrice}
-            setNewPrice={setNewPrice}
-            newStore={newStore}
-            setNewStore={setNewStore}
-            addItem={addItem}
-            simulateFindShops={simulateFindShops}
-            toggleItem={toggleItem}
-            deleteItem={deleteItem}
-            searchItem={searchItem}
-            viewSales={viewSales}
-          />
-        ) : (
-          <DealsTab
-            currentStoreSales={currentStoreSales}
-            salesOffers={salesOffers}
-            isLoadingSales={isLoadingSales}
-            salesError={salesError}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            loadDeals={loadDeals}
-            addDealToList={addDealToList}
-          />
+        {householdId && (
+          <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
+            <span
+              aria-hidden
+              className="absolute inset-y-1 rounded-[calc(var(--radius-md)-2px)] bg-[var(--surface)] shadow-sm"
+              style={{
+                width: "calc(50% - 4px)",
+                left: 4,
+                transform: activeTab === "deals" ? "translateX(calc(100% + 0px))" : "translateX(0)",
+                transitionProperty: "transform",
+                transitionDuration: "var(--dur-base)",
+                transitionTimingFunction: "var(--ease-spring)",
+              }}
+            />
+            <button
+              onClick={() => setActiveTab("list")}
+              className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
+            >
+              My List
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("deals");
+                loadDeals("Migros");
+              }}
+              className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
+            >
+              Deals
+            </button>
+          </div>
         )}
       </div>
+
+      {!householdId ? (
+        <div className="surface p-8 text-center animate-rise">
+          <p className="text-body text-[var(--text-secondary)] mb-4">
+            Join or create a household to start a shared shopping list.
+          </p>
+          <Link href="/login" className="btn btn-primary inline-flex">
+            Go to Login
+          </Link>
+        </div>
+      ) : isLoading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+        </div>
+      ) : loadError ? (
+        <div className="surface p-8 text-center animate-rise">
+          <p className="text-body mb-4" style={{ color: "var(--danger)" }}>
+            {loadError}
+          </p>
+          <button onClick={loadData} className="btn btn-secondary">
+            Try again
+          </button>
+        </div>
+      ) : (
+        <div className="animate-rise">
+          {activeTab === "list" ? (
+            <ShoppingList
+              items={items}
+              shops={shops}
+              newItem={newItem}
+              setNewItem={setNewItem}
+              newPrice={newPrice}
+              setNewPrice={setNewPrice}
+              newStore={newStore}
+              setNewStore={setNewStore}
+              addItem={addItem}
+              simulateFindShops={simulateFindShops}
+              toggleItem={toggleItem}
+              deleteItem={deleteItem}
+              searchItem={searchItem}
+              viewSales={viewSales}
+            />
+          ) : (
+            <DealsTab
+              currentStoreSales={currentStoreSales}
+              salesOffers={salesOffers}
+              isLoadingSales={isLoadingSales}
+              salesError={salesError}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+              loadDeals={loadDeals}
+              addDealToList={addDealToList}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

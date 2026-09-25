@@ -2,8 +2,8 @@ export interface ShoppingItem {
   id: string;
   text: string;
   completed: boolean;
-  price?: number;
-  store?: string;
+  price: number | null;
+  store: string | null;
 }
 
 export interface SaleOffer {

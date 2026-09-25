@@ -99,13 +99,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadProfile(session.user).finally(() => setIsLoading(false));
-      } else {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          loadProfile(session.user).finally(() => setIsLoading(false));
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        // A network hiccup here must not leave the app stuck on a blank
+        // screen forever — fall back to "signed out" and let the user retry.
+        console.error("Failed to load auth session:", err);
         setIsLoading(false);
-      }
-    });
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
