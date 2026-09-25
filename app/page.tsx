@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CheckSquare,
   DollarSign,
@@ -12,53 +12,35 @@ import {
   MapPin,
   Star,
   User,
+  Loader2,
 } from "lucide-react";
-import { AccountId, DistSettings, DistTransaction } from "./expenses/types";
+import { useAuth } from "./context/AuthContext";
+import { supabase } from "./lib/supabase";
 
-interface StoredTask {
+interface DashTask {
   id: string;
   title: string;
   points: number;
   completed: boolean;
-  assignee?: string;
+  assignee: string | null;
 }
-interface StoredShoppingItem {
+interface DashShoppingItem {
   id: string;
   text: string;
   completed: boolean;
-  price?: number;
-  store?: string;
+  price: number | null;
+  store: string | null;
 }
-interface StoredExpense {
-  id: string;
-  amount: number;
-  date: string;
-  category: string;
-}
-interface StoredBudget {
-  id: string;
-  category: string;
-  amount: number;
-}
-interface StoredCalendarEvent {
+interface DashCalendarEvent {
   id: string;
   title: string;
   date: string;
   time: string;
-  location?: string;
+  location: string | null;
 }
 
-function readJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function eventDateTime(ev: StoredCalendarEvent) {
-  const d = new Date(ev.date);
+function eventDateTime(ev: DashCalendarEvent) {
+  const d = new Date(`${ev.date}T00:00:00`);
   const [h, m] = (ev.time || "00:00").split(":").map(Number);
   d.setHours(h || 0, m || 0, 0, 0);
   return d;
@@ -71,53 +53,110 @@ function startOfToday() {
 }
 
 export default function Home() {
-  const [data] = useState(() => {
+  const { user, household } = useAuth();
+  const userId = user?.id;
+  const householdId = household?.id;
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [pendingTasks, setPendingTasks] = useState<DashTask[]>([]);
+  const [pendingShopping, setPendingShopping] = useState<DashShoppingItem[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<DashCalendarEvent[]>([]);
+  const [eventsTodayCount, setEventsTodayCount] = useState(0);
+  const [spentThisMonth, setSpentThisMonth] = useState(0);
+  const [totalBudget, setTotalBudget] = useState(0);
+  const [vtActive, setVtActive] = useState(false);
+  const [mainBalance, setMainBalance] = useState(0);
+  const [vtMinBuffer, setVtMinBuffer] = useState(0);
+
+  const loadTasks = useCallback(async () => {
+    if (!householdId) return;
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("completed", false)
+      .order("created_at", { ascending: true });
+    setPendingTasks((data ?? []).map((t) => ({ id: t.id, title: t.title, points: t.points, completed: t.completed, assignee: t.assignee })));
+  }, [householdId]);
+
+  const loadShopping = useCallback(async () => {
+    if (!householdId) return;
+    const { data } = await supabase
+      .from("shopping_items")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("completed", false)
+      .order("created_at", { ascending: false });
+    setPendingShopping((data ?? []).map((i) => ({ id: i.id, text: i.text, completed: i.completed, price: i.price, store: i.store })));
+  }, [householdId]);
+
+  const loadEvents = useCallback(async () => {
+    if (!householdId) return;
+    const { data } = await supabase
+      .from("calendar_events")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("date", { ascending: true });
+    const events: DashCalendarEvent[] = (data ?? []).map((ev) => ({ id: ev.id, title: ev.title, date: ev.date, time: ev.time, location: ev.location }));
+    const todayStr = new Date().toDateString();
+    setEventsTodayCount(events.filter((ev) => new Date(`${ev.date}T00:00:00`).toDateString() === todayStr).length);
+    setUpcomingEvents(
+      events
+        .filter((ev) => eventDateTime(ev).getTime() >= startOfToday().getTime())
+        .sort((a, b) => eventDateTime(a).getTime() - eventDateTime(b).getTime())
+        .slice(0, 4)
+    );
+  }, [householdId]);
+
+  const loadFinances = useCallback(async () => {
+    if (!householdId || !userId) return;
     const now = new Date();
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const todayStr = now.toDateString();
 
-    const tasks = readJSON<StoredTask[]>("tasks", []);
-    const pendingTasks = tasks.filter((t) => !t.completed);
+    const [{ data: expenses }, { data: budgets }, { data: vtConfig }, { data: vtTx }] = await Promise.all([
+      supabase.from("expenses").select("amount, date").eq("household_id", householdId).eq("user_id", userId),
+      supabase.from("budgets").select("amount").eq("household_id", householdId).eq("user_id", userId),
+      supabase.from("verteilertopf_config").select("*").eq("household_id", householdId).maybeSingle(),
+      supabase.from("verteilertopf_tx").select("account, amount").eq("household_id", householdId),
+    ]);
 
-    const shoppingItems = readJSON<StoredShoppingItem[]>("shopping_items", []);
-    const pendingShopping = shoppingItems.filter((i) => !i.completed);
+    setSpentThisMonth((expenses ?? []).filter((e) => e.date?.startsWith(monthPrefix)).reduce((s, e) => s + (e.amount || 0), 0));
+    setTotalBudget((budgets ?? []).reduce((s, b) => s + (b.amount || 0), 0));
 
-    const events = readJSON<StoredCalendarEvent[]>("calendar_events", []);
-    const eventsToday = events.filter((ev) => new Date(ev.date).toDateString() === todayStr);
-    const upcomingEvents = events
-      .filter((ev) => eventDateTime(ev).getTime() >= startOfToday().getTime())
-      .sort((a, b) => eventDateTime(a).getTime() - eventDateTime(b).getTime())
-      .slice(0, 4);
+    const openingMain = vtConfig?.opening_main ?? 0;
+    const minBuffer = vtConfig?.min_buffer ?? 0;
+    const mainTx = (vtTx ?? []).filter((t) => t.account === "main");
+    setVtActive((vtTx ?? []).length > 0);
+    setMainBalance(Math.round((openingMain + mainTx.reduce((s, t) => s + t.amount, 0)) * 100) / 100);
+    setVtMinBuffer(minBuffer);
+  }, [householdId, userId]);
 
-    const expenses = readJSON<StoredExpense[]>("expenses", []);
-    const spentThisMonth = expenses
-      .filter((e) => e.date?.startsWith(monthPrefix))
-      .reduce((sum, e) => sum + (e.amount || 0), 0);
-    const budgets = readJSON<StoredBudget[]>("budgets", []);
-    const totalBudget = budgets.reduce((sum, b) => sum + (b.amount || 0), 0);
+  useEffect(() => {
+    if (!householdId || !userId) return;
+    // Standard fetch-on-mount: the loaders set isLoading(false) once done.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsLoading(true);
+    Promise.all([loadTasks(), loadShopping(), loadEvents(), loadFinances()]).finally(() => setIsLoading(false));
+  }, [householdId, userId, loadTasks, loadShopping, loadEvents, loadFinances]);
 
-    // Verteilertopf (income-distribution) main-account snapshot, when in use.
-    const vtSettings = readJSON<DistSettings>("verteilertopf_settings", { taxes: 0, bills: 0, joint: 0, minBuffer: 0 });
-    const vtOpening = readJSON<Record<AccountId, number>>("verteilertopf_opening", { main: 0, taxes: 0, bills: 0, joint: 0 });
-    const vtTx = readJSON<DistTransaction[]>("verteilertopf_tx", []);
-    const vtActive = vtTx.length > 0;
-    const mainBalance = Math.round(
-      (vtOpening.main + vtTx.filter((t) => t.account === "main").reduce((s, t) => s + t.amount, 0)) * 100
-    ) / 100;
-    const mainStatus: "ok" | "warn" | "bad" = mainBalance < 0 ? "bad" : mainBalance < vtSettings.minBuffer ? "warn" : "ok";
-
-    return {
-      pendingTasks,
-      pendingShopping,
-      eventsToday,
-      upcomingEvents,
-      spentThisMonth,
-      totalBudget,
-      vtActive,
-      mainBalance,
-      mainStatus,
+  useEffect(() => {
+    if (!householdId || !userId) return;
+    const channel = supabase
+      .channel(`dashboard-${householdId}-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `household_id=eq.${householdId}` }, loadTasks)
+      .on("postgres_changes", { event: "*", schema: "public", table: "shopping_items", filter: `household_id=eq.${householdId}` }, loadShopping)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `household_id=eq.${householdId}` }, loadEvents)
+      .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: `user_id=eq.${userId}` }, loadFinances)
+      .on("postgres_changes", { event: "*", schema: "public", table: "budgets", filter: `user_id=eq.${userId}` }, loadFinances)
+      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_config", filter: `household_id=eq.${householdId}` }, loadFinances)
+      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_tx", filter: `household_id=eq.${householdId}` }, loadFinances)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
     };
-  });
+  }, [householdId, userId, loadTasks, loadShopping, loadEvents, loadFinances]);
+
+  const mainStatus: "ok" | "warn" | "bad" = mainBalance < 0 ? "bad" : mainBalance < vtMinBuffer ? "warn" : "ok";
 
   const dateLabel = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -126,13 +165,40 @@ export default function Home() {
   });
 
   const kpis = [
-    { label: "Tasks pending", value: String(data.pendingTasks.length), icon: CheckSquare, href: "/tasks" },
-    { label: "Events today", value: String(data.eventsToday.length), icon: CalendarIcon, href: "/calendar" },
-    { label: "Shopping items", value: String(data.pendingShopping.length), icon: ShoppingCart, href: "/shopping" },
-    { label: "Spent this month", value: `$${data.spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
+    { label: "Tasks pending", value: String(pendingTasks.length), icon: CheckSquare, href: "/tasks" },
+    { label: "Events today", value: String(eventsTodayCount), icon: CalendarIcon, href: "/calendar" },
+    { label: "Shopping items", value: String(pendingShopping.length), icon: ShoppingCart, href: "/shopping" },
+    { label: "Spent this month", value: `$${spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
   ];
 
-  const budgetPct = data.totalBudget > 0 ? Math.min(100, Math.round((data.spentThisMonth / data.totalBudget) * 100)) : 0;
+  const budgetPct = totalBudget > 0 ? Math.min(100, Math.round((spentThisMonth / totalBudget) * 100)) : 0;
+
+  if (!householdId) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <header className="animate-rise mb-6">
+          <h1 className="text-display text-[var(--text)]">Welcome home</h1>
+          <p className="text-body text-[var(--text-secondary)] mt-1">{dateLabel}</p>
+        </header>
+        <div className="surface p-8 text-center animate-rise">
+          <p className="text-body text-[var(--text-secondary)] mb-4">
+            Join or create a household to see your dashboard.
+          </p>
+          <Link href="/login" className="btn btn-primary inline-flex">
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -164,24 +230,25 @@ export default function Home() {
               View calendar <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          {data.upcomingEvents.length === 0 ? (
+          {upcomingEvents.length === 0 ? (
             <p className="text-caption py-4">No upcoming events. Your schedule is clear.</p>
           ) : (
             <div className="space-y-3">
-              {data.upcomingEvents.map((ev) => {
-                const isToday = new Date(ev.date).toDateString() === new Date().toDateString();
+              {upcomingEvents.map((ev) => {
+                const evDate = new Date(`${ev.date}T00:00:00`);
+                const isToday = evDate.toDateString() === new Date().toDateString();
                 return (
                   <div key={ev.id} className="flex items-center gap-3">
                     <div
                       className="w-10 h-10 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 text-xs font-semibold"
                       style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                     >
-                      {new Date(ev.date).toLocaleDateString(undefined, { day: "numeric" })}
+                      {evDate.toLocaleDateString(undefined, { day: "numeric" })}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm truncate">{ev.title}</div>
                       <div className="flex items-center gap-2 text-caption">
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{isToday ? "Today" : new Date(ev.date).toLocaleDateString(undefined, { weekday: "short" })} · {ev.time}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{isToday ? "Today" : evDate.toLocaleDateString(undefined, { weekday: "short" })} · {ev.time}</span>
                         {ev.location && <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3" />{ev.location}</span>}
                       </div>
                     </div>
@@ -200,11 +267,11 @@ export default function Home() {
               View all <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          {data.pendingTasks.length === 0 ? (
+          {pendingTasks.length === 0 ? (
             <p className="text-caption py-4">Nothing pending. Nicely done.</p>
           ) : (
             <div className="space-y-3">
-              {data.pendingTasks.slice(0, 4).map((t) => (
+              {pendingTasks.slice(0, 4).map((t) => (
                 <div key={t.id} className="flex items-center gap-3">
                   <span className="w-5 h-5 rounded-full border-2 shrink-0" style={{ borderColor: "var(--border-strong)" }} />
                   <div className="min-w-0 flex-1">
@@ -228,29 +295,29 @@ export default function Home() {
               View budget <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          {data.vtActive ? (
+          {vtActive ? (
             <div>
               <div className="text-micro normal-case">Hauptkonto buffer</div>
               <div
                 className="text-3xl font-semibold mt-1"
                 style={{
-                  color: data.mainStatus === "bad" ? "var(--danger)" : data.mainStatus === "warn" ? "var(--warning)" : "var(--text)",
+                  color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : "var(--text)",
                 }}
               >
-                {data.mainBalance.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CHF
+                {mainBalance.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CHF
               </div>
               <div
                 className="text-caption mt-1"
-                style={{ color: data.mainStatus === "bad" ? "var(--danger)" : data.mainStatus === "warn" ? "var(--warning)" : undefined }}
+                style={{ color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : undefined }}
               >
-                {data.mainStatus === "bad" ? "Below zero" : data.mainStatus === "warn" ? "Below minimum buffer" : "Healthy buffer"}
+                {mainStatus === "bad" ? "Below zero" : mainStatus === "warn" ? "Below minimum buffer" : "Healthy buffer"}
               </div>
             </div>
-          ) : data.totalBudget > 0 ? (
+          ) : totalBudget > 0 ? (
             <div>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-semibold">${data.spentThisMonth.toFixed(0)}</span>
-                <span className="text-caption">of ${data.totalBudget.toFixed(0)} budgeted</span>
+                <span className="text-2xl font-semibold">${spentThisMonth.toFixed(0)}</span>
+                <span className="text-caption">of ${totalBudget.toFixed(0)} budgeted</span>
               </div>
               <div className="mt-3 h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
                 <div
@@ -266,7 +333,7 @@ export default function Home() {
             </div>
           ) : (
             <div>
-              <div className="text-2xl font-semibold">${data.spentThisMonth.toFixed(2)}</div>
+              <div className="text-2xl font-semibold">${spentThisMonth.toFixed(2)}</div>
               <p className="text-caption mt-2">spent this month · set up a budget or the Verteilertopf for a fuller picture</p>
             </div>
           )}
@@ -280,11 +347,11 @@ export default function Home() {
               View list <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
-          {data.pendingShopping.length === 0 ? (
+          {pendingShopping.length === 0 ? (
             <p className="text-caption py-4">List is empty.</p>
           ) : (
             <div className="space-y-3">
-              {data.pendingShopping.slice(0, 4).map((it) => (
+              {pendingShopping.slice(0, 4).map((it) => (
                 <div key={it.id} className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="font-medium text-sm truncate">{it.text}</div>
