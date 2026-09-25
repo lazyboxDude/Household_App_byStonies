@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { showToast } from '../../lib/toast';
+import Verteilertopf from './components/Verteilertopf';
 
 interface Budget {
   id: string;
@@ -25,7 +26,10 @@ interface Pot {
   saved: number;
 }
 
+type PageTab = 'budget' | 'verteilertopf';
+
 export default function ExpensesPage() {
+  const [pageTab, setPageTab] = useState<PageTab>('budget');
   const [budgets, setBudgets] = useState<Budget[]>(() => {
     try {
       const s = localStorage.getItem('budgets');
@@ -273,6 +277,32 @@ export default function ExpensesPage() {
       )}
       <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Expenses & Budget Planner</h1>
 
+      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setPageTab('budget')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            pageTab === 'budget'
+              ? 'border-orange-600 text-orange-600 dark:text-orange-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Budgets &amp; Ausgaben
+        </button>
+        <button
+          onClick={() => setPageTab('verteilertopf')}
+          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            pageTab === 'verteilertopf'
+              ? 'border-orange-600 text-orange-600 dark:text-orange-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          Verteilertopf
+        </button>
+      </div>
+
+      {pageTab === 'verteilertopf' ? (
+        <Verteilertopf />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Budgets */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
@@ -464,6 +494,7 @@ export default function ExpensesPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
