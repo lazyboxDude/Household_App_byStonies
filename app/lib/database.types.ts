@@ -57,6 +57,7 @@ export type Database = {
           id: string
           location: string | null
           photo_url: string | null
+          source_cleaning_task_id: string | null
           time: string
           title: string
           type: string
@@ -68,6 +69,7 @@ export type Database = {
           id?: string
           location?: string | null
           photo_url?: string | null
+          source_cleaning_task_id?: string | null
           time?: string
           title: string
           type?: string
@@ -79,6 +81,7 @@ export type Database = {
           id?: string
           location?: string | null
           photo_url?: string | null
+          source_cleaning_task_id?: string | null
           time?: string
           title?: string
           type?: string
@@ -89,6 +92,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_source_cleaning_task_id_fkey"
+            columns: ["source_cleaning_task_id"]
+            isOneToOne: false
+            referencedRelation: "cleaning_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -254,6 +264,7 @@ export type Database = {
           household_id: string
           level: number
           total_tasks_completed: number
+          total_xp_earned: number
           user_id: string
           xp_to_next_level: number
         }
@@ -262,6 +273,7 @@ export type Database = {
           household_id: string
           level?: number
           total_tasks_completed?: number
+          total_xp_earned?: number
           user_id: string
           xp_to_next_level?: number
         }
@@ -270,6 +282,7 @@ export type Database = {
           household_id?: string
           level?: number
           total_tasks_completed?: number
+          total_xp_earned?: number
           user_id?: string
           xp_to_next_level?: number
         }
@@ -279,6 +292,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_stats_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

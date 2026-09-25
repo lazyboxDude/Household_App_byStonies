@@ -1,63 +1,93 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckCircle2, Plus, Star, Trash2, User, Medal } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Plus, Star, Trash2, User, Medal, Loader2 } from "lucide-react";
 import { Task } from "../types";
-
-const DEFAULT_TASKS: Task[] = [
-  { id: "1", title: "Buy a toolbox", points: 20, completed: false },
-  { id: "2", title: "Set up smart home hub", points: 50, completed: false },
-  { id: "3", title: "Water plants", points: 15, completed: true, assignee: "Kid" },
-];
+import { supabase } from "../../lib/supabase";
 
 export default function TaskListTab({
+  householdId,
   onAwardPoints,
 }: {
+  householdId: string;
   onAwardPoints: (points: number) => void;
 }) {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    try {
-      const s = localStorage.getItem("tasks");
-      return s ? (JSON.parse(s) as Task[]) : DEFAULT_TASKS;
-    } catch {
-      return DEFAULT_TASKS;
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskPoints, setNewTaskPoints] = useState(10);
 
-  const addTask = () => {
-    if (!newTaskTitle.trim()) return;
+  const loadTasks = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("created_at", { ascending: true });
+    if (!error) setTasks((data ?? []) as Task[]);
+    setIsLoading(false);
+  }, [householdId]);
 
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title: newTaskTitle,
-      points: newTaskPoints,
-      completed: false,
+  useEffect(() => {
+    // Standard fetch-on-mount: loadTasks sets isLoading(false) once done.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadTasks();
+  }, [loadTasks]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`tasks-${householdId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tasks", filter: `household_id=eq.${householdId}` },
+        loadTasks
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
     };
+  }, [householdId, loadTasks]);
 
-    setTasks([...tasks, newTask]);
-    setNewTaskTitle("");
+  const addTask = async () => {
+    if (!newTaskTitle.trim()) return;
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({ household_id: householdId, title: newTaskTitle.trim(), points: newTaskPoints })
+      .select()
+      .single();
+    if (!error) {
+      setTasks((prev) => [...prev, data as Task]);
+      setNewTaskTitle("");
+    }
   };
 
-  const toggleTask = (taskId: string) => {
+  const toggleTask = async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
-
     const isCompleting = !task.completed;
 
-    setTasks(tasks.map((t) => (t.id === taskId ? { ...t, completed: isCompleting } : t)));
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed: isCompleting } : t)));
     onAwardPoints(isCompleting ? task.points : -task.points);
+
+    const { error } = await supabase.from("tasks").update({ completed: isCompleting }).eq("id", taskId);
+    if (error) {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed: !isCompleting } : t)));
+    }
   };
 
-  const deleteTask = (taskId: string) => {
-    setTasks(tasks.filter((t) => t.id !== taskId));
+  const deleteTask = async (taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+    if (error) loadTasks();
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

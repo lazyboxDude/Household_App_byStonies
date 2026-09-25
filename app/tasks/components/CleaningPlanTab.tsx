@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -10,10 +10,12 @@ import {
   User,
   CalendarClock,
   DoorOpen,
+  Loader2,
 } from "lucide-react";
 import { CleaningTask, Recurrence, Room } from "../types";
 import { DEFAULT_ROOMS, ROOM_ICON_PRESETS, RECURRENCE_OPTIONS, SUPPLY_SUGGESTIONS } from "../constants";
-import { removeCleaningCalendarEvent, upsertCleaningCalendarEvent } from "../calendarSync";
+import { upsertCleaningCalendarEvent } from "../calendarSync";
+import { supabase } from "../../lib/supabase";
 
 const POINTS_BY_RECURRENCE: Record<Recurrence, number> = {
   daily: 5,
@@ -43,54 +45,110 @@ function dueStatus(nextDue: string): { label: string; className: string } {
 }
 
 export default function CleaningPlanTab({
+  householdId,
   onAwardPoints,
 }: {
+  householdId: string;
   onAwardPoints: (points: number) => void;
 }) {
-  const [rooms, setRooms] = useState<Room[]>(() => {
-    try {
-      const s = localStorage.getItem("cleaning_rooms");
-      return s ? (JSON.parse(s) as Room[]) : DEFAULT_ROOMS;
-    } catch {
-      return DEFAULT_ROOMS;
-    }
-  });
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>(() => {
-    try {
-      const s = localStorage.getItem("cleaning_tasks");
-      return s ? (JSON.parse(s) as CleaningTask[]) : [];
-    } catch {
-      return [];
+  const loadRooms = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("rooms")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("created_at", { ascending: true });
+    if (!error) {
+      let list = (data ?? []) as Room[];
+      if (list.length === 0) {
+        const { data: seeded } = await supabase
+          .from("rooms")
+          .insert(DEFAULT_ROOMS.map((r) => ({ household_id: householdId, name: r.name, icon: r.icon })))
+          .select();
+        list = (seeded ?? []) as Room[];
+      }
+      setRooms(list);
+      setSelectedRoomId((prev) => prev ?? list[0]?.id ?? null);
     }
-  });
+  }, [householdId]);
 
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(rooms[0]?.id ?? null);
+  const loadCleaningTasks = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("cleaning_tasks")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("created_at", { ascending: true });
+    if (!error) {
+      setCleaningTasks(
+        (data ?? []).map((t) => ({
+          id: t.id,
+          roomId: t.room_id,
+          title: t.title,
+          supplies: t.supplies,
+          recurrence: t.recurrence as Recurrence,
+          assignee: t.assignee,
+          lastDone: t.last_done,
+          nextDue: t.next_due,
+        }))
+      );
+    }
+  }, [householdId]);
 
   useEffect(() => {
-    localStorage.setItem("cleaning_rooms", JSON.stringify(rooms));
-  }, [rooms]);
+    // Standard fetch-on-mount: sets isLoading(false) once both loads finish.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    Promise.all([loadRooms(), loadCleaningTasks()]).finally(() => setIsLoading(false));
+  }, [loadRooms, loadCleaningTasks]);
 
   useEffect(() => {
-    localStorage.setItem("cleaning_tasks", JSON.stringify(cleaningTasks));
-  }, [cleaningTasks]);
+    const channel = supabase
+      .channel(`cleaning-${householdId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `household_id=eq.${householdId}` }, loadRooms)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cleaning_tasks", filter: `household_id=eq.${householdId}` },
+        loadCleaningTasks
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId, loadRooms, loadCleaningTasks]);
 
   const [newRoomName, setNewRoomName] = useState("");
   const [newRoomIcon, setNewRoomIcon] = useState(ROOM_ICON_PRESETS[0]);
 
-  const addRoom = () => {
+  const addRoom = async () => {
     if (!newRoomName.trim()) return;
-    const room: Room = { id: Date.now().toString(), name: newRoomName.trim(), icon: newRoomIcon };
-    setRooms([...rooms, room]);
-    setSelectedRoomId(room.id);
-    setNewRoomName("");
+    const { data, error } = await supabase
+      .from("rooms")
+      .insert({ household_id: householdId, name: newRoomName.trim(), icon: newRoomIcon })
+      .select()
+      .single();
+    if (!error) {
+      setRooms((prev) => [...prev, data as Room]);
+      setSelectedRoomId(data.id);
+      setNewRoomName("");
+    }
   };
 
-  const deleteRoom = (roomId: string) => {
-    cleaningTasks.filter((t) => t.roomId === roomId).forEach((t) => removeCleaningCalendarEvent(t.id));
-    setCleaningTasks(cleaningTasks.filter((t) => t.roomId !== roomId));
-    setRooms(rooms.filter((r) => r.id !== roomId));
-    if (selectedRoomId === roomId) setSelectedRoomId(rooms.find((r) => r.id !== roomId)?.id ?? null);
+  const deleteRoom = async (roomId: string) => {
+    // Deleting the room cascades to its cleaning tasks and their linked
+    // calendar events in the database — nothing else to clean up here.
+    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+    setCleaningTasks((prev) => prev.filter((t) => t.roomId !== roomId));
+    if (selectedRoomId === roomId) {
+      setSelectedRoomId(rooms.find((r) => r.id !== roomId)?.id ?? null);
+    }
+    const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+    if (error) {
+      loadRooms();
+      loadCleaningTasks();
+    }
   };
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -112,57 +170,93 @@ export default function CleaningPlanTab({
     setCustomSupply("");
   };
 
-  const addCleaningTask = () => {
+  const addCleaningTask = async () => {
     if (!newTaskTitle.trim() || !selectedRoomId) return;
 
-    const task: CleaningTask = {
-      id: Date.now().toString(),
-      roomId: selectedRoomId,
-      title: newTaskTitle.trim(),
-      supplies: newTaskSupplies,
-      recurrence: newTaskRecurrence,
-      assignee: newTaskAssignee.trim() || undefined,
-      nextDue: todayISO(),
-    };
+    const nextDue = todayISO();
+    const { data, error } = await supabase
+      .from("cleaning_tasks")
+      .insert({
+        household_id: householdId,
+        room_id: selectedRoomId,
+        title: newTaskTitle.trim(),
+        supplies: newTaskSupplies,
+        recurrence: newTaskRecurrence,
+        assignee: newTaskAssignee.trim() || null,
+        next_due: nextDue,
+      })
+      .select()
+      .single();
 
-    setCleaningTasks([...cleaningTasks, task]);
-    const room = rooms.find((r) => r.id === selectedRoomId);
-    upsertCleaningCalendarEvent({
-      taskId: task.id,
-      title: `${room?.name ?? "Room"}: ${task.title}`,
-      date: task.nextDue,
-    });
+    if (!error && data) {
+      const task: CleaningTask = {
+        id: data.id,
+        roomId: data.room_id,
+        title: data.title,
+        supplies: data.supplies,
+        recurrence: data.recurrence as Recurrence,
+        assignee: data.assignee,
+        lastDone: data.last_done,
+        nextDue: data.next_due,
+      };
+      setCleaningTasks((prev) => [...prev, task]);
+
+      const room = rooms.find((r) => r.id === selectedRoomId);
+      await upsertCleaningCalendarEvent({
+        householdId,
+        taskId: task.id,
+        title: `${room?.name ?? "Room"}: ${task.title}`,
+        date: task.nextDue,
+      });
+    }
 
     setNewTaskTitle("");
     setNewTaskSupplies([]);
     setNewTaskAssignee("");
   };
 
-  const markDone = (task: CleaningTask) => {
+  const markDone = async (task: CleaningTask) => {
     onAwardPoints(POINTS_BY_RECURRENCE[task.recurrence]);
 
     if (task.recurrence === "once") {
-      removeCleaningCalendarEvent(task.id);
-      setCleaningTasks(cleaningTasks.filter((t) => t.id !== task.id));
+      // Deleting the task cascades to remove its calendar event too.
+      setCleaningTasks((prev) => prev.filter((t) => t.id !== task.id));
+      await supabase.from("cleaning_tasks").delete().eq("id", task.id);
       return;
     }
 
     const today = todayISO();
     const nextDue = computeNextDue(task.recurrence, today);
-    setCleaningTasks(
-      cleaningTasks.map((t) => (t.id === task.id ? { ...t, lastDone: today, nextDue } : t))
+    setCleaningTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, lastDone: today, nextDue } : t))
     );
+    await supabase.from("cleaning_tasks").update({ last_done: today, next_due: nextDue }).eq("id", task.id);
+
     const room = rooms.find((r) => r.id === task.roomId);
-    upsertCleaningCalendarEvent({ taskId: task.id, title: `${room?.name ?? "Room"}: ${task.title}`, date: nextDue });
+    await upsertCleaningCalendarEvent({
+      householdId,
+      taskId: task.id,
+      title: `${room?.name ?? "Room"}: ${task.title}`,
+      date: nextDue,
+    });
   };
 
-  const deleteCleaningTask = (taskId: string) => {
-    removeCleaningCalendarEvent(taskId);
-    setCleaningTasks(cleaningTasks.filter((t) => t.id !== taskId));
+  const deleteCleaningTask = async (taskId: string) => {
+    setCleaningTasks((prev) => prev.filter((t) => t.id !== taskId));
+    const { error } = await supabase.from("cleaning_tasks").delete().eq("id", taskId);
+    if (error) loadCleaningTasks();
   };
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId) ?? null;
   const tasksInRoom = cleaningTasks.filter((t) => t.roomId === selectedRoomId);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-teal-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

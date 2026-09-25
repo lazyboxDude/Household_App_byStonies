@@ -1,6 +1,7 @@
 "use client";
 import Tesseract from 'tesseract.js';
-import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   format,
@@ -17,6 +18,8 @@ import {
   getDay
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 interface CalendarEvent {
   id: string;
@@ -25,7 +28,7 @@ interface CalendarEvent {
   time: string;
   type: 'task' | 'shopping' | 'event';
   location?: string;
-  photo?: string; // base64 or data URL
+  photo?: string; // base64 data URL or a real URL
 }
 
 interface Suggestion {
@@ -34,39 +37,28 @@ interface Suggestion {
   category: string;
   location?: string;
   description: string;
-  // ...existing code...
+}
+
+// A bare "yyyy-MM-dd" parses as UTC midnight in JS, which can shift a day
+// backwards in timezones behind UTC — force local-midnight parsing instead.
+function parseDateOnly(iso: string) {
+  return new Date(`${iso}T00:00:00`);
 }
 
 export default function CalendarPage() {
+  const { household } = useAuth();
+  const householdId = household?.id;
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [events, setEvents] = useState<CalendarEvent[]>(() => {
-    try {
-      const storedEvents = localStorage.getItem('calendar_events');
-      if (storedEvents) {
-        const raw = JSON.parse(storedEvents) as Array<Record<string, unknown>>;
-        return raw.map(ev => ({
-          id: String(ev.id ?? Date.now().toString()),
-          title: String(ev.title ?? ''),
-          date: new Date(String(ev.date ?? new Date().toISOString())),
-          time: String(ev.time ?? '12:00'),
-          type: (ev.type as 'task' | 'shopping' | 'event') || 'event',
-          location: ev.location ? String(ev.location) : undefined,
-          photo: ev.photo ? String(ev.photo) : undefined,
-        } as CalendarEvent));
-      }
-    } catch (err) {
-      console.error('Failed to read calendar events from storage', err);
-    }
-    return [];
-  });
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
   // Discovery State
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  // ...existing code...
 
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -75,8 +67,49 @@ export default function CalendarPage() {
   const [newEventLocation, setNewEventLocation] = useState('');
   const [newEventPhoto, setNewEventPhoto] = useState<string | null>(null);
 
+  const loadEvents = useCallback(async () => {
+    if (!householdId) return;
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .eq('household_id', householdId)
+      .order('date', { ascending: true });
+    if (!error) {
+      setEvents(
+        (data ?? []).map((ev) => ({
+          id: ev.id,
+          title: ev.title,
+          date: parseDateOnly(ev.date),
+          time: ev.time,
+          type: ev.type as 'task' | 'shopping' | 'event',
+          location: ev.location ?? undefined,
+          photo: ev.photo_url ?? undefined,
+        }))
+      );
+    }
+    setIsLoading(false);
+  }, [householdId]);
 
-  // ...existing code...
+  useEffect(() => {
+    // Standard fetch-on-mount: loadEvents sets isLoading(false) once done.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadEvents();
+  }, [loadEvents]);
+
+  useEffect(() => {
+    if (!householdId) return;
+    const channel = supabase
+      .channel(`calendar-${householdId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'calendar_events', filter: `household_id=eq.${householdId}` },
+        loadEvents
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId, loadEvents]);
 
   // Mock Suggestions Generator (Fallback)
   const getMockSuggestions = (date: Date): Suggestion[] => {
@@ -108,15 +141,11 @@ export default function CalendarPage() {
   useEffect(() => {
     const loadSuggestions = async () => {
       setIsLoadingSuggestions(true);
-      // ...existing code...
-
-      // 1. Try to get location
       if (!navigator.geolocation) {
         setSuggestions(getMockSuggestions(selectedDate));
         setIsLoadingSuggestions(false);
         return;
       }
-
       // Only use mock suggestions for now
       setSuggestions(getMockSuggestions(selectedDate));
       setIsLoadingSuggestions(false);
@@ -134,11 +163,6 @@ export default function CalendarPage() {
     setEditingEvent(null);
     setIsModalOpen(true);
   };
-
-  // Save events to localStorage
-  useEffect(() => {
-    localStorage.setItem('calendar_events', JSON.stringify(events));
-  }, [events]);
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -159,6 +183,7 @@ export default function CalendarPage() {
       setNewEventType(event.type);
       setNewEventLocation(event.location || '');
       setSelectedDate(event.date);
+      setNewEventPhoto(event.photo || null);
     } else {
       setEditingEvent(null);
       setNewEventTitle('');
@@ -170,46 +195,91 @@ export default function CalendarPage() {
     setIsModalOpen(true);
   };
 
-  const handleSaveEvent = (e: React.FormEvent) => {
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEventTitle) return;
+    if (!newEventTitle || !householdId) return;
+
+    const row = {
+      title: newEventTitle,
+      time: newEventTime,
+      type: newEventType,
+      date: format(selectedDate, 'yyyy-MM-dd'),
+      location: newEventLocation || null,
+      photo_url: newEventPhoto || null,
+    };
 
     if (editingEvent) {
-      // Update existing event
-      const updatedEvents = events.map(ev =>
-        ev.id === editingEvent.id
-          ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto || undefined }
-          : ev
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.id === editingEvent.id
+            ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto || undefined }
+            : ev
+        )
       );
-      setEvents(updatedEvents);
+      await supabase.from('calendar_events').update(row).eq('id', editingEvent.id);
     } else {
-      // Create new event
-      const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
-        title: newEventTitle,
-        date: selectedDate,
-        time: newEventTime,
-        type: newEventType,
-        location: newEventLocation,
-        photo: newEventPhoto || undefined
-      };
-      setEvents([...events, newEvent]);
+      const { data } = await supabase
+        .from('calendar_events')
+        .insert({ household_id: householdId, ...row })
+        .select()
+        .single();
+      if (data) {
+        setEvents((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            title: data.title,
+            date: parseDateOnly(data.date),
+            time: data.time,
+            type: data.type as 'task' | 'shopping' | 'event',
+            location: data.location ?? undefined,
+            photo: data.photo_url ?? undefined,
+          },
+        ]);
+      }
     }
 
     setIsModalOpen(false);
     setNewEventPhoto(null);
   };
 
-  const handleDeleteEvent = () => {
-    if (editingEvent) {
-      setEvents(events.filter(ev => ev.id !== editingEvent.id));
-      setIsModalOpen(false);
-    }
+  const handleDeleteEvent = async () => {
+    if (!editingEvent) return;
+    setEvents((prev) => prev.filter((ev) => ev.id !== editingEvent.id));
+    setIsModalOpen(false);
+    await supabase.from('calendar_events').delete().eq('id', editingEvent.id);
   };
 
   const getEventsForDay = (date: Date) => {
     return events.filter(event => isSameDay(event.date, date));
   };
+
+  if (!householdId) {
+    return (
+      <div className="p-4 md:p-8 max-w-6xl mx-auto">
+        <h1 className="text-display flex items-center gap-2 mb-8 animate-rise">
+          <CalendarIcon className="w-8 h-8 text-orange-600" />
+          Calendar
+        </h1>
+        <div className="surface p-8 text-center animate-rise">
+          <p className="text-body text-[var(--text-secondary)] mb-4">
+            Join or create a household to share a calendar.
+          </p>
+          <Link href="/login" className="btn btn-primary inline-flex">
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
@@ -379,8 +449,6 @@ export default function CalendarPage() {
               <Sparkles className="w-4 h-4 text-orange-500" />
               Discover Nearby
             </h3>
-
-            {/* ...existing code... */}
 
             {isLoadingSuggestions ? (
               <div className="flex justify-center py-8">
