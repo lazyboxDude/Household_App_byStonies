@@ -9,40 +9,51 @@ export default function LoginPage() {
   const { login, loginWithGoogle, createHousehold, joinHousehold, user, household } = useAuth();
   const router = useRouter();
 
-  const [step, setStep] = useState<"name" | "household">("name");
+  // "household" is reached either by explicitly finishing the name step, or
+  // by landing back here signed in (e.g. the Google OAuth redirect) without
+  // a household yet — derive it instead of syncing it via an effect.
+  const [manualStep, setManualStep] = useState<"name" | "household" | null>(null);
+  const step: "name" | "household" = manualStep ?? (user && !household ? "household" : "name");
+
   const [name, setName] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [mode, setMode] = useState<"create" | "join">("create");
+  const [isNameLoading, setIsNameLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isHouseholdLoading, setIsHouseholdLoading] = useState(false);
+  const [joinError, setJoinError] = useState("");
 
-  const handleNameSubmit = (e: React.FormEvent) => {
+  const handleNameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      login(name);
-      setStep("household");
-    }
+    if (!name.trim()) return;
+    setIsNameLoading(true);
+    const ok = await login(name);
+    setIsNameLoading(false);
+    if (ok) setManualStep("household");
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
-    // Simulate network delay
-    setTimeout(() => {
-      loginWithGoogle();
-      setIsGoogleLoading(false);
-      setStep("household");
-    }, 1000);
+    await loginWithGoogle();
+    setIsGoogleLoading(false);
   };
 
-  const handleHouseholdSubmit = (e: React.FormEvent) => {
+  const handleHouseholdSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setJoinError("");
+    setIsHouseholdLoading(true);
     if (mode === "create" && householdName.trim()) {
-      createHousehold(householdName);
+      await createHousehold(householdName);
+      setIsHouseholdLoading(false);
       router.push("/");
     } else if (mode === "join" && inviteCode.trim()) {
-      const success = joinHousehold(inviteCode);
+      const success = await joinHousehold(inviteCode);
+      setIsHouseholdLoading(false);
       if (success) router.push("/");
-      else alert("Invalid code (Try DEMO123)");
+      else setJoinError("Invalid invite code.");
+    } else {
+      setIsHouseholdLoading(false);
     }
   };
 
@@ -87,8 +98,12 @@ export default function LoginPage() {
                 autoFocus
               />
             </div>
-            <button type="submit" disabled={!name.trim()} className="btn btn-primary w-full py-3">
-              Continue <ArrowRight className="w-4 h-4" />
+            <button
+              type="submit"
+              disabled={!name.trim() || isNameLoading}
+              className="btn btn-primary w-full py-3"
+            >
+              {isNameLoading ? "Signing in..." : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
 
             <div className="relative my-6">
@@ -146,13 +161,19 @@ export default function LoginPage() {
                 }}
               />
               <button
-                onClick={() => setMode("create")}
+                onClick={() => {
+                  setMode("create");
+                  setJoinError("");
+                }}
                 className="relative z-10 press py-2 text-sm font-medium rounded-md text-[var(--text)]"
               >
                 Create New Home
               </button>
               <button
-                onClick={() => setMode("join")}
+                onClick={() => {
+                  setMode("join");
+                  setJoinError("");
+                }}
                 className="relative z-10 press py-2 text-sm font-medium rounded-md text-[var(--text)]"
               >
                 Join Existing
@@ -184,15 +205,24 @@ export default function LoginPage() {
                     className="field uppercase tracking-widest"
                     placeholder="e.g. X8Y2Z1"
                   />
+                  {joinError && (
+                    <p className="text-caption mt-2" style={{ color: "var(--danger)" }}>
+                      {joinError}
+                    </p>
+                  )}
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={mode === "create" ? !householdName.trim() : !inviteCode.trim()}
+                disabled={(mode === "create" ? !householdName.trim() : !inviteCode.trim()) || isHouseholdLoading}
                 className="btn btn-primary w-full py-3"
               >
-                {mode === "create" ? "Create Household" : "Join Household"}
+                {isHouseholdLoading
+                  ? "Please wait..."
+                  : mode === "create"
+                  ? "Create Household"
+                  : "Join Household"}
               </button>
             </form>
           </div>

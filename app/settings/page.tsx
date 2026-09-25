@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const { user, household, logout, login, loginWithGoogle } = useAuth();
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
+  const [isNameLoading, setIsNameLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const copyCode = () => {
@@ -19,17 +20,18 @@ export default function SettingsPage() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) login(name);
+    if (!name.trim()) return;
+    setIsNameLoading(true);
+    await login(name);
+    setIsNameLoading(false);
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
-    setTimeout(() => {
-      loginWithGoogle();
-      setIsGoogleLoading(false);
-    }, 1000);
+    await loginWithGoogle();
+    setIsGoogleLoading(false);
   };
 
   if (!user) {
@@ -59,8 +61,12 @@ export default function SettingsPage() {
                 placeholder="e.g. Alex"
               />
             </div>
-            <button type="submit" disabled={!name.trim()} className="btn btn-primary w-full py-3">
-              Continue <ArrowRight className="w-4 h-4" />
+            <button
+              type="submit"
+              disabled={!name.trim() || isNameLoading}
+              className="btn btn-primary w-full py-3"
+            >
+              {isNameLoading ? "Signing in..." : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
 
             <div className="relative my-6">
