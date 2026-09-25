@@ -34,7 +34,7 @@ export default function ShoppingPage() {
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
-  
+
   // Sales Data State
   const [currentStoreSales, setCurrentStoreSales] = useState<string>("");
   const [salesOffers, setSalesOffers] = useState<SaleOffer[]>([]);
@@ -54,7 +54,7 @@ export default function ShoppingPage() {
     try {
       const res = await fetch(`/api/sales?store=${storeName}`);
       const data = await res.json();
-      
+
       if (data.offers && data.offers.length > 0) {
         setSalesOffers(data.offers);
       } else {
@@ -198,19 +198,27 @@ export default function ShoppingPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto relative">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
+      <div className="flex items-center justify-between mb-6 animate-rise">
+        <h1 className="text-display flex items-center">
           <ShoppingCart className="mr-3 w-8 h-8 text-orange-500" />
           Shopping
         </h1>
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+        <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
+          <span
+            aria-hidden
+            className="absolute inset-y-1 rounded-[calc(var(--radius-md)-2px)] bg-[var(--surface)] shadow-sm"
+            style={{
+              width: "calc(50% - 4px)",
+              left: 4,
+              transform: activeTab === "deals" ? "translateX(calc(100% + 0px))" : "translateX(0)",
+              transitionProperty: "transform",
+              transitionDuration: "var(--dur-base)",
+              transitionTimingFunction: "var(--ease-spring)",
+            }}
+          />
           <button
             onClick={() => setActiveTab("list")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-              activeTab === "list"
-                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
+            className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
           >
             My List
           </button>
@@ -219,46 +227,44 @@ export default function ShoppingPage() {
               setActiveTab("deals");
               loadDeals("Migros");
             }}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-              activeTab === "deals"
-                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
+            className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
           >
             Deals
           </button>
         </div>
       </div>
 
-      {activeTab === "list" ? (
-        <ShoppingList
-          items={items}
-          shops={shops}
-          newItem={newItem}
-          setNewItem={setNewItem}
-          newPrice={newPrice}
-          setNewPrice={setNewPrice}
-          newStore={newStore}
-          setNewStore={setNewStore}
-          addItem={addItem}
-          simulateFindShops={simulateFindShops}
-          toggleItem={toggleItem}
-          deleteItem={deleteItem}
-          searchItem={searchItem}
-          viewSales={viewSales}
-        />
-      ) : (
-        <DealsTab
-          currentStoreSales={currentStoreSales}
-          salesOffers={salesOffers}
-          isLoadingSales={isLoadingSales}
-          salesError={salesError}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          loadDeals={loadDeals}
-          addDealToList={addDealToList}
-        />
-      )}
+      <div className="animate-rise">
+        {activeTab === "list" ? (
+          <ShoppingList
+            items={items}
+            shops={shops}
+            newItem={newItem}
+            setNewItem={setNewItem}
+            newPrice={newPrice}
+            setNewPrice={setNewPrice}
+            newStore={newStore}
+            setNewStore={setNewStore}
+            addItem={addItem}
+            simulateFindShops={simulateFindShops}
+            toggleItem={toggleItem}
+            deleteItem={deleteItem}
+            searchItem={searchItem}
+            viewSales={viewSales}
+          />
+        ) : (
+          <DealsTab
+            currentStoreSales={currentStoreSales}
+            salesOffers={salesOffers}
+            isLoadingSales={isLoadingSales}
+            salesError={salesError}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            loadDeals={loadDeals}
+            addDealToList={addDealToList}
+          />
+        )}
+      </div>
     </div>
   );
 }

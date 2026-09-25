@@ -108,7 +108,7 @@ export default function ExpensesPage() {
     setPots(prev => prev.map(p => p.id === id ? { ...p, saved: p.saved + amount } : p));
   };
 
-  
+
 
   // CSV import/export helpers
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -262,38 +262,38 @@ export default function ExpensesPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 max-w-6xl mx-auto">
       {undoableExpense && (
-        <div className="mb-4 p-3 rounded bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 flex items-center justify-between">
+        <div className="mb-4 p-3 rounded-[var(--radius-md)] border animate-rise flex items-center justify-between" style={{ background: 'var(--warning-soft)', borderColor: 'transparent' }}>
           <div>
             <div className="font-medium">Expense added: {undoableExpense.title}</div>
-            <div className="text-xs text-gray-600">${undoableExpense.amount.toFixed(2)} · {undoableExpense.category}</div>
+            <div className="text-xs text-[var(--text-secondary)]">${undoableExpense.amount.toFixed(2)} · {undoableExpense.category}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => handleUndoExpense()} className="px-3 py-1 bg-white rounded border">Undo</button>
-            <button onClick={() => setUndoableExpense(null)} className="px-2 py-1 text-sm text-gray-500">Dismiss</button>
+            <button onClick={() => handleUndoExpense()} className="btn btn-secondary btn-sm">Undo</button>
+            <button onClick={() => setUndoableExpense(null)} className="press px-2 py-1 text-sm text-[var(--text-secondary)]">Dismiss</button>
           </div>
         </div>
       )}
-      <h1 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white">Expenses & Budget Planner</h1>
+      <h1 className="text-display mb-6 animate-rise">Expenses & Budget Planner</h1>
 
-      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="relative flex gap-2 mb-6 border-b divider">
         <button
           onClick={() => setPageTab('budget')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 ${
             pageTab === 'budget'
               ? 'border-orange-600 text-orange-600 dark:text-orange-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]'
           }`}
         >
           Budgets &amp; Ausgaben
         </button>
         <button
           onClick={() => setPageTab('verteilertopf')}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 ${
             pageTab === 'verteilertopf'
               ? 'border-orange-600 text-orange-600 dark:text-orange-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]'
           }`}
         >
           Verteilertopf
@@ -301,29 +301,31 @@ export default function ExpensesPage() {
       </div>
 
       {pageTab === 'verteilertopf' ? (
-        <Verteilertopf />
+        <div className="animate-rise">
+          <Verteilertopf />
+        </div>
       ) : (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-rise">
         {/* Left: Budgets */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <h2 className="font-semibold mb-3">Budgets</h2>
+        <div className="surface p-4">
+          <h2 className="text-headline mb-3">Budgets</h2>
           <div className="space-y-2 mb-4">
-            <input placeholder="Category" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} className="w-full px-3 py-2 rounded border" />
-            <input placeholder="Monthly amount" value={budgetAmountInput} onChange={e => setBudgetAmountInput(e.target.value)} className="w-full px-3 py-2 rounded border" />
-            <button onClick={addBudget} className="w-full bg-orange-600 text-white py-2 rounded">Add Budget</button>
+            <input placeholder="Category" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} className="field" />
+            <input placeholder="Monthly amount" value={budgetAmountInput} onChange={e => setBudgetAmountInput(e.target.value)} className="field" />
+            <button onClick={addBudget} className="btn btn-primary w-full">Add Budget</button>
           </div>
 
           <div className="space-y-2">
-            {budgets.length === 0 && <p className="text-sm text-gray-500">No budgets yet.</p>}
+            {budgets.length === 0 && <p className="text-caption">No budgets yet.</p>}
             {budgets.map(b => (
-              <div key={b.id} className="flex items-center justify-between border p-2 rounded">
+              <div key={b.id} className="flex items-center justify-between border divider p-2 rounded-[var(--radius-sm)]">
                 <div>
-                  <div className="font-medium">{b.category}</div>
-                  <div className="text-xs text-gray-500">${b.amount.toFixed(2)} / month</div>
+                  <div className="font-medium text-sm">{b.category}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">${b.amount.toFixed(2)} / month</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => editBudget(b.id)} className="text-blue-500 text-sm">Edit</button>
-                  <button onClick={() => deleteBudget(b.id)} className="text-red-500 text-sm">Remove</button>
+                  <button onClick={() => editBudget(b.id)} className="press text-blue-500 text-sm">Edit</button>
+                  <button onClick={() => deleteBudget(b.id)} className="press text-[var(--danger)] text-sm">Remove</button>
                 </div>
               </div>
             ))}
@@ -331,47 +333,45 @@ export default function ExpensesPage() {
         </div>
 
         {/* Middle: Add Expense */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Add Expense</h2>
+        <div className="surface p-4 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h2 className="text-headline">Add Expense</h2>
             <div className="flex items-center gap-2">
-              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="px-2 py-1 border rounded" />
-              <button onClick={exportCSV} className="px-3 py-1 rounded border bg-white">Export CSV</button>
-              <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1 rounded border bg-white">Import CSV</button>
+              <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="field py-1.5 text-sm w-auto" />
+              <button onClick={exportCSV} className="btn btn-secondary btn-sm">Export CSV</button>
+              <button onClick={() => fileInputRef.current?.click()} className="btn btn-secondary btn-sm">Import CSV</button>
               <input ref={fileInputRef} type="file" accept="text/csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) importCSV(f); e.currentTarget.value = ''; }} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-            <input placeholder="Title" value={expenseTitle} onChange={e => setExpenseTitle(e.target.value)} className="px-3 py-2 rounded border" />
-            <input placeholder="Amount" type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="px-3 py-2 rounded border" />
-            <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} className="px-3 py-2 rounded border" />
+            <input placeholder="Title" value={expenseTitle} onChange={e => setExpenseTitle(e.target.value)} className="field" />
+            <input placeholder="Amount" type="number" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="field" />
+            <input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} className="field" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-            <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="px-3 py-2 rounded border">
+            <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="field">
               <option value="">Select category</option>
               {budgets.map(b => <option key={b.id} value={b.category}>{b.category}</option>)}
               <option value="Uncategorized">Uncategorized</option>
             </select>
-            <input placeholder="Note (optional)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} className="px-3 py-2 rounded border" />
-            <div>
-              <button onClick={addExpense} className="w-full bg-orange-600 text-white py-2 rounded">Add Expense</button>
-            </div>
+            <input placeholder="Note (optional)" value={expenseNote} onChange={e => setExpenseNote(e.target.value)} className="field" />
+            <button onClick={addExpense} className="btn btn-primary">Add Expense</button>
           </div>
 
-          <h3 className="font-semibold mt-4">Expenses for {selectedMonth}</h3>
+          <h3 className="text-headline mt-4">Expenses for {selectedMonth}</h3>
           <div className="space-y-2 mt-2">
-            {expenses.filter(exp => exp.date.startsWith(selectedMonth)).length === 0 && <p className="text-sm text-gray-500">No expenses for this month.</p>}
+            {expenses.filter(exp => exp.date.startsWith(selectedMonth)).length === 0 && <p className="text-caption">No expenses for this month.</p>}
             {expenses.filter(exp => exp.date.startsWith(selectedMonth)).map(exp => (
-              <div key={exp.id} className="flex items-center justify-between border p-2 rounded">
+              <div key={exp.id} className="flex items-center justify-between border divider p-2 rounded-[var(--radius-sm)]">
                 <div>
-                  <div className="font-medium">{exp.title}</div>
-                  <div className="text-xs text-gray-500">{new Date(exp.date).toLocaleDateString()} · {exp.category}</div>
+                  <div className="font-medium text-sm">{exp.title}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{new Date(exp.date).toLocaleDateString()} · {exp.category}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="font-medium">${exp.amount.toFixed(2)}</div>
-                  <button onClick={() => editExpense(exp.id)} className="text-blue-500 text-sm">Edit</button>
-                  <button onClick={() => deleteExpense(exp.id)} className="text-red-500 text-sm">Delete</button>
+                  <div className="font-medium text-sm">${exp.amount.toFixed(2)}</div>
+                  <button onClick={() => editExpense(exp.id)} className="press text-blue-500 text-sm">Edit</button>
+                  <button onClick={() => deleteExpense(exp.id)} className="press text-[var(--danger)] text-sm">Delete</button>
                 </div>
               </div>
             ))}
@@ -379,12 +379,12 @@ export default function ExpensesPage() {
         </div>
 
         {/* Right: Summary & Pots */}
-        <div className="lg:col-span-3">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-4">
-            <h2 className="font-semibold mb-3">Budget Summary — {selectedMonth}</h2>
-              {budgets.length === 0 && <p className="text-sm text-gray-500">No budgets to summarize. Add budgets to track spending.</p>}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="surface p-4">
+            <h2 className="text-headline mb-3">Budget Summary — {selectedMonth}</h2>
+              {budgets.length === 0 && <p className="text-caption">No budgets to summarize. Add budgets to track spending.</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {budgets.map(b => {
+                {budgets.map((b, i) => {
                   const spent = summaryCache[b.category]?.spent || 0;
                   const pct = b.amount > 0 ? Math.min(100, Math.round((spent / b.amount) * 100)) : 0;
                   // health is inverse of pct (more health = more under budget)
@@ -400,7 +400,7 @@ export default function ExpensesPage() {
                   const dashoffset = circumference - (progress / 100) * circumference;
 
                   return (
-                    <div key={b.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 hover:scale-[1.01] transition-transform">
+                    <div key={b.id} className="surface card-interactive p-4 animate-rise" style={{ "--stagger-i": i } as React.CSSProperties}>
                       <div className="flex items-center gap-4">
                         <div style={{ width: ringSize, height: ringSize, position: 'relative' }}>
                           <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
@@ -411,12 +411,12 @@ export default function ExpensesPage() {
                               </linearGradient>
                             </defs>
                             <g transform={`translate(${ringSize/2}, ${ringSize/2})`}>
-                              <circle r={radius} stroke="#e6e9ee" strokeWidth={stroke} fill="none" />
+                              <circle r={radius} stroke="var(--surface-3)" strokeWidth={stroke} fill="none" />
                               <circle r={radius} stroke={`url(#g-${b.id})`} strokeWidth={stroke} fill="none"
                                 strokeLinecap="round"
                                 strokeDasharray={`${circumference} ${circumference}`}
                                 strokeDashoffset={dashoffset}
-                                style={{ transition: 'stroke-dashoffset 600ms ease' }}
+                                style={{ transition: 'stroke-dashoffset var(--dur-slow) var(--ease-spring)' }}
                               />
                             </g>
                           </svg>
@@ -429,24 +429,24 @@ export default function ExpensesPage() {
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="font-semibold text-lg">{b.category}</div>
-                              <div className="text-xs text-gray-500">${spent.toFixed(2)} spent of ${b.amount.toFixed(2)}</div>
+                              <div className="text-xs text-[var(--text-secondary)]">${spent.toFixed(2)} spent of ${b.amount.toFixed(2)}</div>
                             </div>
                             <div className="text-right">
                               <div className="text-sm text-yellow-500 font-semibold">⭐ Level {level}</div>
-                              <div className="text-xs text-gray-500">{coins} coins</div>
+                              <div className="text-xs text-[var(--text-secondary)]">{coins} coins</div>
                             </div>
                           </div>
 
                           <div className="mt-3 flex items-center gap-2">
-                            <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
-                              <div style={{ width: `${pct}%`, height: '100%', background: pct > 90 ? '#ef4444' : '#fb923c', transition: 'width 600ms ease' }} />
+                            <div className="flex-1 h-3 rounded-full bg-[var(--surface-2)] overflow-hidden">
+                              <div style={{ width: `${pct}%`, height: '100%', background: pct > 90 ? 'var(--danger)' : 'var(--accent)', transition: 'width var(--dur-slow) var(--ease-spring)' }} />
                             </div>
-                            <button onClick={() => showToast(`${b.category}: ${Math.round(health)}% healthy — Level ${level}`, 'info')} className="px-2 py-1 bg-white rounded border text-sm">Info</button>
+                            <button onClick={() => showToast(`${b.category}: ${Math.round(health)}% healthy — Level ${level}`, 'info')} className="btn btn-secondary btn-sm">Info</button>
                           </div>
 
                           <div className="mt-2 flex items-center gap-2">
-                            <button onClick={() => { editBudget(b.id); showToast('Edited budget', 'success'); }} className="px-3 py-1 bg-blue-600 text-white rounded">Manage</button>
-                            <button onClick={() => { /* quick reward: add to pot as coins placeholder */ showToast(`Saved ${coins} coins to your wallet!`, 'success'); }} className="px-3 py-1 bg-amber-400 text-black rounded">Bank Coins</button>
+                            <button onClick={() => { editBudget(b.id); showToast('Edited budget', 'success'); }} className="btn btn-sm" style={{ background: '#2563eb', color: 'white' }}>Manage</button>
+                            <button onClick={() => { /* quick reward: add to pot as coins placeholder */ showToast(`Saved ${coins} coins to your wallet!`, 'success'); }} className="btn btn-sm" style={{ background: '#fbbf24', color: '#1a1405' }}>Bank Coins</button>
                           </div>
                         </div>
                       </div>
@@ -456,27 +456,27 @@ export default function ExpensesPage() {
               </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-4">
-            <h2 className="font-semibold mb-3">Pots (Savings Goals)</h2>
+          <div className="surface p-4">
+            <h2 className="text-headline mb-3">Pots (Savings Goals)</h2>
             <CreatePotForm onCreate={(name, target) => createPot(name, target)} />
             <div className="space-y-3 mt-3">
-              {pots.length === 0 && <p className="text-sm text-gray-500">No pots yet — create one to save for something special.</p>}
+              {pots.length === 0 && <p className="text-caption">No pots yet — create one to save for something special.</p>}
               {pots.map(p => {
                 const pct = p.target > 0 ? Math.min(100, Math.round((p.saved / p.target) * 100)) : 0;
                 return (
-                  <div key={p.id} className="border rounded p-3">
+                  <div key={p.id} className="surface-2 p-3">
                     <div className="flex justify-between items-center">
                       <div>
-                        <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-gray-500">${p.saved.toFixed(2)} of ${p.target.toFixed(2)}</div>
+                        <div className="font-medium text-sm">{p.name}</div>
+                        <div className="text-xs text-[var(--text-secondary)]">${p.saved.toFixed(2)} of ${p.target.toFixed(2)}</div>
                       </div>
                       <div className="text-sm font-medium">{pct}%</div>
                     </div>
-                    <div className="w-full bg-gray-100 h-2 rounded mt-2 overflow-hidden">
-                      <div style={{ width: `${pct}%`, height: '100%', backgroundColor: pct > 80 ? '#60a5fa' : '#93c5fd' }} />
+                    <div className="w-full bg-[var(--surface-3)] h-2 rounded mt-2 overflow-hidden">
+                      <div style={{ width: `${pct}%`, height: '100%', background: pct > 80 ? '#3b82f6' : '#93c5fd', transition: 'width var(--dur-slow) var(--ease-spring)' }} />
                     </div>
                     <div className="mt-3 flex gap-2">
-                      <input type="number" placeholder="Amount" id={`add-to-${p.id}`} className="px-2 py-1 border rounded w-32" />
+                      <input type="number" placeholder="Amount" id={`add-to-${p.id}`} className="field w-32 py-1.5 text-sm" />
                       <button onClick={() => {
                         const el = document.getElementById(`add-to-${p.id}`) as HTMLInputElement | null;
                         if (!el || !el.value) return;
@@ -484,8 +484,8 @@ export default function ExpensesPage() {
                         if (isNaN(amt)) return;
                         addToPot(p.id, amt);
                         el.value = '';
-                      }} className="px-3 py-1 rounded bg-green-500 text-white">Add</button>
-                      <button onClick={() => editPot(p.id)} className="px-3 py-1 rounded bg-blue-500 text-white">Edit</button>
+                      }} className="btn btn-sm" style={{ background: 'var(--success)', color: 'white' }}>Add</button>
+                      <button onClick={() => editPot(p.id)} className="btn btn-sm" style={{ background: '#2563eb', color: 'white' }}>Edit</button>
                     </div>
                   </div>
                 );
@@ -505,9 +505,9 @@ function CreatePotForm({ onCreate }: { onCreate: (name: string, target: number) 
   const [target, setTarget] = useState('');
   return (
     <div className="flex gap-2">
-      <input value={name} onChange={e => setName(e.target.value)} placeholder="Pot name" className="px-2 py-1 border rounded" />
-      <input value={target} onChange={e => setTarget(e.target.value)} placeholder="Target amount" className="px-2 py-1 border rounded w-36" />
-      <button onClick={() => { const t = parseFloat(target); if (!name || isNaN(t)) return; onCreate(name, t); setName(''); setTarget(''); }} className="px-3 py-1 bg-orange-600 text-white rounded">Create</button>
+      <input value={name} onChange={e => setName(e.target.value)} placeholder="Pot name" className="field" />
+      <input value={target} onChange={e => setTarget(e.target.value)} placeholder="Target amount" className="field w-36" />
+      <button onClick={() => { const t = parseFloat(target); if (!name || isNaN(t)) return; onCreate(name, t); setName(''); setTarget(''); }} className="btn btn-primary">Create</button>
     </div>
   );
 }

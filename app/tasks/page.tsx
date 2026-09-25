@@ -59,14 +59,14 @@ export default function TasksPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-rise">
+        <h1 className="text-display flex items-center gap-3">
           <CheckCircle2 className="w-8 h-8 text-green-500" />
           Household Tasks
         </h1>
 
         {/* Gamification Stats Card */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-xl shadow-lg flex items-center gap-6">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-[var(--radius-lg)] shadow-lg flex items-center gap-6">
           <div className="flex flex-col items-center">
             <div className="bg-white/20 p-2 rounded-full mb-1">
               <Trophy className="w-6 h-6 text-yellow-300" />
@@ -81,8 +81,12 @@ export default function TasksPage() {
             </div>
             <div className="w-full bg-black/20 rounded-full h-2.5 overflow-hidden">
               <div
-                className="bg-yellow-400 h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercentage}%` }}
+                className="bg-yellow-400 h-full rounded-full transition-all"
+                style={{
+                  width: `${progressPercentage}%`,
+                  transitionDuration: "var(--dur-slow)",
+                  transitionTimingFunction: "var(--ease-spring)",
+                }}
               />
             </div>
             <p className="text-xs mt-1 text-indigo-100 text-center">
@@ -93,23 +97,23 @@ export default function TasksPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-2 mb-6 border-b divider">
         <button
           onClick={() => setActiveTab("tasks")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 ${
             activeTab === "tasks"
               ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
           }`}
         >
           Tasks
         </button>
         <button
           onClick={() => setActiveTab("cleaning")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 flex items-center gap-1.5 ${
             activeTab === "cleaning"
               ? "border-teal-600 text-teal-600 dark:text-teal-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
           }`}
         >
           <Sparkles className="w-4 h-4" /> Cleaning Plan
@@ -117,15 +121,15 @@ export default function TasksPage() {
       </div>
 
       {activeTab === "tasks" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-rise">
           <div className="lg:col-span-2">
             <TaskListTab onAwardPoints={awardPoints} />
           </div>
 
           {/* Sidebar / Leaderboard */}
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-              <h2 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <div className="surface p-5">
+              <h2 className="text-headline mb-4 flex items-center gap-2">
                 <Medal className="w-5 h-5 text-orange-500" />
                 Top Contributors
               </h2>
@@ -143,13 +147,13 @@ export default function TasksPage() {
                           user.rank === 1
                             ? "bg-yellow-100 text-yellow-700"
                             : user.rank === 2
-                            ? "bg-gray-100 text-gray-700"
+                            ? "bg-[var(--surface-2)] text-[var(--text-secondary)]"
                             : "bg-orange-50 text-orange-700"
                         }`}
                       >
                         {user.rank}
                       </div>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">{user.name}</span>
+                      <span className="text-body font-medium">{user.name}</span>
                     </div>
                     <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{user.xp} XP</span>
                   </div>
@@ -157,20 +161,22 @@ export default function TasksPage() {
               </div>
             </div>
 
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800">
+            <div className="rounded-[var(--radius-lg)] p-5 border border-indigo-100 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
               <h3 className="font-bold text-indigo-900 dark:text-indigo-200 mb-2">Daily Challenge</h3>
               <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-3">
                 Complete 3 tasks before 8 PM to earn a bonus 50 XP!
               </p>
               <div className="w-full bg-white dark:bg-gray-700 rounded-full h-2 mb-1">
-                <div className="bg-indigo-500 h-full rounded-full w-1/3"></div>
+                <div className="bg-indigo-500 h-full rounded-full w-1/3" />
               </div>
               <p className="text-xs text-right text-indigo-600 dark:text-indigo-400">1/3 Completed</p>
             </div>
           </div>
         </div>
       ) : (
-        <CleaningPlanTab onAwardPoints={awardPoints} />
+        <div className="animate-rise">
+          <CleaningPlanTab onAwardPoints={awardPoints} />
+        </div>
       )}
     </div>
   );

@@ -99,46 +99,51 @@ export default function Home() {
       href: "/settings",
       icon: Settings,
       color: "text-gray-500",
-      bgColor: "bg-gray-100 dark:bg-gray-800",
+      bgColor: "bg-[var(--surface-3)]",
       description: "App preferences",
     }
   ];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <header className="mb-8 text-center md:text-left">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Welcome Home 🏠
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
+      <header className="mb-8 text-center md:text-left animate-rise">
+        <h1 className="text-display text-[var(--text)]">Welcome Home 🏠</h1>
+        <p className="text-body text-[var(--text-secondary)] mt-2">
           What would you like to do today?
         </p>
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-        {menuItems.map((item) => {
+        {menuItems.map((item, i) => {
           const Icon = item.icon;
           return (
-            <Link key={item.title} href={item.href} className="block group">
-              <div className="h-full bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md hover:-translate-y-1">
-                <div className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+            <Link
+              key={item.title}
+              href={item.href}
+              className="block animate-rise"
+              style={{ "--stagger-i": i } as React.CSSProperties}
+            >
+              <div className="surface card-interactive press h-full p-6">
+                <div
+                  className={`w-12 h-12 rounded-xl ${item.bgColor} flex items-center justify-center mb-4`}
+                >
                   <Icon className={`w-6 h-6 ${item.color}`} />
                 </div>
 
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h2 className="text-headline text-[var(--text)]">
                       {item.title}
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-caption mt-1">
                       {item.description}
                     </p>
                   </div>
                 </div>
 
                 {item.count && (
-                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  <div className="mt-4 pt-4 border-t divider">
+                    <span className="text-micro normal-case font-medium px-2 py-1 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)]">
                       {item.count}
                     </span>
                   </div>

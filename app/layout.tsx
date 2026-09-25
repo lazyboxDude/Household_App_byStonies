@@ -15,13 +15,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased bg-gray-50 dark:bg-gray-900 min-h-screen flex flex-col md:flex-row">
+      <body className="antialiased min-h-screen flex flex-col md:flex-row">
         <AuthProvider>
           <div className="flex-1 flex flex-col min-h-screen">
             <Navbar />
-            <main className="flex-1 pb-16 md:pb-0">
-              {children}
-            </main>
+            <main className="flex-1 page-scroll-pad">{children}</main>
           </div>
         </AuthProvider>
       </body>

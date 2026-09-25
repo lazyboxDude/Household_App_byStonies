@@ -35,43 +35,40 @@ export default function SettingsPage() {
   if (!user) {
     return (
       <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Settings</h1>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+        <h1 className="text-display mb-8 animate-rise">Settings</h1>
+        <div className="surface p-8 animate-rise">
           <div className="text-center mb-8">
-            <div className="bg-orange-100 dark:bg-orange-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <User className="w-8 h-8 text-orange-500" />
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ background: "var(--accent-soft)" }}
+            >
+              <User className="w-8 h-8" style={{ color: "var(--accent)" }} />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Sign In</h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">Log in to manage your household</p>
+            <h2 className="text-title">Sign In</h2>
+            <p className="text-body text-[var(--text-secondary)] mt-2">Log in to manage your household</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4 max-w-md mx-auto">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Your Name
-              </label>
+              <label className="block text-caption mb-1.5">Your Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                className="field"
                 placeholder="e.g. Alex"
               />
             </div>
-            <button
-              type="submit"
-              disabled={!name.trim()}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <button type="submit" disabled={!name.trim()} className="btn btn-primary w-full py-3">
               Continue <ArrowRight className="w-4 h-4" />
             </button>
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                <div className="w-full border-t divider" />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with</span>
+              <div className="relative flex justify-center">
+                <span className="px-2 bg-[var(--surface)] text-caption">Or continue with</span>
               </div>
             </div>
 
@@ -79,7 +76,7 @@ export default function SettingsPage() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading}
-              className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-white font-medium py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+              className="btn btn-secondary w-full py-3"
             >
               {isGoogleLoading ? (
                 <span className="animate-pulse">Connecting...</span>
@@ -114,13 +111,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Settings</h1>
-      
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <h1 className="text-display animate-rise">Settings</h1>
+
       {/* Profile Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-          <User className="w-5 h-5 text-orange-500" />
+      <div className="surface p-6 animate-rise" style={{ "--stagger-i": 1 } as React.CSSProperties}>
+        <h2 className="text-headline mb-4 flex items-center gap-2">
+          <User className="w-5 h-5" style={{ color: "var(--accent)" }} />
           My Profile
         </h2>
         <div className="flex items-center gap-4">
@@ -131,68 +128,66 @@ export default function SettingsPage() {
               width={64}
               height={64}
               unoptimized
-              className="w-16 h-16 rounded-full bg-gray-100"
+              className="w-16 h-16 rounded-full bg-[var(--surface-2)]"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-lg">{user.name?.[0] ?? 'U'}</div>
+            <div className="w-16 h-16 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-lg font-medium">
+              {user.name?.[0] ?? 'U'}
+            </div>
           )}
           <div>
-            <p className="font-bold text-lg text-gray-900 dark:text-white">{user.name}</p>
-            <p className="text-sm text-gray-500">Member since Nov 2025</p>
+            <p className="text-headline">{user.name}</p>
+            <p className="text-caption">Member since Nov 2025</p>
           </div>
         </div>
       </div>
 
       {/* Household Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-          <Home className="w-5 h-5 text-orange-500" />
+      <div className="surface p-6 animate-rise" style={{ "--stagger-i": 2 } as React.CSSProperties}>
+        <h2 className="text-headline mb-4 flex items-center gap-2">
+          <Home className="w-5 h-5" style={{ color: "var(--accent)" }} />
           Household Management
         </h2>
-        
+
         {household ? (
           <div className="space-y-6">
             <div>
-              <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1">Household Name</label>
-              <p className="font-medium text-gray-900 dark:text-white text-lg">{household.name}</p>
+              <label className="text-caption block mb-1">Household Name</label>
+              <p className="text-headline">{household.name}</p>
             </div>
 
-            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-100 dark:border-orange-800">
-              <label className="text-sm font-medium text-orange-800 dark:text-orange-300 block mb-2">
+            <div className="surface-2 p-4" style={{ background: "var(--accent-soft)", borderColor: "transparent" }}>
+              <label className="text-caption block mb-2" style={{ color: "var(--accent)" }}>
                 Invite Code
               </label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-white dark:bg-gray-900 px-3 py-2 rounded border border-orange-200 dark:border-orange-800 font-mono text-lg tracking-widest text-center">
+                <code className="flex-1 bg-[var(--surface)] px-3 py-2 rounded-[var(--radius-sm)] border divider font-mono text-lg tracking-widest text-center">
                   {household.inviteCode}
                 </code>
-                <button 
-                  onClick={copyCode}
-                  className="p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-                  title="Copy Code"
-                >
+                <button onClick={copyCode} className="btn btn-primary btn-icon" title="Copy Code">
                   {copied ? <Shield className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                 </button>
               </div>
-              <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+              <p className="text-caption mt-2" style={{ color: "var(--accent)" }}>
                 Share this code with family members to let them join your household.
               </p>
             </div>
 
             <div>
-              <h3 className="font-medium text-gray-900 dark:text-white mb-3">Members ({household.members.length})</h3>
-              <div className="space-y-2">
+              <h3 className="text-headline mb-3">Members ({household.members.length})</h3>
+              <div className="space-y-1">
                 {household.members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                  <div key={member.id} className="press flex items-center justify-between p-2 rounded-[var(--radius-md)] hover:bg-[var(--surface-2)]">
                     <div className="flex items-center gap-3">
                       {member.avatar ? (
-                        <Image src={member.avatar} alt={member.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full bg-gray-100" />
+                        <Image src={member.avatar} alt={member.name} width={32} height={32} unoptimized className="w-8 h-8 rounded-full bg-[var(--surface-2)]" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm">{member.name?.[0] ?? 'U'}</div>
+                        <div className="w-8 h-8 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-sm font-medium">{member.name?.[0] ?? 'U'}</div>
                       )}
-                      <span className="text-gray-700 dark:text-gray-300">{member.name}</span>
+                      <span className="text-body">{member.name}</span>
                     </div>
                     {member.id === user.id && (
-                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-1 rounded">You</span>
+                      <span className="text-micro normal-case px-2 py-1 rounded-full bg-[var(--surface-2)]">You</span>
                     )}
                   </div>
                 ))}
@@ -200,15 +195,16 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-6">
-            <p className="text-gray-500">You are not part of a household yet.</p>
+          <div className="text-center py-6 text-body text-[var(--text-secondary)]">
+            You are not part of a household yet.
           </div>
         )}
       </div>
 
-      <button 
+      <button
         onClick={logout}
-        className="w-full flex items-center justify-center gap-2 p-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors font-medium"
+        className="btn btn-danger w-full py-3 animate-rise"
+        style={{ "--stagger-i": 3 } as React.CSSProperties}
       >
         <LogOut className="w-5 h-5" />
         Sign Out
