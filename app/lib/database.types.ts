@@ -24,6 +24,7 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
+          user_id: string
         }
         Insert: {
           amount: number
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           household_id: string
           id?: string
+          user_id: string
         }
         Update: {
           amount?: number
@@ -38,6 +40,7 @@ export type Database = {
           created_at?: string
           household_id?: string
           id?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -167,6 +170,7 @@ export type Database = {
           id: string
           note: string | null
           title: string
+          user_id: string
         }
         Insert: {
           amount: number
@@ -177,6 +181,7 @@ export type Database = {
           id?: string
           note?: string | null
           title: string
+          user_id: string
         }
         Update: {
           amount?: number
@@ -187,6 +192,7 @@ export type Database = {
           id?: string
           note?: string | null
           title?: string
+          user_id?: string
         }
         Relationships: [
           {
@@ -309,6 +315,7 @@ export type Database = {
           household_id: string
           id: string
           name: string
+          owner_user_id: string | null
           saved: number
           target: number
         }
@@ -317,6 +324,7 @@ export type Database = {
           household_id: string
           id?: string
           name: string
+          owner_user_id?: string | null
           saved?: number
           target?: number
         }
@@ -325,6 +333,7 @@ export type Database = {
           household_id?: string
           id?: string
           name?: string
+          owner_user_id?: string | null
           saved?: number
           target?: number
         }

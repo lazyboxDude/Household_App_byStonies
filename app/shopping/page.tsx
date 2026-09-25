@@ -12,8 +12,9 @@ import { supabase } from "../lib/supabase";
 const DEFAULT_SHOPS = ["Migros", "Coop", "Denner", "Aldi", "Lidl"];
 
 export default function ShoppingPage() {
-  const { household } = useAuth();
+  const { user, household } = useAuth();
   const householdId = household?.id;
+  const userId = user?.id;
 
   const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -199,10 +200,9 @@ export default function ShoppingPage() {
     }
     setItems((prev) => prev.map((i) => (i.id === id ? (data as ShoppingItem) : i)));
 
-    // If the item was just marked completed, log it as an expense. Expenses
-    // itself still lives in localStorage (not migrated yet), so this keeps
-    // writing there for now rather than to the new `expenses` table.
-    if (!target.completed && nextCompleted) {
+    // If the item was just marked completed, log it as an expense — private
+    // to whichever member actually checked it off.
+    if (!target.completed && nextCompleted && householdId && userId) {
       let amount: number | null = target.price;
       if (amount === null) {
         const input = window.prompt(`Enter price for "${target.text}" (e.g. 2.50):`, '');
@@ -223,21 +223,22 @@ export default function ShoppingPage() {
       const { mapStoreToCategory } = await import('../../lib/storeMapping');
       const category = mapStoreToCategory(target.store);
 
-      const expense = {
-        id: Date.now().toString(),
-        title: target.text,
-        amount: amount || 0,
-        date: new Date().toISOString(),
-        category,
-        note: `Added from Shopping list (${target.store || 'unknown store'})`
-      };
-
       try {
-        const raw = localStorage.getItem('expenses');
-        const arr = raw ? JSON.parse(raw) : [];
-        arr.push(expense);
-        localStorage.setItem('expenses', JSON.stringify(arr));
-        window.dispatchEvent(new CustomEvent('expense:added', { detail: expense }));
+        const { data: expense, error: expenseError } = await supabase
+          .from("expenses")
+          .insert({
+            household_id: householdId,
+            user_id: userId,
+            title: target.text,
+            amount: amount || 0,
+            date: new Date().toISOString(),
+            category,
+            note: `Added from Shopping list (${target.store || 'unknown store'})`,
+          })
+          .select()
+          .single();
+        if (expenseError) throw expenseError;
+
         window.dispatchEvent(new CustomEvent('expense:undoable', { detail: expense }));
         const { showToast } = await import('../../lib/toast');
         showToast(`Added expense ${expense.title} — $${expense.amount.toFixed(2)}`, 'success');

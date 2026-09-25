@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { Wallet, PiggyBank, Receipt, Users, Settings2, TrendingUp, Trash2, Pencil } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Wallet, PiggyBank, Receipt, Users, Settings2, TrendingUp, Trash2, Pencil, Loader2 } from "lucide-react";
 import { showToast } from "../../../lib/toast";
+import { supabase } from "../../lib/supabase";
 import { AccountId, DistSettings, IrregularBill, DistTransaction } from "../types";
 
 const ACCOUNTS: { id: AccountId; name: string; role: string; color: string; icon: typeof Wallet }[] = [
@@ -110,28 +111,80 @@ function makeDistribution(income: number, date: string, settings: DistSettings):
   ];
 }
 
-function loadJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 type SubTab = "uebersicht" | "lohn" | "planer" | "einstellungen";
 
-export default function Verteilertopf() {
+export default function Verteilertopf({ householdId }: { householdId: string }) {
   const [subTab, setSubTab] = useState<SubTab>("uebersicht");
-  const [settings, setSettings] = useState<DistSettings>(() => loadJSON("verteilertopf_settings", DEFAULT_SETTINGS));
-  const [opening, setOpening] = useState<Record<AccountId, number>>(() => loadJSON("verteilertopf_opening", DEFAULT_OPENING));
-  const [bills, setBills] = useState<IrregularBill[]>(() => loadJSON("verteilertopf_bills", []));
-  const [tx, setTx] = useState<DistTransaction[]>(() => loadJSON("verteilertopf_tx", []));
+  const [settings, setSettings] = useState<DistSettings>(DEFAULT_SETTINGS);
+  const [opening, setOpening] = useState<Record<AccountId, number>>(DEFAULT_OPENING);
+  const [bills, setBills] = useState<IrregularBill[]>([]);
+  const [tx, setTx] = useState<DistTransaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { localStorage.setItem("verteilertopf_settings", JSON.stringify(settings)); }, [settings]);
-  useEffect(() => { localStorage.setItem("verteilertopf_opening", JSON.stringify(opening)); }, [opening]);
-  useEffect(() => { localStorage.setItem("verteilertopf_bills", JSON.stringify(bills)); }, [bills]);
-  useEffect(() => { localStorage.setItem("verteilertopf_tx", JSON.stringify(tx)); }, [tx]);
+  const loadConfig = useCallback(async () => {
+    const { data } = await supabase.from("verteilertopf_config").select("*").eq("household_id", householdId).maybeSingle();
+    let row = data;
+    if (!row) {
+      // First time this household opens the Verteilertopf — seed a default
+      // config row. ignoreDuplicates guards against two members racing.
+      const { data: seeded } = await supabase
+        .from("verteilertopf_config")
+        .upsert({ household_id: householdId }, { onConflict: "household_id", ignoreDuplicates: true })
+        .select()
+        .maybeSingle();
+      row = seeded ?? (await supabase.from("verteilertopf_config").select("*").eq("household_id", householdId).maybeSingle()).data;
+    }
+    if (row) {
+      setSettings({ taxes: row.taxes, bills: row.bills, joint: row.joint, minBuffer: row.min_buffer });
+      setOpening({ main: row.opening_main, taxes: row.opening_taxes, bills: row.opening_bills, joint: row.opening_joint });
+    }
+  }, [householdId]);
+
+  const loadBills = useCallback(async () => {
+    const { data } = await supabase
+      .from("verteilertopf_bills")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("created_at", { ascending: true });
+    setBills((data ?? []).map((b) => ({ id: b.id, name: b.name, amount: b.amount, months: b.months })));
+  }, [householdId]);
+
+  const loadTx = useCallback(async () => {
+    const { data } = await supabase
+      .from("verteilertopf_tx")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("date", { ascending: true })
+      .order("created_at", { ascending: true });
+    setTx(
+      (data ?? []).map((t) => ({
+        id: t.id,
+        group: t.tx_group ?? undefined,
+        kind: t.kind as DistTransaction["kind"],
+        date: t.date,
+        account: t.account as AccountId,
+        amount: t.amount,
+        desc: t.description,
+      }))
+    );
+  }, [householdId]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.all([loadConfig(), loadBills(), loadTx()]).finally(() => setIsLoading(false));
+  }, [loadConfig, loadBills, loadTx]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`verteilertopf-${householdId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_config", filter: `household_id=eq.${householdId}` }, loadConfig)
+      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_bills", filter: `household_id=eq.${householdId}` }, loadBills)
+      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_tx", filter: `household_id=eq.${householdId}` }, loadTx)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId, loadConfig, loadBills, loadTx]);
 
   const bal = useMemo(() => balances(opening, tx), [opening, tx]);
   const ft = fixedTotal(settings);
@@ -156,12 +209,39 @@ export default function Verteilertopf() {
   const rest = validIncome ? r2(incomeVal - ft) : 0;
   const afterMain = validIncome ? r2(bal.main + rest) : bal.main;
 
-  const distributeIncome = () => {
+  const distributeIncome = async () => {
     if (!validIncome) return;
     const batch = makeDistribution(incomeVal, incomeDate, settings);
-    setTx((prev) => [...prev, ...batch]);
-    setIncomeInput("");
-    showToast(`Lohn verteilt: ${chf(incomeVal)}`, "success");
+    const { data, error } = await supabase
+      .from("verteilertopf_tx")
+      .insert(
+        batch.map((t) => ({
+          household_id: householdId,
+          tx_group: t.group,
+          kind: t.kind,
+          date: t.date,
+          account: t.account,
+          amount: t.amount,
+          description: t.desc,
+        }))
+      )
+      .select();
+    if (!error && data) {
+      setTx((prev) => [
+        ...prev,
+        ...data.map((t) => ({
+          id: t.id,
+          group: t.tx_group ?? undefined,
+          kind: t.kind as DistTransaction["kind"],
+          date: t.date,
+          account: t.account as AccountId,
+          amount: t.amount,
+          desc: t.description,
+        })),
+      ]);
+      setIncomeInput("");
+      showToast(`Lohn verteilt: ${chf(incomeVal)}`, "success");
+    }
   };
 
   // --- Rechnungen-Planer form ---
@@ -180,7 +260,7 @@ export default function Verteilertopf() {
   const toggleMonth = (m: number) => {
     setBillMonths((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m].sort((a, c) => a - c)));
   };
-  const submitBill = (e: React.FormEvent) => {
+  const submitBill = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(billAmount.replace(",", "."));
     if (!billName.trim() || isNaN(amt) || billMonths.length === 0) {
@@ -188,18 +268,28 @@ export default function Verteilertopf() {
       return;
     }
     if (editBillId) {
-      setBills((prev) => prev.map((b) => (b.id === editBillId ? { ...b, name: billName.trim(), amount: r2(amt), months: billMonths } : b)));
+      const name = billName.trim();
+      setBills((prev) => prev.map((b) => (b.id === editBillId ? { ...b, name, amount: r2(amt), months: billMonths } : b)));
+      await supabase.from("verteilertopf_bills").update({ name, amount: r2(amt), months: billMonths }).eq("id", editBillId);
       showToast("Rechnung aktualisiert", "success");
     } else {
-      setBills((prev) => [...prev, { id: uid(), name: billName.trim(), amount: r2(amt), months: billMonths }]);
-      showToast("Rechnung hinzugefügt", "success");
+      const { data, error } = await supabase
+        .from("verteilertopf_bills")
+        .insert({ household_id: householdId, name: billName.trim(), amount: r2(amt), months: billMonths })
+        .select()
+        .single();
+      if (!error && data) {
+        setBills((prev) => [...prev, { id: data.id, name: data.name, amount: data.amount, months: data.months }]);
+        showToast("Rechnung hinzugefügt", "success");
+      }
     }
     resetBillForm();
   };
-  const deleteBill = (id: string) => {
+  const deleteBill = async (id: string) => {
     setBills((prev) => prev.filter((b) => b.id !== id));
     setConfirmDeleteBill(null);
     if (editBillId === id) resetBillForm();
+    await supabase.from("verteilertopf_bills").delete().eq("id", id);
   };
 
   // --- Einstellungen form ---
@@ -213,13 +303,18 @@ export default function Verteilertopf() {
     setSetJoint(String(settings.joint));
     setSetMin(String(settings.minBuffer));
   }, [settings]);
-  const saveSettings = (e: React.FormEvent) => {
+  const saveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     const t = parseFloat(setTaxes.replace(",", ".")) || 0;
     const b = parseFloat(setBills_.replace(",", ".")) || 0;
     const j = parseFloat(setJoint.replace(",", ".")) || 0;
     const mb = parseFloat(setMin.replace(",", ".")) || 0;
-    setSettings({ taxes: r2(t), bills: r2(b), joint: r2(j), minBuffer: r2(mb) });
+    const next = { taxes: r2(t), bills: r2(b), joint: r2(j), minBuffer: r2(mb) };
+    setSettings(next);
+    await supabase
+      .from("verteilertopf_config")
+      .update({ taxes: next.taxes, bills: next.bills, joint: next.joint, min_buffer: next.minBuffer })
+      .eq("household_id", householdId);
     showToast("Einstellungen gespeichert", "success");
   };
 
@@ -230,22 +325,32 @@ export default function Verteilertopf() {
     setBalInputs(Object.fromEntries(ACCOUNTS.map((a) => [a.id, String(bal[a.id])])) as Record<AccountId, string>);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subTab]);
-  const applyBalances = (e: React.FormEvent) => {
+  const applyBalances = async (e: React.FormEvent) => {
     e.preventDefault();
-    setOpening((prevOpening) => {
-      const next = { ...prevOpening };
-      for (const a of ACCOUNTS) {
-        const entered = parseFloat((balInputs[a.id] || "0").replace(",", "."));
-        if (isNaN(entered)) continue;
-        const txSum = tx.filter((t) => t.account === a.id).reduce((s, t) => s + t.amount, 0);
-        next[a.id] = r2(entered - txSum);
-      }
-      return next;
-    });
+    const next = { ...opening };
+    for (const a of ACCOUNTS) {
+      const entered = parseFloat((balInputs[a.id] || "0").replace(",", "."));
+      if (isNaN(entered)) continue;
+      const txSum = tx.filter((t) => t.account === a.id).reduce((s, t) => s + t.amount, 0);
+      next[a.id] = r2(entered - txSum);
+    }
+    setOpening(next);
+    await supabase
+      .from("verteilertopf_config")
+      .update({ opening_main: next.main, opening_taxes: next.taxes, opening_bills: next.bills, opening_joint: next.joint })
+      .eq("household_id", householdId);
     showToast("Kontostände übernommen", "success");
   };
 
   const upcoming = proj.slice(0, 4).filter((p) => p.pay > 0);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
