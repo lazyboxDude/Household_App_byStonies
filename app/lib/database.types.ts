@@ -248,6 +248,7 @@ export type Database = {
           id: string
           invite_code: string
           name: string
+          ownership_mode: string
         }
         Insert: {
           created_at?: string
@@ -256,6 +257,7 @@ export type Database = {
           id?: string
           invite_code: string
           name: string
+          ownership_mode?: string
         }
         Update: {
           created_at?: string
@@ -264,6 +266,7 @@ export type Database = {
           id?: string
           invite_code?: string
           name?: string
+          ownership_mode?: string
         }
         Relationships: []
       }
@@ -637,7 +640,7 @@ export type Database = {
     }
     Functions: {
       create_household: {
-        Args: { p_name: string }
+        Args: { p_name: string; p_ownership_mode?: string }
         Returns: {
           created_at: string
           created_by: string
@@ -645,22 +648,43 @@ export type Database = {
           id: string
           invite_code: string
           name: string
+          ownership_mode: string
         }
+        SetofOptions: {
+          from: "*"
+          to: "households"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      household_ownership_mode: {
+        Args: { p_household_id: string }
+        Returns: string
       }
       is_household_member: {
         Args: { p_household_id: string }
         Returns: boolean
       }
+      is_household_owner: { Args: { p_household_id: string }; Returns: boolean }
       join_household: {
         Args: { p_invite_code: string }
         Returns: {
           created_at: string
           created_by: string
+          enabled_features: string[]
           id: string
           invite_code: string
           name: string
+          ownership_mode: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "households"
+          isOneToOne: true
+          isSetofReturn: false
         }
       }
+      shares_household_with: { Args: { p_user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

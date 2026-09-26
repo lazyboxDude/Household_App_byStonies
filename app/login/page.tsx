@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [householdName, setHouseholdName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [mode, setMode] = useState<"create" | "join">("create");
+  const [ownershipMode, setOwnershipMode] = useState<"equal" | "owner_led">("equal");
   const [isNameLoading, setIsNameLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isHouseholdLoading, setIsHouseholdLoading] = useState(false);
@@ -53,7 +54,7 @@ export default function LoginPage() {
     setJoinError("");
     setIsHouseholdLoading(true);
     if (mode === "create" && householdName.trim()) {
-      await createHousehold(householdName);
+      await createHousehold(householdName, ownershipMode);
       setIsHouseholdLoading(false);
       router.push("/");
     } else if (mode === "join" && inviteCode.trim()) {
@@ -213,6 +214,38 @@ export default function LoginPage() {
                   <p className="text-caption mt-2 flex items-center gap-1">
                     <Sparkles className="w-3 h-3" /> You&apos;ll get an invite code to share
                   </p>
+
+                  <label className="block text-caption mb-1.5 mt-4">How do you want to share control?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setOwnershipMode("equal")}
+                      className="press text-left p-3 rounded-[var(--radius-md)] border transition-colors"
+                      style={{
+                        borderColor: ownershipMode === "equal" ? "var(--accent)" : "var(--border)",
+                        background: ownershipMode === "equal" ? "var(--accent-soft)" : "var(--surface-2)",
+                      }}
+                    >
+                      <span className="block text-sm font-medium text-[var(--text)]">Equal</span>
+                      <span className="block text-caption mt-0.5">
+                        Everyone decides together — good for couples
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOwnershipMode("owner_led")}
+                      className="press text-left p-3 rounded-[var(--radius-md)] border transition-colors"
+                      style={{
+                        borderColor: ownershipMode === "owner_led" ? "var(--accent)" : "var(--border)",
+                        background: ownershipMode === "owner_led" ? "var(--accent-soft)" : "var(--surface-2)",
+                      }}
+                    >
+                      <span className="block text-sm font-medium text-[var(--text)]">Main tenant</span>
+                      <span className="block text-caption mt-0.5">
+                        You keep control of settings — good for shared flats
+                      </span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div>
