@@ -11,7 +11,7 @@ const NAV_ITEMS: { name: string; href: string; icon: typeof Home; feature?: Opti
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { name: "Shopping", href: "/shopping", icon: ShoppingCart, feature: "shopping" },
-  { name: "Expenses", href: "/expenses", icon: DollarSign, feature: "expenses" },
+  { name: "Finanzen", href: "/expenses", icon: DollarSign, feature: "expenses" },
   { name: "Calendar", href: "/calendar", icon: Calendar, feature: "calendar" },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

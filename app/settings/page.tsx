@@ -15,8 +15,8 @@ const FEATURES: { key: OptionalFeature; icon: LucideIcon; title: string; descrip
   {
     key: "expenses",
     icon: DollarSign,
-    title: "Expenses & Budget",
-    description: "Private-by-default budgets and expenses, plus shareable savings pots.",
+    title: "Finanzen",
+    description: "Verteilertopf, Budgets & Ausgaben und Sparziele in einem Feature.",
   },
   {
     key: "calendar",

@@ -1,3 +1,26 @@
+export interface Budget {
+  id: string;
+  category: string;
+  amount: number; // monthly budget
+}
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  date: string; // ISO
+  category: string;
+  note?: string;
+}
+
+export interface Pot {
+  id: string;
+  name: string;
+  target: number;
+  saved: number;
+  ownerUserId: string | null; // null = shared/joint pot, visible to the whole household
+}
+
 export type AccountId = "main" | "taxes" | "bills" | "joint";
 
 export interface DistSettings {
@@ -23,3 +46,7 @@ export interface DistTransaction {
   amount: number; // positive = credit, negative = debit
   desc: string;
 }
+
+// The Finanzen feature is a single tab bar covering both the Verteilertopf
+// (account/income planning) and the Budgets & Ausgaben side.
+export type FinanceTab = "uebersicht" | "lohn" | "budgets" | "planer" | "sparziele" | "einstellungen";
