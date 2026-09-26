@@ -21,6 +21,15 @@ export interface Pot {
   ownerUserId: string | null; // null = shared/joint pot, visible to the whole household
 }
 
+export interface Debt {
+  id: string;
+  name: string;
+  total: number; // original amount owed
+  remaining: number; // current outstanding balance
+  monthlyPayment: number; // planned monthly payment
+  ownerUserId: string | null; // null = shared/joint debt, visible to the whole household
+}
+
 export type AccountId = "main" | "taxes" | "bills" | "joint";
 
 export interface DistSettings {
@@ -49,4 +58,4 @@ export interface DistTransaction {
 
 // The Finanzen feature is a single tab bar covering both the Verteilertopf
 // (account/income planning) and the Budgets & Ausgaben side.
-export type FinanceTab = "uebersicht" | "lohn" | "budgets" | "planer" | "sparziele" | "einstellungen";
+export type FinanceTab = "uebersicht" | "lohn" | "budgets" | "planer" | "schulden" | "sparziele" | "einstellungen";

@@ -160,6 +160,47 @@ export type Database = {
           },
         ]
       }
+      debts: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          monthly_payment: number
+          name: string
+          owner_user_id: string | null
+          remaining: number
+          total: number
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          monthly_payment?: number
+          name: string
+          owner_user_id?: string | null
+          remaining?: number
+          total?: number
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          monthly_payment?: number
+          name?: string
+          owner_user_id?: string | null
+          remaining?: number
+          total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debts_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expenses: {
         Row: {
           amount: number
@@ -555,6 +596,7 @@ export type Database = {
           household_id: string
           joint: number
           min_buffer: number
+          onboarding_completed: boolean
           opening_bills: number
           opening_joint: number
           opening_main: number
@@ -567,6 +609,7 @@ export type Database = {
           household_id: string
           joint?: number
           min_buffer?: number
+          onboarding_completed?: boolean
           opening_bills?: number
           opening_joint?: number
           opening_main?: number
@@ -579,6 +622,7 @@ export type Database = {
           household_id?: string
           joint?: number
           min_buffer?: number
+          onboarding_completed?: boolean
           opening_bills?: number
           opening_joint?: number
           opening_main?: number
