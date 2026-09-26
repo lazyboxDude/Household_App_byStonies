@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -41,6 +41,11 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
+  // Guards the seed-insert below against overlapping loadRooms() calls (e.g. React
+  // Strict Mode's double-invoked effects), which would otherwise both see an empty
+  // room list and each insert their own copy of the default rooms.
+  const seedingRef = useRef(false);
 
   const loadRooms = useCallback(async () => {
     const { data, error } = await supabase
@@ -50,7 +55,8 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
       .order("created_at", { ascending: true });
     if (!error) {
       let list = (data ?? []) as Room[];
-      if (list.length === 0) {
+      if (list.length === 0 && !seedingRef.current) {
+        seedingRef.current = true;
         const { data: seeded } = await supabase
           .from("rooms")
           .insert(DEFAULT_ROOMS.map((r) => ({ household_id: householdId, name: r.name, icon: r.icon })))
@@ -125,6 +131,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
   const deleteRoom = async (roomId: string) => {
     // Deleting the room cascades to its cleaning tasks and their linked
     // calendar events in the database — nothing else to clean up here.
+    setConfirmDeleteRoomId(null);
     setRooms((prev) => prev.filter((r) => r.id !== roomId));
     setCleaningTasks((prev) => prev.filter((t) => t.roomId !== roomId));
     if (selectedRoomId === roomId) {
@@ -258,7 +265,10 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
               return (
                 <button
                   key={room.id}
-                  onClick={() => setSelectedRoomId(room.id)}
+                  onClick={() => {
+                    setSelectedRoomId(room.id);
+                    setConfirmDeleteRoomId(null);
+                  }}
                   className={`press w-full group flex items-center justify-between p-3 rounded-[var(--radius-md)] border text-left transition-colors duration-300 ${
                     selectedRoomId === room.id
                       ? "bg-teal-50 dark:bg-teal-900/20 border-teal-400 dark:border-teal-700"
@@ -274,13 +284,50 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                         {overdueCount}
                       </span>
                     )}
-                    <Trash2
-                      className="w-4 h-4 press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)]"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteRoom(room.id);
-                      }}
-                    />
+                    {confirmDeleteRoomId === room.id ? (
+                      <span className="flex items-center gap-1.5">
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteRoom(room.id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.stopPropagation();
+                            deleteRoom(room.id);
+                          }}
+                          className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--danger)] text-white cursor-pointer"
+                        >
+                          Delete{roomTasks.length > 0 ? ` (${roomTasks.length})` : ""}
+                        </span>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteRoomId(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== "Enter") return;
+                            e.stopPropagation();
+                            setConfirmDeleteRoomId(null);
+                          }}
+                          className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)] cursor-pointer"
+                        >
+                          Cancel
+                        </span>
+                      </span>
+                    ) : (
+                      <Trash2
+                        className="w-4 h-4 press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteRoomId(room.id);
+                        }}
+                      />
+                    )}
                   </span>
                 </button>
               );
