@@ -4,15 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Home, CheckSquare, DollarSign, ShoppingCart, Settings, LogOut, Calendar } from "lucide-react";
-import { useAuth } from "@/app/context/AuthContext";
+import { useAuth, OptionalFeature } from "@/app/context/AuthContext";
 import { useEffect, useRef, useState } from "react";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { name: string; href: string; icon: typeof Home; feature?: OptionalFeature }[] = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
-  { name: "Shopping", href: "/shopping", icon: ShoppingCart },
-  { name: "Expenses", href: "/expenses", icon: DollarSign },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
+  { name: "Shopping", href: "/shopping", icon: ShoppingCart, feature: "shopping" },
+  { name: "Expenses", href: "/expenses", icon: DollarSign, feature: "expenses" },
+  { name: "Calendar", href: "/calendar", icon: Calendar, feature: "calendar" },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
@@ -26,12 +26,18 @@ interface PillRect {
 
 const Navbar = () => {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, household, logout } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const [pill, setPill] = useState<PillRect>({ x: 0, y: 0, w: 0, h: 0, ready: false });
 
-  const activeHref = NAV_ITEMS.find((item) => item.href === pathname)?.href ?? NAV_ITEMS[0].href;
+  // Tasks (+ Dashboard/Settings) is always visible; optional features only
+  // show up once a household has switched them on from Settings.
+  const visibleNavItems = NAV_ITEMS.filter(
+    (item) => !item.feature || !household || household.enabledFeatures.includes(item.feature)
+  );
+
+  const activeHref = visibleNavItems.find((item) => item.href === pathname)?.href ?? visibleNavItems[0].href;
 
   useEffect(() => {
     const measure = () => {
@@ -83,7 +89,7 @@ const Navbar = () => {
                   "transform var(--dur-base) var(--ease-spring), width var(--dur-base) var(--ease-spring), height var(--dur-base) var(--ease-spring), opacity var(--dur-fast) var(--ease-out)",
               }}
             />
-            {NAV_ITEMS.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (

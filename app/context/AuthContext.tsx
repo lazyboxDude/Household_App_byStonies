@@ -12,11 +12,17 @@ interface User {
   avatar?: string;
 }
 
+// Tasks (with its Cleaning Plan sub-tab) is the always-on baseline feature —
+// everything else starts off for a new household and is switched on
+// individually from Settings, so new households aren't overwhelmed.
+export type OptionalFeature = "shopping" | "expenses" | "calendar";
+
 interface Household {
   id: string;
   name: string;
   inviteCode: string;
   members: User[];
+  enabledFeatures: OptionalFeature[];
 }
 
 interface AuthContextType {
@@ -27,6 +33,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   createHousehold: (name: string) => Promise<void>;
   joinHousehold: (code: string) => Promise<boolean>;
+  toggleFeature: (feature: OptionalFeature, enabled: boolean) => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -56,13 +63,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadHousehold = useCallback(async (userId: string) => {
     const { data: membership } = await supabase
       .from("household_members")
-      .select("household_id, households(id, name, invite_code)")
+      .select("household_id, households(id, name, invite_code, enabled_features)")
       .eq("user_id", userId)
       .order("joined_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    const h = membership?.households as { id: string; name: string; invite_code: string } | null | undefined;
+    const h = membership?.households as
+      | { id: string; name: string; invite_code: string; enabled_features: string[] }
+      | null
+      | undefined;
     if (!h) {
       setHousehold(null);
       return;
@@ -82,7 +92,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     });
 
-    setHousehold({ id: h.id, name: h.name, inviteCode: h.invite_code, members });
+    setHousehold({
+      id: h.id,
+      name: h.name,
+      inviteCode: h.invite_code,
+      members,
+      enabledFeatures: h.enabled_features as OptionalFeature[],
+    });
   }, []);
 
   const loadProfile = useCallback(
@@ -180,6 +196,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
+  const toggleFeature = async (feature: OptionalFeature, enabled: boolean) => {
+    if (!household) return;
+    const nextFeatures = enabled
+      ? [...new Set([...household.enabledFeatures, feature])]
+      : household.enabledFeatures.filter((f) => f !== feature);
+
+    setHousehold({ ...household, enabledFeatures: nextFeatures });
+    const { error } = await supabase
+      .from("households")
+      .update({ enabled_features: nextFeatures })
+      .eq("id", household.id);
+    if (error) {
+      console.error("Failed to update household features:", error);
+      setHousehold(household);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -190,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         createHousehold,
         joinHousehold,
+        toggleFeature,
         isAuthenticated: !!user,
       }}
     >

@@ -2,11 +2,12 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Wallet } from 'lucide-react';
 import { showToast } from '../../lib/toast';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import Verteilertopf from './components/Verteilertopf';
+import FeatureOnboarding from '../components/FeatureOnboarding';
 
 interface Budget {
   id: string;
@@ -37,6 +38,7 @@ export default function ExpensesPage() {
   const { user, household } = useAuth();
   const userId = user?.id;
   const householdId = household?.id;
+  const isEnabled = household?.enabledFeatures.includes("expenses") ?? false;
 
   const [pageTab, setPageTab] = useState<PageTab>('budget');
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -340,6 +342,22 @@ export default function ExpensesPage() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (!isEnabled) {
+    return (
+      <FeatureOnboarding
+        feature="expenses"
+        icon={Wallet}
+        title="Expenses & Budget"
+        description="Track your own spending against a monthly budget, and optionally share savings pots with your household like a joint account."
+        bullets={[
+          "Your budgets and expenses are private to you, by default",
+          "Savings pots can be kept private or shared with the household",
+          "Verteilertopf: plan how a paycheck splits across taxes, bills, and buffer",
+        ]}
+      />
     );
   }
 
