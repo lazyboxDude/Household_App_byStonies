@@ -111,7 +111,7 @@ export default function ExpensesPage() {
   }
 
   if (!vt.onboardingCompleted) {
-    return <FinanceOnboarding vt={vt} debts={debtsHook} pots={potsHook} />;
+    return <FinanceOnboarding vt={vt} debts={debtsHook} pots={potsHook} budgets={budgetsHook} />;
   }
 
   return (
