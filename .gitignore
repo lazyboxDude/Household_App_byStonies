@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# visual studio (IDE-local cache, never shared across machines)
+.vs/
+*.CopilotIndices/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
