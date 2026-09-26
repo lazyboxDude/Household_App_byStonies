@@ -25,7 +25,7 @@ interface AuthContextType {
   login: (name: string, captchaToken?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  createHousehold: (name: string) => Promise<void>;
+  createHousehold: (name: string, ownershipMode?: "equal" | "owner_led") => Promise<void>;
   joinHousehold: (code: string) => Promise<boolean>;
   isAuthenticated: boolean;
 }
@@ -160,8 +160,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/login");
   };
 
-  const createHousehold = async (name: string) => {
-    const { data, error } = await supabase.rpc("create_household", { p_name: name });
+  const createHousehold = async (name: string, ownershipMode: "equal" | "owner_led" = "equal") => {
+    const { data, error } = await supabase.rpc("create_household", {
+      p_name: name,
+      p_ownership_mode: ownershipMode,
+    });
     if (error || !data) {
       console.error("Create household failed:", error);
       alert("Could not create the household. Please try again.");
