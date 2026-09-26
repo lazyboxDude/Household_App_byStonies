@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Plus, Trash2, User, ListTodo, Loader2, Lock, Users } from "lucide-react";
 import { Task } from "../types";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import SwipeToDelete, { type SwipeToDeleteHandle } from "../../components/SwipeToDelete";
 
 export default function TaskListTab({ householdId }: { householdId: string }) {
   const { user } = useAuth();
@@ -13,6 +14,13 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskShared, setNewTaskShared] = useState(true);
+
+  const swipeRefs = useRef(new Map<string, SwipeToDeleteHandle | null>());
+  const closeOtherRows = (openedTaskId: string) => {
+    swipeRefs.current.forEach((handle, taskId) => {
+      if (taskId !== openedTaskId) handle?.close();
+    });
+  };
 
   const loadTasks = useCallback(async () => {
     const { data, error } = await supabase
@@ -130,66 +138,74 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
       {/* Tasks */}
       <div className="space-y-3">
         {tasks.map((task, i) => (
-          <div
-            key={task.id}
-            className={`group surface card-interactive flex items-center justify-between p-4 animate-rise ${
-              task.completed ? "opacity-75" : ""
-            }`}
-            style={{ "--stagger-i": i } as React.CSSProperties}
-          >
-            <div className="flex items-center gap-4 flex-1">
-              <button
-                onClick={() => toggleTask(task.id)}
-                className={`press flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-300 ${
-                  task.completed
-                    ? "bg-green-500 border-green-500 text-white"
-                    : "border-[var(--border-strong)] hover:border-indigo-500 text-transparent"
+          <div key={task.id} className="animate-rise" style={{ "--stagger-i": i } as React.CSSProperties}>
+            <SwipeToDelete
+              ref={(el) => {
+                swipeRefs.current.set(task.id, el);
+              }}
+              onDelete={() => deleteTask(task.id)}
+              onOpenChange={(open) => open && closeOtherRows(task.id)}
+            >
+              <div
+                className={`group surface card-interactive flex items-center justify-between p-4 ${
+                  task.completed ? "opacity-75" : ""
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4" />
-              </button>
+                <div className="flex items-center gap-4 flex-1">
+                  <button
+                    onClick={() => toggleTask(task.id)}
+                    className={`press flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors duration-300 ${
+                      task.completed
+                        ? "bg-green-500 border-green-500 text-white"
+                        : "border-[var(--border-strong)] hover:border-indigo-500 text-transparent"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </button>
 
-              <div className="flex-1">
-                <h3
-                  className={`font-medium ${
-                    task.completed ? "text-[var(--text-tertiary)] line-through" : "text-[var(--text)]"
-                  }`}
-                >
-                  {task.title}
-                </h3>
-                {(task.assignee || !task.is_shared) && (
-                  <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
-                    {task.assignee && (
-                      <span className="flex items-center gap-1 bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
-                        <User className="w-3 h-3" /> {task.assignee}
-                      </span>
-                    )}
-                    {!task.is_shared && (
-                      <span className="flex items-center gap-1 bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
-                        <Lock className="w-3 h-3" /> Only me
-                      </span>
+                  <div className="flex-1">
+                    <h3
+                      className={`font-medium ${
+                        task.completed ? "text-[var(--text-tertiary)] line-through" : "text-[var(--text)]"
+                      }`}
+                    >
+                      {task.title}
+                    </h3>
+                    {(task.assignee || !task.is_shared) && (
+                      <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
+                        {task.assignee && (
+                          <span className="flex items-center gap-1 bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
+                            <User className="w-3 h-3" /> {task.assignee}
+                          </span>
+                        )}
+                        {!task.is_shared && (
+                          <span className="flex items-center gap-1 bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
+                            <Lock className="w-3 h-3" /> Only me
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
+                </div>
+
+                {task.created_by === user?.id && (
+                  <button
+                    onClick={() => toggleShared(task.id)}
+                    className="press row-action text-[var(--text-tertiary)] hover:text-[var(--text)] p-2"
+                    title={task.is_shared ? "Make private" : "Share with household"}
+                  >
+                    {task.is_shared ? <Lock className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                  </button>
                 )}
+
+                <button
+                  onClick={() => deleteTask(task.id)}
+                  className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-            </div>
-
-            {task.created_by === user?.id && (
-              <button
-                onClick={() => toggleShared(task.id)}
-                className="press row-action text-[var(--text-tertiary)] hover:text-[var(--text)] p-2"
-                title={task.is_shared ? "Make private" : "Share with household"}
-              >
-                {task.is_shared ? <Lock className="w-4 h-4" /> : <Users className="w-4 h-4" />}
-              </button>
-            )}
-
-            <button
-              onClick={() => deleteTask(task.id)}
-              className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            </SwipeToDelete>
           </div>
         ))}
 
