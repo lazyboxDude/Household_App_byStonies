@@ -3,8 +3,7 @@ export interface Task {
   title: string;
   points: number;
   completed: boolean;
-  assignee?: string;
-  dueDate?: string;
+  assignee: string | null;
 }
 
 export interface UserStats {
@@ -28,7 +27,7 @@ export interface CleaningTask {
   title: string;
   supplies: string[];
   recurrence: Recurrence;
-  assignee?: string;
-  lastDone?: string;
+  assignee: string | null;
+  lastDone: string | null;
   nextDue: string;
 }

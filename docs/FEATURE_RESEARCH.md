@@ -44,6 +44,14 @@ below so we know what's next after the current work (Cleaning Plan in Tasks).
 
 ## TODO — roadmap for later sessions
 
+### ⚠️ Manual setup required (Supabase dashboard — cannot be done from code)
+- [ ] **Authentication → Providers → Google**: add a real Google OAuth Client
+      ID/Secret (from the Google Cloud Console). Without this, "Continue with
+      Google" in `AuthContext.tsx` fails.
+- [ ] **Authentication → Sign In / Providers**: enable **Anonymous Sign-Ins**.
+      Without this, the "just your name" quick login
+      (`supabase.auth.signInAnonymously`) fails.
+
 ### Now
 - [ ] Tasks page: general household tasks (one-off + daily), e.g. "buy a toolbox",
       "set up smart home" — keep the existing gamified list.
@@ -58,8 +66,11 @@ below so we know what's next after the current work (Cleaning Plan in Tasks).
 - [ ] Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview.
 - [ ] Task rotation: assign a recurring task to rotate automatically between household members.
 - [ ] Completion streaks per person + simple leaderboard (a real one, not the current mock data).
-- [ ] Persist Tasks/Cleaning Plan/Rooms in Appwrite (`app/lib/appwrite.ts` is already wired for
-      auth; add a Databases collection so data isn't stuck in `localStorage` per device).
+- [x] Real backend: households now live in Supabase Postgres with RLS
+      (`app/lib/supabase.ts`); auth is Supabase Auth (Google OAuth + anonymous).
+      Tasks/Cleaning Plan/Rooms have tables ready (`tasks`, `rooms`,
+      `cleaning_tasks`) but still need the pages wired from `localStorage` to
+      real reads/writes — that's the next slice.
 
 ### Later / nice-to-have
 - [ ] Shopping: recipe "templates" that add all ingredients at once.

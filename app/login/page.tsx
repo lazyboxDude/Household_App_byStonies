@@ -8,41 +8,52 @@ import { Home, ArrowRight, Sparkles } from "lucide-react";
 export default function LoginPage() {
   const { login, loginWithGoogle, createHousehold, joinHousehold, user, household } = useAuth();
   const router = useRouter();
-  
-  const [step, setStep] = useState<"name" | "household">("name");
+
+  // "household" is reached either by explicitly finishing the name step, or
+  // by landing back here signed in (e.g. the Google OAuth redirect) without
+  // a household yet — derive it instead of syncing it via an effect.
+  const [manualStep, setManualStep] = useState<"name" | "household" | null>(null);
+  const step: "name" | "household" = manualStep ?? (user && !household ? "household" : "name");
+
   const [name, setName] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [mode, setMode] = useState<"create" | "join">("create");
+  const [isNameLoading, setIsNameLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isHouseholdLoading, setIsHouseholdLoading] = useState(false);
+  const [joinError, setJoinError] = useState("");
 
-  const handleNameSubmit = (e: React.FormEvent) => {
+  const handleNameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      login(name);
-      setStep("household");
-    }
+    if (!name.trim()) return;
+    setIsNameLoading(true);
+    const ok = await login(name);
+    setIsNameLoading(false);
+    if (ok) setManualStep("household");
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
-    // Simulate network delay
-    setTimeout(() => {
-      loginWithGoogle();
-      setIsGoogleLoading(false);
-      setStep("household");
-    }, 1000);
+    await loginWithGoogle();
+    setIsGoogleLoading(false);
   };
 
-  const handleHouseholdSubmit = (e: React.FormEvent) => {
+  const handleHouseholdSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setJoinError("");
+    setIsHouseholdLoading(true);
     if (mode === "create" && householdName.trim()) {
-      createHousehold(householdName);
+      await createHousehold(householdName);
+      setIsHouseholdLoading(false);
       router.push("/");
     } else if (mode === "join" && inviteCode.trim()) {
-      const success = joinHousehold(inviteCode);
+      const success = await joinHousehold(inviteCode);
+      setIsHouseholdLoading(false);
       if (success) router.push("/");
-      else alert("Invalid code (Try DEMO123)");
+      else setJoinError("Invalid invite code.");
+    } else {
+      setIsHouseholdLoading(false);
     }
   };
 
@@ -53,16 +64,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md">
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background:
+          "radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-soft), transparent), var(--bg)",
+      }}
+    >
+      <div className="surface-raised animate-sheet p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-orange-100 dark:bg-orange-900/30 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Home className="w-8 h-8 text-orange-500" />
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: "var(--accent-soft)" }}
+          >
+            <Home className="w-8 h-8" style={{ color: "var(--accent)" }} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Welcome Home
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-2">
+          <h1 className="text-title text-[var(--text)]">Welcome Home</h1>
+          <p className="text-body text-[var(--text-secondary)] mt-2">
             Manage your household together
           </p>
         </div>
@@ -70,32 +88,30 @@ export default function LoginPage() {
         {step === "name" ? (
           <form onSubmit={handleNameSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                What&apos;s your name?
-              </label>
+              <label className="block text-caption mb-1.5">What&apos;s your name?</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                className="field"
                 placeholder="e.g. Alex"
                 autoFocus
               />
             </div>
             <button
               type="submit"
-              disabled={!name.trim()}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!name.trim() || isNameLoading}
+              className="btn btn-primary w-full py-3"
             >
-              Continue <ArrowRight className="w-4 h-4" />
+              {isNameLoading ? "Signing in..." : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
 
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                <div className="w-full border-t divider" />
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">Or continue with</span>
+              <div className="relative flex justify-center">
+                <span className="px-2 bg-[var(--surface)] text-caption">Or continue with</span>
               </div>
             </div>
 
@@ -103,7 +119,7 @@ export default function LoginPage() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading}
-              className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-white font-medium py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+              className="btn btn-secondary w-full py-3"
             >
               {isGoogleLoading ? (
                 <span className="animate-pulse">Connecting...</span>
@@ -133,25 +149,32 @@ export default function LoginPage() {
             </button>
           </form>
         ) : (
-          <div className="space-y-6">
-            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+          <div className="space-y-6 animate-rise">
+            <div className="relative grid grid-cols-2 rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
+              <span
+                aria-hidden
+                className="absolute inset-y-1 w-[calc(50%-4px)] rounded-[calc(var(--radius-md)-2px)] bg-[var(--surface)] shadow-sm transition-transform"
+                style={{
+                  transform: mode === "join" ? "translateX(calc(100% + 8px))" : "translateX(0)",
+                  transitionTimingFunction: "var(--ease-spring)",
+                  transitionDuration: "var(--dur-base)",
+                }}
+              />
               <button
-                onClick={() => setMode("create")}
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                  mode === "create"
-                    ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-                }`}
+                onClick={() => {
+                  setMode("create");
+                  setJoinError("");
+                }}
+                className="relative z-10 press py-2 text-sm font-medium rounded-md text-[var(--text)]"
               >
                 Create New Home
               </button>
               <button
-                onClick={() => setMode("join")}
-                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                  mode === "join"
-                    ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700"
-                }`}
+                onClick={() => {
+                  setMode("join");
+                  setJoinError("");
+                }}
+                className="relative z-10 press py-2 text-sm font-medium rounded-md text-[var(--text)]"
               >
                 Join Existing
               </button>
@@ -160,41 +183,46 @@ export default function LoginPage() {
             <form onSubmit={handleHouseholdSubmit} className="space-y-4">
               {mode === "create" ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Household Name
-                  </label>
+                  <label className="block text-caption mb-1.5">Household Name</label>
                   <input
                     type="text"
                     value={householdName}
                     onChange={(e) => setHouseholdName(e.target.value)}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none"
+                    className="field"
                     placeholder="e.g. The Stonies"
                   />
-                  <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                  <p className="text-caption mt-2 flex items-center gap-1">
                     <Sparkles className="w-3 h-3" /> You&apos;ll get an invite code to share
                   </p>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Invite Code
-                  </label>
+                  <label className="block text-caption mb-1.5">Invite Code</label>
                   <input
                     type="text"
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 outline-none uppercase tracking-widest"
+                    className="field uppercase tracking-widest"
                     placeholder="e.g. X8Y2Z1"
                   />
+                  {joinError && (
+                    <p className="text-caption mt-2" style={{ color: "var(--danger)" }}>
+                      {joinError}
+                    </p>
+                  )}
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={mode === "create" ? !householdName.trim() : !inviteCode.trim()}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={(mode === "create" ? !householdName.trim() : !inviteCode.trim()) || isHouseholdLoading}
+                className="btn btn-primary w-full py-3"
               >
-                {mode === "create" ? "Create Household" : "Join Household"}
+                {isHouseholdLoading
+                  ? "Please wait..."
+                  : mode === "create"
+                  ? "Create Household"
+                  : "Join Household"}
               </button>
             </form>
           </div>

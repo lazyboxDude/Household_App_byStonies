@@ -26,10 +26,10 @@ export default function DealsTab({
   addDealToList
 }: DealsTabProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="surface p-6">
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-title">
             Current Offers at {currentStoreSales}
           </h2>
           <div className="flex gap-2">
@@ -37,11 +37,9 @@ export default function DealsTab({
               <button
                 key={store}
                 onClick={() => loadDeals(store)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  currentStoreSales === store
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                }`}
+                className="chip"
+                data-active={currentStoreSales === store}
+                style={currentStoreSales === store ? { background: "var(--accent)", color: "white", borderColor: "transparent" } : undefined}
               >
                 {store}
               </button>
@@ -57,13 +55,10 @@ export default function DealsTab({
               <button
                 key={cat.name}
                 onClick={() => setSelectedCategory(cat.name)}
-                className={`flex items-center whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === cat.name
-                    ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800"
-                    : "bg-gray-50 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
+                className="chip"
+                data-active={selectedCategory === cat.name}
               >
-                <Icon className="w-4 h-4 mr-1.5" />
+                <Icon className="w-4 h-4" />
                 {cat.name}
               </button>
             );
@@ -74,7 +69,7 @@ export default function DealsTab({
       {isLoadingSales ? (
         <div className="flex flex-col items-center justify-center h-60 space-y-4">
           <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-          <p className="text-gray-500">Fetching latest deals...</p>
+          <p className="text-body text-[var(--text-secondary)]">Fetching latest deals...</p>
         </div>
       ) : (
         <>
@@ -89,10 +84,14 @@ export default function DealsTab({
                   {filteredOffers.map((offer, idx) => {
                     // Determine icon based on category if image fails or is missing
                     const CategoryIcon = CATEGORIES.find(c => c.name === offer.category)?.icon || Package;
-                    
+
                     return (
-                      <div key={idx} className="group border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex gap-4 hover:shadow-md transition-all bg-white dark:bg-gray-800 relative">
-                        <div className="w-20 h-20 flex-shrink-0 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center overflow-hidden relative">
+                      <div
+                        key={idx}
+                        className="group surface card-interactive p-4 flex gap-4 relative animate-rise"
+                        style={{ "--stagger-i": idx } as React.CSSProperties}
+                      >
+                        <div className="w-20 h-20 flex-shrink-0 bg-[var(--surface-2)] rounded-[var(--radius-sm)] flex items-center justify-center overflow-hidden relative">
                           {offer.image ? (
                             <Image
                               src={offer.image}
@@ -109,21 +108,21 @@ export default function DealsTab({
                               }}
                             />
                           ) : null}
-                          <div className={`icon-fallback flex flex-col items-center justify-center text-gray-400 w-full h-full absolute inset-0 bg-gray-100 dark:bg-gray-700 ${offer.image ? 'hidden' : ''}`}>
+                          <div className={`icon-fallback flex flex-col items-center justify-center text-[var(--text-tertiary)] w-full h-full absolute inset-0 bg-[var(--surface-2)] ${offer.image ? 'hidden' : ''}`}>
                             <CategoryIcon className="w-8 h-8 mb-1" />
                           </div>
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start">
-                            <h3 className="font-medium text-gray-900 dark:text-white line-clamp-2 text-sm mb-1 pr-6">
+                            <h3 className="font-medium text-[var(--text)] line-clamp-2 text-sm mb-1 pr-6">
                               {offer.title}
                             </h3>
                           </div>
                           <p className="text-green-600 font-bold text-lg">{offer.price}</p>
                           <div className="flex items-center gap-2 mt-1">
                             {offer.category && (
-                              <span className="inline-block text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                              <span className="inline-block text-xs text-[var(--text-secondary)] bg-[var(--surface-2)] px-2 py-0.5 rounded">
                                 {offer.category}
                               </span>
                             )}
@@ -132,7 +131,7 @@ export default function DealsTab({
                                 href={offer.link}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-gray-400 hover:text-orange-500 transition-colors p-1"
+                                className="press text-[var(--text-tertiary)] hover:text-orange-500 transition-colors p-1"
                                 title="View on store website"
                                 onClick={(e) => e.stopPropagation()}
                               >
@@ -144,7 +143,7 @@ export default function DealsTab({
 
                         <button
                           onClick={() => addDealToList(offer)}
-                          className="absolute top-3 right-3 p-2 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          className="press absolute top-3 right-3 p-2 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
                           title="Add to shopping list"
                         >
                           <Plus className="w-4 h-4" />
@@ -157,18 +156,18 @@ export default function DealsTab({
             } else {
               return (
                 <div className="text-center py-10">
-                  <p className="text-gray-500 mb-4">
-                    {salesOffers.length > 0 
-                      ? `No offers found in "${selectedCategory}".` 
+                  <p className="text-body text-[var(--text-secondary)] mb-4">
+                    {salesOffers.length > 0
+                      ? `No offers found in "${selectedCategory}".`
                       : (salesError || "No offers found directly.")}
                   </p>
-                  <a 
-                    href={STORE_LINKS[Object.keys(STORE_LINKS).find(k => currentStoreSales.toLowerCase().includes(k.toLowerCase())) || ""] || "#"} 
-                    target="_blank" 
+                  <a
+                    href={STORE_LINKS[Object.keys(STORE_LINKS).find(k => currentStoreSales.toLowerCase().includes(k.toLowerCase())) || ""] || "#"}
+                    target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                    className="btn btn-primary inline-flex"
                   >
-                    Open {currentStoreSales} Website <ExternalLink className="w-4 h-4 ml-2" />
+                    Open {currentStoreSales} Website <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
               );

@@ -1,72 +1,201 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckCircle2, Trophy, Medal, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { CheckCircle2, Trophy, Medal, Sparkles, Loader2 } from "lucide-react";
 import { UserStats } from "./types";
 import TaskListTab from "./components/TaskListTab";
 import CleaningPlanTab from "./components/CleaningPlanTab";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 
 const DEFAULT_STATS: UserStats = {
   level: 1,
-  currentXP: 15,
+  currentXP: 0,
   xpToNextLevel: 100,
-  totalTasksCompleted: 1,
+  totalTasksCompleted: 0,
 };
+
+interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  avatar: string | null;
+  totalXpEarned: number;
+}
 
 type Tab = "tasks" | "cleaning";
 
 export default function TasksPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("tasks");
+  const { user, household } = useAuth();
+  const householdId = household?.id;
+  const userId = user?.id;
 
-  const [stats, setStats] = useState<UserStats>(() => {
-    try {
-      const s = localStorage.getItem("task_stats");
-      return s ? (JSON.parse(s) as UserStats) : DEFAULT_STATS;
-    } catch {
-      return DEFAULT_STATS;
+  const [activeTab, setActiveTab] = useState<Tab>("tasks");
+  const [stats, setStats] = useState<UserStats>(DEFAULT_STATS);
+  const [totalXpEarned, setTotalXpEarned] = useState(0);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadStats = useCallback(async () => {
+    if (!householdId || !userId) return;
+    const { data } = await supabase
+      .from("member_stats")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (data) {
+      setStats({
+        level: data.level,
+        currentXP: data.current_xp,
+        xpToNextLevel: data.xp_to_next_level,
+        totalTasksCompleted: data.total_tasks_completed,
+      });
+      setTotalXpEarned(data.total_xp_earned);
+    } else {
+      setStats(DEFAULT_STATS);
+      setTotalXpEarned(0);
     }
-  });
+  }, [householdId, userId]);
+
+  const loadLeaderboard = useCallback(async () => {
+    if (!householdId) return;
+    const [{ data: members }, { data: statsRows }] = await Promise.all([
+      supabase.from("household_members").select("user_id, profiles(name, avatar_url)").eq("household_id", householdId),
+      supabase.from("member_stats").select("user_id, total_xp_earned").eq("household_id", householdId),
+    ]);
+
+    const entries: LeaderboardEntry[] = (members ?? []).map((m) => {
+      const profile = m.profiles as { name: string; avatar_url: string | null } | null;
+      const s = statsRows?.find((row) => row.user_id === m.user_id);
+      return {
+        userId: m.user_id,
+        name: profile?.name ?? "Member",
+        avatar: profile?.avatar_url ?? null,
+        totalXpEarned: s?.total_xp_earned ?? 0,
+      };
+    });
+    entries.sort((a, b) => b.totalXpEarned - a.totalXpEarned);
+    setLeaderboard(entries);
+  }, [householdId]);
 
   useEffect(() => {
-    localStorage.setItem("task_stats", JSON.stringify(stats));
-  }, [stats]);
+    // Standard fetch-on-mount: sets isLoading(false) once both loads finish.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    Promise.all([loadStats(), loadLeaderboard()]).finally(() => setIsLoading(false));
+  }, [loadStats, loadLeaderboard]);
 
-  const awardPoints = (points: number) => {
-    setStats((prev) => {
-      if (points >= 0) {
-        let currentXP = prev.currentXP + points;
-        let level = prev.level;
-        let xpToNextLevel = prev.xpToNextLevel;
-
-        if (currentXP >= xpToNextLevel) {
-          level++;
-          currentXP -= xpToNextLevel;
-          xpToNextLevel = Math.floor(xpToNextLevel * 1.5);
+  useEffect(() => {
+    if (!householdId) return;
+    const channel = supabase
+      .channel(`member-stats-${householdId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "member_stats", filter: `household_id=eq.${householdId}` },
+        () => {
+          loadStats();
+          loadLeaderboard();
         }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId, loadStats, loadLeaderboard]);
 
-        return { level, currentXP, xpToNextLevel, totalTasksCompleted: prev.totalTasksCompleted + 1 };
+  const awardPoints = async (points: number) => {
+    if (!householdId || !userId) return;
+
+    const { data: current } = await supabase
+      .from("member_stats")
+      .select("*")
+      .eq("household_id", householdId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const prev = current ?? {
+      level: 1,
+      current_xp: 0,
+      xp_to_next_level: 100,
+      total_tasks_completed: 0,
+      total_xp_earned: 0,
+    };
+
+    let level = prev.level;
+    let currentXP = prev.current_xp;
+    let xpToNextLevel = prev.xp_to_next_level;
+    let totalTasksCompleted = prev.total_tasks_completed;
+
+    if (points >= 0) {
+      currentXP += points;
+      if (currentXP >= xpToNextLevel) {
+        level++;
+        currentXP -= xpToNextLevel;
+        xpToNextLevel = Math.floor(xpToNextLevel * 1.5);
       }
+      totalTasksCompleted += 1;
+    } else {
+      currentXP = Math.max(0, currentXP + points);
+      totalTasksCompleted = Math.max(0, totalTasksCompleted - 1);
+    }
+    const nextTotalXpEarned = Math.max(0, prev.total_xp_earned + points);
 
-      return {
-        ...prev,
-        currentXP: Math.max(0, prev.currentXP + points),
-        totalTasksCompleted: Math.max(0, prev.totalTasksCompleted - 1),
-      };
+    // Optimistic local update — realtime will reconcile this and every
+    // other member's view shortly after.
+    setStats({ level, currentXP, xpToNextLevel, totalTasksCompleted });
+    setTotalXpEarned(nextTotalXpEarned);
+
+    await supabase.from("member_stats").upsert({
+      household_id: householdId,
+      user_id: userId,
+      level,
+      current_xp: currentXP,
+      xp_to_next_level: xpToNextLevel,
+      total_tasks_completed: totalTasksCompleted,
+      total_xp_earned: nextTotalXpEarned,
     });
   };
 
   const progressPercentage = (stats.currentXP / stats.xpToNextLevel) * 100;
 
+  if (!householdId) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <h1 className="text-display flex items-center gap-3 mb-6 animate-rise">
+          <CheckCircle2 className="w-8 h-8 text-green-500" />
+          Household Tasks
+        </h1>
+        <div className="surface p-8 text-center animate-rise">
+          <p className="text-body text-[var(--text-secondary)] mb-4">
+            Join or create a household to share tasks and the cleaning plan.
+          </p>
+          <Link href="/login" className="btn btn-primary inline-flex">
+            Go to Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-rise">
+        <h1 className="text-display flex items-center gap-3">
           <CheckCircle2 className="w-8 h-8 text-green-500" />
           Household Tasks
         </h1>
 
         {/* Gamification Stats Card */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-xl shadow-lg flex items-center gap-6">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-4 rounded-[var(--radius-lg)] shadow-lg flex items-center gap-6">
           <div className="flex flex-col items-center">
             <div className="bg-white/20 p-2 rounded-full mb-1">
               <Trophy className="w-6 h-6 text-yellow-300" />
@@ -81,8 +210,12 @@ export default function TasksPage() {
             </div>
             <div className="w-full bg-black/20 rounded-full h-2.5 overflow-hidden">
               <div
-                className="bg-yellow-400 h-full rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progressPercentage}%` }}
+                className="bg-yellow-400 h-full rounded-full transition-all"
+                style={{
+                  width: `${progressPercentage}%`,
+                  transitionDuration: "var(--dur-slow)",
+                  transitionTimingFunction: "var(--ease-spring)",
+                }}
               />
             </div>
             <p className="text-xs mt-1 text-indigo-100 text-center">
@@ -93,23 +226,23 @@ export default function TasksPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-2 mb-6 border-b divider">
         <button
           onClick={() => setActiveTab("tasks")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 ${
             activeTab === "tasks"
               ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
           }`}
         >
           Tasks
         </button>
         <button
           onClick={() => setActiveTab("cleaning")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 flex items-center gap-1.5 ${
             activeTab === "cleaning"
               ? "border-teal-600 text-teal-600 dark:text-teal-400"
-              : "border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
           }`}
         >
           <Sparkles className="w-4 h-4" /> Cleaning Plan
@@ -117,60 +250,61 @@ export default function TasksPage() {
       </div>
 
       {activeTab === "tasks" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-rise">
           <div className="lg:col-span-2">
-            <TaskListTab onAwardPoints={awardPoints} />
+            <TaskListTab householdId={householdId} onAwardPoints={awardPoints} />
           </div>
 
           {/* Sidebar / Leaderboard */}
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-              <h2 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <div className="surface p-5">
+              <h2 className="text-headline mb-4 flex items-center gap-2">
                 <Medal className="w-5 h-5 text-orange-500" />
                 Top Contributors
               </h2>
               <div className="space-y-4">
-                {/* Mock Leaderboard */}
-                {[
-                  { name: "Dad", xp: 1250, rank: 1 },
-                  { name: "Mom", xp: 980, rank: 2 },
-                  { name: "Kid", xp: 450, rank: 3 },
-                ].map((user) => (
-                  <div key={user.name} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                          user.rank === 1
-                            ? "bg-yellow-100 text-yellow-700"
-                            : user.rank === 2
-                            ? "bg-gray-100 text-gray-700"
-                            : "bg-orange-50 text-orange-700"
-                        }`}
-                      >
-                        {user.rank}
+                {leaderboard.length === 0 && <p className="text-caption">No members yet.</p>}
+                {leaderboard.map((entry, i) => {
+                  const rank = i + 1;
+                  return (
+                    <div key={entry.userId} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                            rank === 1
+                              ? "bg-yellow-100 text-yellow-700"
+                              : rank === 2
+                              ? "bg-[var(--surface-2)] text-[var(--text-secondary)]"
+                              : "bg-orange-50 text-orange-700"
+                          }`}
+                        >
+                          {rank}
+                        </div>
+                        <span className="text-body font-medium">
+                          {entry.userId === userId ? "You" : entry.name}
+                        </span>
                       </div>
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">{user.name}</span>
+                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                        {entry.totalXpEarned} XP
+                      </span>
                     </div>
-                    <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{user.xp} XP</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800">
-              <h3 className="font-bold text-indigo-900 dark:text-indigo-200 mb-2">Daily Challenge</h3>
-              <p className="text-sm text-indigo-700 dark:text-indigo-300 mb-3">
-                Complete 3 tasks before 8 PM to earn a bonus 50 XP!
+            <div className="rounded-[var(--radius-lg)] p-5 border border-indigo-100 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+              <h3 className="font-bold text-indigo-900 dark:text-indigo-200 mb-2">This Household</h3>
+              <p className="text-sm text-indigo-700 dark:text-indigo-300">
+                {stats.totalTasksCompleted} tasks completed by you · {totalXpEarned} XP earned all-time
               </p>
-              <div className="w-full bg-white dark:bg-gray-700 rounded-full h-2 mb-1">
-                <div className="bg-indigo-500 h-full rounded-full w-1/3"></div>
-              </div>
-              <p className="text-xs text-right text-indigo-600 dark:text-indigo-400">1/3 Completed</p>
             </div>
           </div>
         </div>
       ) : (
-        <CleaningPlanTab onAwardPoints={awardPoints} />
+        <div className="animate-rise">
+          <CleaningPlanTab householdId={householdId} onAwardPoints={awardPoints} />
+        </div>
       )}
     </div>
   );

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { account } from "../lib/appwrite";
-import { OAuthProvider } from "appwrite";
+import { supabase } from "../lib/supabase";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface User {
   id: string;
@@ -22,15 +22,29 @@ interface Household {
 interface AuthContextType {
   user: User | null;
   household: Household | null;
-  login: (name: string, email?: string, avatar?: string) => void;
-  loginWithGoogle: () => void;
-  logout: () => void;
-  createHousehold: (name: string) => void;
-  joinHousehold: (code: string) => boolean;
+  login: (name: string) => Promise<boolean>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  createHousehold: (name: string) => Promise<void>;
+  joinHousehold: (code: string) => Promise<boolean>;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function avatarFallback(seed: string) {
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+}
+
+function toUser(authUser: SupabaseUser, profile?: { name: string; avatar_url: string | null } | null): User {
+  const meta = authUser.user_metadata ?? {};
+  return {
+    id: authUser.id,
+    name: profile?.name || meta.full_name || meta.name || "Member",
+    email: authUser.email ?? undefined,
+    avatar: profile?.avatar_url || meta.avatar_url || avatarFallback(authUser.id),
+  };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -38,123 +52,145 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Load from Appwrite or localStorage on mount
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // 1. Try Appwrite Session
-        const appwriteUser = await account.get();
-        setUser({
-          id: appwriteUser.$id,
-          name: appwriteUser.name,
-          email: appwriteUser.email,
-          avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${appwriteUser.name}`
-        });
-      } catch {
-        // 2. Fallback to LocalStorage (for "Name only" login)
-        const storedUser = localStorage.getItem("household_user");
-        if (storedUser) setUser(JSON.parse(storedUser));
-      }
+  // Reload the caller's household (at most one, for now) and its member list.
+  const loadHousehold = useCallback(async (userId: string) => {
+    const { data: membership } = await supabase
+      .from("household_members")
+      .select("household_id, households(id, name, invite_code)")
+      .eq("user_id", userId)
+      .order("joined_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
-      // Load household data
-      const storedHousehold = localStorage.getItem("household_data");
-      if (storedHousehold) setHousehold(JSON.parse(storedHousehold));
-      
-      setIsLoading(false);
-    };
+    const h = membership?.households as { id: string; name: string; invite_code: string } | null | undefined;
+    if (!h) {
+      setHousehold(null);
+      return;
+    }
 
-    initAuth();
+    const { data: memberRows } = await supabase
+      .from("household_members")
+      .select("user_id, profiles(id, name, avatar_url)")
+      .eq("household_id", h.id);
+
+    const members: User[] = (memberRows ?? []).map((row) => {
+      const p = row.profiles as { id: string; name: string; avatar_url: string | null } | null;
+      return {
+        id: row.user_id,
+        name: p?.name || "Member",
+        avatar: p?.avatar_url || avatarFallback(row.user_id),
+      };
+    });
+
+    setHousehold({ id: h.id, name: h.name, inviteCode: h.invite_code, members });
   }, []);
 
-  const login = (name: string, email?: string, avatar?: string) => {
-    const newUser = {
-      id: Date.now().toString(),
-      name,
-      email,
-      avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`
-    };
-    setUser(newUser);
-    localStorage.setItem("household_user", JSON.stringify(newUser));
+  const loadProfile = useCallback(
+    async (authUser: SupabaseUser) => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, avatar_url")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      setUser(toUser(authUser, profile));
+      await loadHousehold(authUser.id);
+    },
+    [loadHousehold]
+  );
+
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) {
+          loadProfile(session.user).finally(() => setIsLoading(false));
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        // A network hiccup here must not leave the app stuck on a blank
+        // screen forever — fall back to "signed out" and let the user retry.
+        console.error("Failed to load auth session:", err);
+        setIsLoading(false);
+      });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadProfile(session.user);
+      } else {
+        setUser(null);
+        setHousehold(null);
+      }
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, [loadProfile]);
+
+  const login = async (name: string) => {
+    const { data, error } = await supabase.auth.signInAnonymously({ options: { data: { name } } });
+    if (error || !data.user) {
+      console.error("Anonymous sign-in failed:", error);
+      alert(
+        "Sign-in failed. If you're the project owner: enable Anonymous Sign-Ins under Authentication in the Supabase dashboard. Otherwise try Google."
+      );
+      return false;
+    }
+    await loadProfile(data.user);
+    return true;
   };
 
-  const loginWithGoogle = () => {
-    try {
-      // Redirects to Google OAuth flow
-      account.createOAuth2Session(
-        OAuthProvider.Google,
-        window.location.origin, // Success URL (Home)
-        `${window.location.origin}/login` // Failure URL
-      );
-    } catch (error) {
-      console.error("Appwrite Login Error:", error);
-      alert("Failed to initialize Google Login. Check Appwrite config.");
+  const loginWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/login` },
+    });
+    if (error) {
+      console.error("Google sign-in failed:", error);
+      alert("Failed to start Google sign-in. Check the Google provider configuration in Supabase.");
     }
   };
 
   const logout = async () => {
-    try {
-      await account.deleteSession('current');
-    } catch {
-      // Ignore error if already logged out
-    }
+    await supabase.auth.signOut();
     setUser(null);
     setHousehold(null);
-    localStorage.removeItem("household_user");
-    localStorage.removeItem("household_data");
     router.push("/login");
   };
 
-  const createHousehold = (name: string) => {
-    if (!user) return;
-    
-    const newHousehold: Household = {
-      id: Date.now().toString(),
-      name,
-      inviteCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-      members: [user]
-    };
-    
-    setHousehold(newHousehold);
-    localStorage.setItem("household_data", JSON.stringify(newHousehold));
+  const createHousehold = async (name: string) => {
+    const { data, error } = await supabase.rpc("create_household", { p_name: name });
+    if (error || !data) {
+      console.error("Create household failed:", error);
+      alert("Could not create the household. Please try again.");
+      return;
+    }
+    if (user) await loadHousehold(user.id);
   };
 
-  const joinHousehold = (code: string) => {
-    if (!user) return false;
-
-    // In a real app, this would verify against a DB.
-    // Here we simulate joining by "finding" a mock household if the code matches a pattern
-    // or just accepting it for demo purposes if it's not empty.
-    
-    // Demo: If code is "DEMO123", join the "Stonies Family"
-    if (code === "DEMO123" || code.length === 6) {
-      const demoHousehold: Household = {
-        id: "demo-house",
-        name: "The Stonies",
-        inviteCode: code,
-        members: [
-          { id: "mom", name: "Mom", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mom" },
-          { id: "dad", name: "Dad", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Dad" },
-          user
-        ]
-      };
-      setHousehold(demoHousehold);
-      localStorage.setItem("household_data", JSON.stringify(demoHousehold));
-      return true;
+  const joinHousehold = async (code: string) => {
+    const { data, error } = await supabase.rpc("join_household", { p_invite_code: code });
+    if (error || !data) {
+      console.error("Join household failed:", error);
+      return false;
     }
-    return false;
+    if (user) await loadHousehold(user.id);
+    return true;
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      household, 
-      login, 
-      loginWithGoogle,
-      logout, 
-      createHousehold, 
-      joinHousehold,
-      isAuthenticated: !!user 
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        household,
+        login,
+        loginWithGoogle,
+        logout,
+        createHousehold,
+        joinHousehold,
+        isAuthenticated: !!user,
+      }}
+    >
       {!isLoading && children}
     </AuthContext.Provider>
   );

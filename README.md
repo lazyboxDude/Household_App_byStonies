@@ -80,32 +80,39 @@ npm run dev
 - **Linting:** ESLint
 - **Icons:** [Lucide React](https://lucide.dev/)
 - **Scraping:** [Cheerio](https://cheerio.js.org/) (for fetching store deals)
-- **Authentication:** [Appwrite](https://appwrite.io/)
+- **Backend:** [Supabase](https://supabase.com/) (Postgres + Auth, with Row Level Security scoping every table to a household)
 
-## 🔐 Authentication Setup
+## 🔐 Backend & Authentication Setup
 
-This project uses Appwrite for secure Google Login.
+Every household's data lives in Postgres, isolated by Row Level Security: a user
+can only read/write rows belonging to a household they're a member of (see
+`public.is_household_member()` and the per-table policies in the Supabase
+project). Auth supports Google OAuth and anonymous ("just a name") sign-in.
 
-### 1. Appwrite Configuration
-1. Create a project in the [Appwrite Console](https://cloud.appwrite.io/).
-2. Go to **Authentication** > **Settings** and enable **Google** OAuth provider.
-3. Go to **Overview** > **Platforms** and add two **Web** platforms:
-   - **Localhost:** `localhost` (for development)
-   - **Production:** `your-app-name.vercel.app` (for Vercel deployment)
+### 1. Supabase Configuration
+1. Create a project at [supabase.com](https://supabase.com/) (or use an existing one).
+2. Apply the schema migrations — see the SQL in this repo's Supabase project
+   (`households`, `household_members`, `profiles`, and one table per feature,
+   all with RLS policies keyed off household membership).
+3. Under **Authentication → Sign In / Providers**:
+   - Enable **Google** and add your OAuth Client ID/Secret from the
+     [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+   - Enable **Anonymous Sign-Ins** (needed for the "just your name" quick login).
+4. Under **Authentication → URL Configuration**, add your dev and production
+   URLs as redirect URLs (e.g. `http://localhost:3000`, `https://your-app.vercel.app`).
 
 ### 2. Environment Variables
-Create a `.env.local` file in the root directory:
+Copy `.env.local.example` to `.env.local` and fill in your project's values
+(**Settings → API** in the Supabase dashboard):
 
 ```env
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id_here
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_publishable_key_here
 ```
 
 ### 3. Vercel Deployment
-When deploying to Vercel, you must add these Environment Variables in the Vercel Dashboard:
-1. Go to **Settings** > **Environment Variables**.
-2. Add `NEXT_PUBLIC_APPWRITE_ENDPOINT` and `NEXT_PUBLIC_APPWRITE_PROJECT_ID`.
-3. **Redeploy** your application for the changes to take effect.
+When deploying to Vercel, add the same two environment variables in
+**Settings → Environment Variables**, then redeploy.
 
 ## ✨ Features
 
