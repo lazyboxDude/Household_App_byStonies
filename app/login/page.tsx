@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Home, ArrowRight, Sparkles } from "lucide-react";
+import Turnstile, { TurnstileHandle } from "../components/Turnstile";
 
 export default function LoginPage() {
   const { login, loginWithGoogle, createHousehold, joinHousehold, user, household } = useAuth();
@@ -24,12 +25,20 @@ export default function LoginPage() {
   const [isHouseholdLoading, setIsHouseholdLoading] = useState(false);
   const [joinError, setJoinError] = useState("");
 
+  const turnstileEnabled = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
+
   const handleNameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (turnstileEnabled && !turnstileToken) return;
     setIsNameLoading(true);
-    const ok = await login(name);
+    const ok = await login(name, turnstileToken || undefined);
     setIsNameLoading(false);
+    // Turnstile tokens are single-use — reset the widget for the next attempt.
+    turnstileRef.current?.reset();
+    setTurnstileToken("");
     if (ok) setManualStep("household");
   };
 
@@ -98,9 +107,16 @@ export default function LoginPage() {
                 autoFocus
               />
             </div>
+
+            {turnstileEnabled && (
+              <div className="flex justify-center">
+                <Turnstile ref={turnstileRef} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken("")} />
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={!name.trim() || isNameLoading}
+              disabled={!name.trim() || isNameLoading || (turnstileEnabled && !turnstileToken)}
               className="btn btn-primary w-full py-3"
             >
               {isNameLoading ? "Signing in..." : <>Continue <ArrowRight className="w-4 h-4" /></>}

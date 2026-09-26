@@ -22,7 +22,7 @@ interface Household {
 interface AuthContextType {
   user: User | null;
   household: Household | null;
-  login: (name: string) => Promise<boolean>;
+  login: (name: string, captchaToken?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   createHousehold: (name: string) => Promise<void>;
@@ -127,12 +127,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.subscription.unsubscribe();
   }, [loadProfile]);
 
-  const login = async (name: string) => {
-    const { data, error } = await supabase.auth.signInAnonymously({ options: { data: { name } } });
+  const login = async (name: string, captchaToken?: string) => {
+    const { data, error } = await supabase.auth.signInAnonymously({
+      options: { data: { name }, captchaToken },
+    });
     if (error || !data.user) {
       console.error("Anonymous sign-in failed:", error);
       alert(
-        "Sign-in failed. If you're the project owner: enable Anonymous Sign-Ins under Authentication in the Supabase dashboard. Otherwise try Google."
+        "Sign-in failed. If you're the project owner: enable Anonymous Sign-Ins (and check the Turnstile secret key, if Captcha protection is on) under Authentication in the Supabase dashboard. Otherwise try Google."
       );
       return false;
     }
