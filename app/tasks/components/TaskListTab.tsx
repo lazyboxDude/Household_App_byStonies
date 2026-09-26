@@ -177,7 +177,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
             {task.created_by === user?.id && (
               <button
                 onClick={() => toggleShared(task.id)}
-                className="press text-[var(--text-tertiary)] hover:text-[var(--text)] p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="press row-action text-[var(--text-tertiary)] hover:text-[var(--text)] p-2"
                 title={task.is_shared ? "Make private" : "Share with household"}
               >
                 {task.is_shared ? <Lock className="w-4 h-4" /> : <Users className="w-4 h-4" />}
@@ -186,7 +186,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
 
             <button
               onClick={() => deleteTask(task.id)}
-              className="press text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2"
             >
               <Trash2 className="w-4 h-4" />
             </button>

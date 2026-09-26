@@ -143,7 +143,7 @@ export default function DealsTab({
 
                         <button
                           onClick={() => addDealToList(offer)}
-                          className="press absolute top-3 right-3 p-2 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                          className="press row-action absolute top-3 right-3 p-2 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
                           title="Add to shopping list"
                         >
                           <Plus className="w-4 h-4" />

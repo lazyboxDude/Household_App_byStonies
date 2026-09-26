@@ -287,11 +287,29 @@ body {
 }
 
 .press {
-  transition: transform var(--dur-fast) var(--ease-spring), background-color var(--dur-base) var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-spring), background-color var(--dur-base) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
   will-change: transform;
 }
 .press:active {
   transform: scale(0.97);
+}
+
+/* Row-level secondary actions (delete, toggle-visibility, add-to-list).
+   Hidden until hover only on devices with an actual pointer — on touch,
+   there's no hover to reveal them on a first tap, so they stay visible
+   (skill section 16, "Flexibility": adapt to the input device). */
+.row-action {
+  opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .row-action {
+    opacity: 0;
+  }
+  .group:hover .row-action,
+  .group:focus-within .row-action {
+    opacity: 1;
+  }
 }
 
 .chip {
