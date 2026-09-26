@@ -39,6 +39,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const STARTER_TASK_TITLES = [
+  "Take out the trash",
+  "Do the dishes",
+  "Vacuum the living room",
+  "Wipe down the kitchen counters",
+];
+
 function avatarFallback(seed: string) {
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
 }
@@ -186,6 +193,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       alert("Could not create the household. Please try again.");
       return;
     }
+
+    // A handful of starter tasks so a brand-new household doesn't open onto
+    // an empty list — easy to complete or delete, just something to react to.
+    const { error: starterError } = await supabase.from("tasks").insert(
+      STARTER_TASK_TITLES.map((title) => ({ household_id: data.id, title }))
+    );
+    if (starterError) console.error("Failed to seed starter tasks:", starterError);
+
     if (user) await loadHousehold(user.id);
   };
 
