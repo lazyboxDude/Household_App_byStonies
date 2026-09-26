@@ -87,7 +87,8 @@ npm run dev
 Every household's data lives in Postgres, isolated by Row Level Security: a user
 can only read/write rows belonging to a household they're a member of (see
 `public.is_household_member()` and the per-table policies in the Supabase
-project). Auth supports Google OAuth and anonymous ("just a name") sign-in.
+project). Auth supports Google OAuth and anonymous ("just a name") sign-in,
+the latter protected by a Cloudflare Turnstile widget.
 
 ### 1. Supabase Configuration
 1. Create a project at [supabase.com](https://supabase.com/) (or use an existing one).
@@ -100,18 +101,25 @@ project). Auth supports Google OAuth and anonymous ("just a name") sign-in.
    - Enable **Anonymous Sign-Ins** (needed for the "just your name" quick login).
 4. Under **Authentication → URL Configuration**, add your dev and production
    URLs as redirect URLs (e.g. `http://localhost:3000`, `https://your-app.vercel.app`).
+5. Under **Authentication → Attack Protection**, enable **Captcha Protection**,
+   choose **Turnstile**, and paste in the Turnstile **secret key** (from the
+   [Cloudflare dashboard](https://dash.cloudflare.com/?to=/:account/turnstile),
+   paired with the site key below). This is what bot-protects the anonymous
+   "just your name" sign-in — the app already sends the widget's token.
 
 ### 2. Environment Variables
 Copy `.env.local.example` to `.env.local` and fill in your project's values
-(**Settings → API** in the Supabase dashboard):
+(**Settings → API** in the Supabase dashboard, and **Turnstile** in the
+Cloudflare dashboard for the site key):
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_publishable_key_here
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key_here
 ```
 
 ### 3. Vercel Deployment
-When deploying to Vercel, add the same two environment variables in
+When deploying to Vercel, add the same environment variables in
 **Settings → Environment Variables**, then redeploy.
 
 ## ✨ Features
