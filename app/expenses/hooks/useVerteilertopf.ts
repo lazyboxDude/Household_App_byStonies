@@ -81,6 +81,7 @@ export function useVerteilertopf(householdId: string | undefined) {
   const [opening, setOpening] = useState<Record<AccountId, number>>(DEFAULT_OPENING);
   const [bills, setBills] = useState<IrregularBill[]>([]);
   const [tx, setTx] = useState<DistTransaction[]>([]);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadConfig = useCallback(async () => {
@@ -100,6 +101,7 @@ export function useVerteilertopf(householdId: string | undefined) {
     if (row) {
       setSettings({ taxes: row.taxes, bills: row.bills, joint: row.joint, minBuffer: row.min_buffer });
       setOpening({ main: row.opening_main, taxes: row.opening_taxes, bills: row.opening_bills, joint: row.opening_joint });
+      setOnboardingCompleted(row.onboarding_completed);
     }
   }, [householdId]);
 
@@ -239,6 +241,12 @@ export function useVerteilertopf(householdId: string | undefined) {
       .eq("household_id", householdId);
   };
 
+  const completeOnboarding = async () => {
+    if (!householdId) return;
+    setOnboardingCompleted(true);
+    await supabase.from("verteilertopf_config").update({ onboarding_completed: true }).eq("household_id", householdId);
+  };
+
   const applyBalances = async (realBalances: Record<AccountId, number>) => {
     if (!householdId) return;
     const next = { ...opening };
@@ -271,10 +279,12 @@ export function useVerteilertopf(householdId: string | undefined) {
     proj,
     minP,
     upcoming,
+    onboardingCompleted,
     distributeIncome,
     submitBill,
     deleteBill,
     saveSettings,
     applyBalances,
+    completeOnboarding,
   };
 }

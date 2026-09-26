@@ -6,15 +6,18 @@ import { Loader2, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import FeatureOnboarding from '../components/FeatureOnboarding';
+import FinanceOnboarding from './components/FinanceOnboarding';
 import FinanceOverview from './components/FinanceOverview';
 import IncomeDistribution from './components/IncomeDistribution';
 import BudgetsExpenses from './components/BudgetsExpenses';
 import BillsPlanner from './components/BillsPlanner';
+import Debts from './components/Debts';
 import SavingsGoals from './components/SavingsGoals';
 import FinanceSettings from './components/FinanceSettings';
 import { useVerteilertopf } from './hooks/useVerteilertopf';
 import { useBudgets } from './hooks/useBudgets';
 import { usePots } from './hooks/usePots';
+import { useDebts } from './hooks/useDebts';
 import { Expense, FinanceTab } from './types';
 
 const TABS: { key: FinanceTab; label: string }[] = [
@@ -22,6 +25,7 @@ const TABS: { key: FinanceTab; label: string }[] = [
   { key: 'lohn', label: 'Lohn verteilen' },
   { key: 'budgets', label: 'Budgets & Ausgaben' },
   { key: 'planer', label: 'Rechnungen-Planer' },
+  { key: 'schulden', label: 'Schulden' },
   { key: 'sparziele', label: 'Sparziele' },
   { key: 'einstellungen', label: 'Einstellungen' },
 ];
@@ -37,7 +41,8 @@ export default function ExpensesPage() {
   const vt = useVerteilertopf(householdId);
   const budgetsHook = useBudgets(userId, householdId);
   const potsHook = usePots(userId, householdId);
-  const isLoading = vt.isLoading || budgetsHook.isLoading || potsHook.isLoading;
+  const debtsHook = useDebts(userId, householdId);
+  const isLoading = vt.isLoading || budgetsHook.isLoading || potsHook.isLoading || debtsHook.isLoading;
 
   // The Shopping list auto-creates an expense (via Supabase) when an item is
   // checked off, then dispatches this event so we can offer an undo banner.
@@ -105,6 +110,10 @@ export default function ExpensesPage() {
     );
   }
 
+  if (!vt.onboardingCompleted) {
+    return <FinanceOnboarding vt={vt} debts={debtsHook} pots={potsHook} />;
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {undoableExpense && (
@@ -145,12 +154,14 @@ export default function ExpensesPage() {
           budgets={budgetsHook.budgets}
           spentByCategory={budgetsHook.spentByCategory(currentMonth())}
           pots={potsHook.pots}
+          debts={debtsHook.debts}
           onNavigate={setTab}
         />
       )}
       {tab === 'lohn' && <IncomeDistribution vt={vt} />}
       {tab === 'budgets' && <BudgetsExpenses budgets={budgetsHook} />}
       {tab === 'planer' && <BillsPlanner vt={vt} />}
+      {tab === 'schulden' && <Debts debts={debtsHook} />}
       {tab === 'sparziele' && <SavingsGoals pots={potsHook} />}
       {tab === 'einstellungen' && <FinanceSettings vt={vt} />}
     </div>

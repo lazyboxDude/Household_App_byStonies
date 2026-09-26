@@ -4,7 +4,7 @@ import React from "react";
 import { Wallet, ArrowRight } from "lucide-react";
 import { ACC, ACCOUNTS, MON, MS } from "../constants";
 import { chf, fdate, fmt, curYM } from "../format";
-import { Budget, FinanceTab, Pot } from "../types";
+import { Budget, Debt, FinanceTab, Pot } from "../types";
 import { useVerteilertopf } from "../hooks/useVerteilertopf";
 
 export default function FinanceOverview({
@@ -12,12 +12,14 @@ export default function FinanceOverview({
   budgets,
   spentByCategory,
   pots,
+  debts,
   onNavigate,
 }: {
   vt: ReturnType<typeof useVerteilertopf>;
   budgets: Budget[];
   spentByCategory: Record<string, number>;
   pots: Pot[];
+  debts: Debt[];
   onNavigate: (tab: FinanceTab) => void;
 }) {
   const { bal, ft, status, settings, soll, dists, alreadyDistributedThisMonth, upcoming, minP } = vt;
@@ -127,6 +129,35 @@ export default function FinanceOverview({
           </div>
         )}
       </div>
+
+      {/* Schulden summary */}
+      {debts.length > 0 && (
+        <div className="surface p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-headline">Schulden</h2>
+            <button onClick={() => onNavigate("schulden")} className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
+              Alle ansehen <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {debts.slice(0, 3).map((debt) => {
+              const paid = debt.total - debt.remaining;
+              const pct = debt.total > 0 ? Math.min(100, Math.round((paid / debt.total) * 100)) : 0;
+              return (
+                <div key={debt.id} className="surface-2 p-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{debt.name}</span>
+                    <span className="text-xs text-[var(--text-secondary)]">{fmt(debt.remaining)} offen</span>
+                  </div>
+                  <div className="mt-2 h-2 rounded-full bg-[var(--surface-3)] overflow-hidden">
+                    <div style={{ width: `${pct}%`, height: "100%", background: "#f97316", transition: "width var(--dur-slow) var(--ease-spring)" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Sparziele summary */}
       <div className="surface p-4">
