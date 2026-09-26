@@ -22,6 +22,8 @@ export default function IncomeDistribution({ vt }: { vt: ReturnType<typeof useVe
     if (ok) {
       setIncomeInput("");
       showToast(`Lohn verteilt: ${chf(incomeVal)}`, "success");
+    } else {
+      showToast("Lohn verteilen fehlgeschlagen. Bitte erneut versuchen.", "error");
     }
   };
 

@@ -189,6 +189,9 @@ export function useVerteilertopf(householdId: string | undefined) {
         }))
       )
       .select();
+    if (error) {
+      console.error("distributeIncome failed", error);
+    }
     if (!error && data) {
       setTx((prev) => [
         ...prev,
