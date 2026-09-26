@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Home, ArrowRight, Sparkles } from "lucide-react";
@@ -67,8 +67,11 @@ export default function LoginPage() {
   };
 
   // If already fully logged in, redirect
+  useEffect(() => {
+    if (user && household) router.push("/");
+  }, [user, household, router]);
+
   if (user && household) {
-    router.push("/");
     return null;
   }
 
