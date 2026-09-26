@@ -173,7 +173,7 @@ export function useVerteilertopf(householdId: string | undefined) {
   const upcoming = proj.slice(0, 4).filter((p) => p.pay > 0);
 
   const distributeIncome = async (incomeVal: number, incomeDate: string) => {
-    if (!householdId) return;
+    if (!householdId) return { ok: false, message: "Kein Haushalt gefunden" };
     const batch = makeDistribution(incomeVal, incomeDate, settings);
     const { data, error } = await supabase
       .from("verteilertopf_tx")
@@ -190,7 +190,12 @@ export function useVerteilertopf(householdId: string | undefined) {
       )
       .select();
     if (error) {
-      console.error("distributeIncome failed", error);
+      console.error("distributeIncome failed", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
     }
     if (!error && data) {
       setTx((prev) => [
@@ -206,7 +211,7 @@ export function useVerteilertopf(householdId: string | undefined) {
         })),
       ]);
     }
-    return !error;
+    return { ok: !error, message: error?.message };
   };
 
   const submitBill = async (input: { name: string; amount: number; months: number[] }, editId: string | null) => {

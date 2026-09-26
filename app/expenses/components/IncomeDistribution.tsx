@@ -18,12 +18,12 @@ export default function IncomeDistribution({ vt }: { vt: ReturnType<typeof useVe
 
   const handleDistribute = async () => {
     if (!validIncome) return;
-    const ok = await distributeIncome(incomeVal, incomeDate);
+    const { ok, message } = await distributeIncome(incomeVal, incomeDate);
     if (ok) {
       setIncomeInput("");
       showToast(`Lohn verteilt: ${chf(incomeVal)}`, "success");
     } else {
-      showToast("Lohn verteilen fehlgeschlagen. Bitte erneut versuchen.", "error");
+      showToast(message ? `Lohn verteilen fehlgeschlagen: ${message}` : "Lohn verteilen fehlgeschlagen. Bitte erneut versuchen.", "error");
     }
   };
 
