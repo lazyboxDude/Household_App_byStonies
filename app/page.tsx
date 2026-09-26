@@ -306,9 +306,9 @@ export default function Home() {
         {hasExpenses && (
           <section className="surface p-5 animate-rise" style={{ "--stagger-i": 4 } as React.CSSProperties}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-headline">Finances</h2>
+              <h2 className="text-headline">Finanzen</h2>
               <Link href="/expenses" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-                View budget <ArrowRight className="w-3 h-3" />
+                Finanzen öffnen <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             {vtActive ? (
@@ -389,7 +389,7 @@ export default function Home() {
             <Sparkles className="w-6 h-6 mx-auto mb-2" style={{ color: "var(--accent)" }} />
             <h2 className="text-headline mb-1">More than tasks</h2>
             <p className="text-body text-[var(--text-secondary)] mb-4">
-              Shopping list, Expenses & Budget, and Calendar are available whenever your household is ready for them.
+              Shopping list, Finanzen, and Calendar are available whenever your household is ready for them.
             </p>
             <Link href="/settings" className="btn btn-primary inline-flex">
               Explore features in Settings
