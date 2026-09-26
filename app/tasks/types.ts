@@ -3,6 +3,8 @@ export interface Task {
   title: string;
   completed: boolean;
   assignee: string | null;
+  created_by: string | null;
+  is_shared: boolean;
 }
 
 export type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "once";
