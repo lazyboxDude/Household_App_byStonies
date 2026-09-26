@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 import { AuthProvider } from "./context/AuthContext";
 import "./globals.css";
 
@@ -17,8 +17,8 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased min-h-screen flex flex-col md:flex-row">
         <AuthProvider>
-          <div className="flex-1 flex flex-col min-h-screen">
-            <Navbar />
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-h-screen min-w-0">
             <main className="flex-1 page-scroll-pad">{children}</main>
           </div>
         </AuthProvider>

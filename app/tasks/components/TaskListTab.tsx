@@ -1,22 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Plus, Star, Trash2, User, Medal, Loader2 } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, User, ListTodo, Loader2 } from "lucide-react";
 import { Task } from "../types";
 import { supabase } from "../../lib/supabase";
 
-export default function TaskListTab({
-  householdId,
-  onAwardPoints,
-}: {
-  householdId: string;
-  onAwardPoints: (points: number) => void;
-}) {
+export default function TaskListTab({ householdId }: { householdId: string }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskPoints, setNewTaskPoints] = useState(10);
 
   const loadTasks = useCallback(async () => {
     const { data, error } = await supabase
@@ -52,7 +45,7 @@ export default function TaskListTab({
     if (!newTaskTitle.trim()) return;
     const { data, error } = await supabase
       .from("tasks")
-      .insert({ household_id: householdId, title: newTaskTitle.trim(), points: newTaskPoints })
+      .insert({ household_id: householdId, title: newTaskTitle.trim() })
       .select()
       .single();
     if (!error) {
@@ -67,7 +60,6 @@ export default function TaskListTab({
     const isCompleting = !task.completed;
 
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, completed: isCompleting } : t)));
-    onAwardPoints(isCompleting ? task.points : -task.points);
 
     const { error } = await supabase.from("tasks").update({ completed: isCompleting }).eq("id", taskId);
     if (error) {
@@ -101,19 +93,6 @@ export default function TaskListTab({
           placeholder="Buy a toolbox, set up smart home, ..."
           className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-[var(--text)] placeholder-[var(--text-tertiary)]"
         />
-        <div className="flex items-center gap-2 border-l divider pl-3">
-          <Star className="w-4 h-4 text-yellow-500" />
-          <select
-            value={newTaskPoints}
-            onChange={(e) => setNewTaskPoints(Number(e.target.value))}
-            className="bg-transparent border-none text-sm font-medium text-[var(--text-secondary)] focus:ring-0 outline-none cursor-pointer"
-          >
-            <option value={10}>10 XP</option>
-            <option value={20}>20 XP</option>
-            <option value={50}>50 XP</option>
-            <option value={100}>100 XP</option>
-          </select>
-        </div>
         <button onClick={addTask} className="btn btn-icon" style={{ background: "#4f46e5", color: "white" }}>
           <Plus className="w-5 h-5" />
         </button>
@@ -149,16 +128,13 @@ export default function TaskListTab({
                 >
                   {task.title}
                 </h3>
-                <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
-                  {task.assignee && (
+                {task.assignee && (
+                  <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
                     <span className="flex items-center gap-1 bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
                       <User className="w-3 h-3" /> {task.assignee}
                     </span>
-                  )}
-                  <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500 font-medium">
-                    <Star className="w-3 h-3" /> {task.points} XP
-                  </span>
-                </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -173,8 +149,8 @@ export default function TaskListTab({
 
         {tasks.length === 0 && (
           <div className="text-center py-12 text-[var(--text-secondary)]">
-            <Medal className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
-            <p>No active quests. Add one to earn XP!</p>
+            <ListTodo className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
+            <p>No tasks yet. Add one to get started.</p>
           </div>
         )}
       </div>

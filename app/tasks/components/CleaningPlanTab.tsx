@@ -17,14 +17,6 @@ import { DEFAULT_ROOMS, ROOM_ICON_PRESETS, RECURRENCE_OPTIONS, SUPPLY_SUGGESTION
 import { upsertCleaningCalendarEvent } from "../calendarSync";
 import { supabase } from "../../lib/supabase";
 
-const POINTS_BY_RECURRENCE: Record<Recurrence, number> = {
-  daily: 5,
-  weekly: 15,
-  biweekly: 20,
-  monthly: 30,
-  once: 25,
-};
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -44,13 +36,7 @@ function dueStatus(nextDue: string): { label: string; className: string } {
   return { label: `Due ${nextDue}`, className: "bg-[var(--surface-2)] text-[var(--text-secondary)]" };
 }
 
-export default function CleaningPlanTab({
-  householdId,
-  onAwardPoints,
-}: {
-  householdId: string;
-  onAwardPoints: (points: number) => void;
-}) {
+export default function CleaningPlanTab({ householdId }: { householdId: string }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -216,8 +202,6 @@ export default function CleaningPlanTab({
   };
 
   const markDone = async (task: CleaningTask) => {
-    onAwardPoints(POINTS_BY_RECURRENCE[task.recurrence]);
-
     if (task.recurrence === "once") {
       // Deleting the task cascades to remove its calendar event too.
       setCleaningTasks((prev) => prev.filter((t) => t.id !== task.id));

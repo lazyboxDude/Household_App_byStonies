@@ -10,7 +10,6 @@ import {
   ArrowRight,
   Clock,
   MapPin,
-  Star,
   User,
   Loader2,
   Sparkles,
@@ -21,7 +20,6 @@ import { supabase } from "./lib/supabase";
 interface DashTask {
   id: string;
   title: string;
-  points: number;
   completed: boolean;
   assignee: string | null;
 }
@@ -81,7 +79,7 @@ export default function Home() {
       .eq("household_id", householdId)
       .eq("completed", false)
       .order("created_at", { ascending: true });
-    setPendingTasks((data ?? []).map((t) => ({ id: t.id, title: t.title, points: t.points, completed: t.completed, assignee: t.assignee })));
+    setPendingTasks((data ?? []).map((t) => ({ id: t.id, title: t.title, completed: t.completed, assignee: t.assignee })));
   }, [householdId]);
 
   const loadShopping = useCallback(async () => {
@@ -292,10 +290,11 @@ export default function Home() {
                   <span className="w-5 h-5 rounded-full border-2 shrink-0" style={{ borderColor: "var(--border-strong)" }} />
                   <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm truncate">{t.title}</div>
-                    <div className="flex items-center gap-2 text-caption">
-                      <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500"><Star className="w-3 h-3" />{t.points} XP</span>
-                      {t.assignee && <span className="flex items-center gap-1"><User className="w-3 h-3" />{t.assignee}</span>}
-                    </div>
+                    {t.assignee && (
+                      <div className="flex items-center gap-2 text-caption">
+                        <span className="flex items-center gap-1"><User className="w-3 h-3" />{t.assignee}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
