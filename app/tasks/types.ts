@@ -1,16 +1,8 @@
 export interface Task {
   id: string;
   title: string;
-  points: number;
   completed: boolean;
   assignee: string | null;
-}
-
-export interface UserStats {
-  level: number;
-  currentXP: number;
-  xpToNextLevel: number;
-  totalTasksCompleted: number;
 }
 
 export type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "once";
