@@ -64,7 +64,7 @@ function projection(bills: IrregularBill[], settings: DistSettings, billsBalance
   return out;
 }
 function makeDistribution(income: number, date: string, settings: DistSettings): DistTransaction[] {
-  const g = uid();
+  const g = crypto.randomUUID();
   return [
     { id: uid(), group: g, kind: "income", date, account: "main", amount: r2(income), desc: "Lohneingang" },
     { id: uid(), group: g, kind: "transfer", date, account: "main", amount: -settings.taxes, desc: "Dauerauftrag → Steuern" },
