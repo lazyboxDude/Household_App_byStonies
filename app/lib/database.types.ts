@@ -475,8 +475,10 @@ export type Database = {
           assignee: string | null
           completed: boolean
           created_at: string
+          created_by: string | null
           household_id: string
           id: string
+          is_shared: boolean
           points: number
           title: string
         }
@@ -484,8 +486,10 @@ export type Database = {
           assignee?: string | null
           completed?: boolean
           created_at?: string
+          created_by?: string | null
           household_id: string
           id?: string
+          is_shared?: boolean
           points?: number
           title: string
         }
@@ -493,8 +497,10 @@ export type Database = {
           assignee?: string | null
           completed?: boolean
           created_at?: string
+          created_by?: string | null
           household_id?: string
           id?: string
+          is_shared?: boolean
           points?: number
           title?: string
         }

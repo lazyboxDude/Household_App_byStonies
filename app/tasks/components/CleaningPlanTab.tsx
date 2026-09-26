@@ -275,7 +275,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                       </span>
                     )}
                     <Trash2
-                      className="w-4 h-4 text-[var(--text-tertiary)] hover:text-[var(--danger)] opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="w-4 h-4 press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)]"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteRoom(room.id);
@@ -478,7 +478,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                     </div>
                     <button
                       onClick={() => deleteCleaningTask(task.id)}
-                      className="press text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -5,8 +5,13 @@ import Link from "next/link";
 import { CheckCircle2, ListChecks, Sparkles, Loader2 } from "lucide-react";
 import TaskListTab from "./components/TaskListTab";
 import CleaningPlanTab from "./components/CleaningPlanTab";
+import TaskOnboarding from "./components/TaskOnboarding";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+
+function onboardingSeenKey(householdId: string) {
+  return `tasks-onboarding-seen-${householdId}`;
+}
 
 interface TaskCounts {
   open: number;
@@ -22,6 +27,28 @@ export default function TasksPage() {
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
   const [counts, setCounts] = useState<TaskCounts>({ open: 0, done: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    if (!householdId) return;
+    try {
+      // Read-on-mount from localStorage, not a sync with external state changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowOnboarding(!localStorage.getItem(onboardingSeenKey(householdId)));
+    } catch {
+      // Storage can be unavailable (private mode, disabled cookies) — just skip the intro.
+    }
+  }, [householdId]);
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    if (!householdId) return;
+    try {
+      localStorage.setItem(onboardingSeenKey(householdId), "1");
+    } catch {
+      // Nothing to persist to — it'll just show again next visit.
+    }
+  };
 
   // A plain, non-competitive read of how the household is doing — open vs.
   // done, nothing to compare between people. Enough to keep chores from
@@ -118,6 +145,8 @@ export default function TasksPage() {
           </div>
         </div>
       </div>
+
+      {showOnboarding && <TaskOnboarding onDismiss={dismissOnboarding} />}
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b divider">
