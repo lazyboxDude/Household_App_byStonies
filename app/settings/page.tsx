@@ -1,12 +1,33 @@
 "use client";
 
-import { useAuth } from "../context/AuthContext";
-import { Copy, LogOut, User, Home, Shield, ArrowRight } from "lucide-react";
+import { useAuth, OptionalFeature } from "../context/AuthContext";
+import { Copy, LogOut, User, Home, Shield, ArrowRight, ShoppingCart, DollarSign, Calendar, Sparkles, type LucideIcon } from "lucide-react";
 import Image from 'next/image';
 import { useState } from "react";
 
+const FEATURES: { key: OptionalFeature; icon: LucideIcon; title: string; description: string }[] = [
+  {
+    key: "shopping",
+    icon: ShoppingCart,
+    title: "Shopping List",
+    description: "A shared list your household can add to and check off together.",
+  },
+  {
+    key: "expenses",
+    icon: DollarSign,
+    title: "Expenses & Budget",
+    description: "Private-by-default budgets and expenses, plus shareable savings pots.",
+  },
+  {
+    key: "calendar",
+    icon: Calendar,
+    title: "Calendar",
+    description: "A shared household calendar for events, synced with the cleaning plan.",
+  },
+];
+
 export default function SettingsPage() {
-  const { user, household, logout, login, loginWithGoogle } = useAuth();
+  const { user, household, logout, login, loginWithGoogle, toggleFeature } = useAuth();
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
   const [isNameLoading, setIsNameLoading] = useState(false);
@@ -207,10 +228,56 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Features Section */}
+      {household && (
+        <div className="surface p-6 animate-rise" style={{ "--stagger-i": 3 } as React.CSSProperties}>
+          <h2 className="text-headline mb-1 flex items-center gap-2">
+            <Sparkles className="w-5 h-5" style={{ color: "var(--accent)" }} />
+            Features
+          </h2>
+          <p className="text-caption mb-4">
+            Tasks is always on. Turn on the others as your household needs them.
+          </p>
+          <div className="space-y-4">
+            {FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              const isOn = household.enabledFeatures.includes(feature.key);
+              return (
+                <div key={feature.key} className="flex items-center gap-4">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: "var(--surface-2)" }}
+                  >
+                    <Icon className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{feature.title}</p>
+                    <p className="text-caption">{feature.description}</p>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={isOn}
+                    aria-label={`Toggle ${feature.title}`}
+                    onClick={() => toggleFeature(feature.key, !isOn)}
+                    className="press relative w-11 h-6 rounded-full transition-colors duration-300 shrink-0"
+                    style={{ background: isOn ? "var(--accent)" : "var(--surface-3)" }}
+                  >
+                    <span
+                      className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300"
+                      style={{ transform: isOn ? "translateX(20px)" : "translateX(0)" }}
+                    />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <button
         onClick={logout}
         className="btn btn-danger w-full py-3 animate-rise"
-        style={{ "--stagger-i": 3 } as React.CSSProperties}
+        style={{ "--stagger-i": 4 } as React.CSSProperties}
       >
         <LogOut className="w-5 h-5" />
         Sign Out

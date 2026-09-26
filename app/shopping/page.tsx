@@ -8,6 +8,7 @@ import ShoppingList from "./components/ShoppingList";
 import DealsTab from "./components/DealsTab";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import FeatureOnboarding from "../components/FeatureOnboarding";
 
 const DEFAULT_SHOPS = ["Migros", "Coop", "Denner", "Aldi", "Lidl"];
 
@@ -15,6 +16,7 @@ export default function ShoppingPage() {
   const { user, household } = useAuth();
   const householdId = household?.id;
   const userId = user?.id;
+  const isEnabled = household?.enabledFeatures.includes("shopping") ?? false;
 
   const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
   const [items, setItems] = useState<ShoppingItem[]>([]);
@@ -295,7 +297,7 @@ export default function ShoppingPage() {
           <ShoppingCart className="mr-3 w-8 h-8 text-orange-500" />
           Shopping
         </h1>
-        {householdId && (
+        {householdId && isEnabled && (
           <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
             <span
               aria-hidden
@@ -337,6 +339,18 @@ export default function ShoppingPage() {
             Go to Login
           </Link>
         </div>
+      ) : !isEnabled ? (
+        <FeatureOnboarding
+          feature="shopping"
+          icon={ShoppingCart}
+          title="Shopping List"
+          description="A shared shopping list your whole household can add to and check off together."
+          bullets={[
+            "Everyone in the household sees the same list, live",
+            "Tag items with a store and price to track spending",
+            "Discover local deals and add them straight to your list",
+          ]}
+        />
       ) : isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-6 h-6 animate-spin text-orange-500" />

@@ -13,6 +13,7 @@ import {
   Star,
   User,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import { supabase } from "./lib/supabase";
@@ -56,6 +57,10 @@ export default function Home() {
   const { user, household } = useAuth();
   const userId = user?.id;
   const householdId = household?.id;
+  const hasShopping = household?.enabledFeatures.includes("shopping") ?? false;
+  const hasExpenses = household?.enabledFeatures.includes("expenses") ?? false;
+  const hasCalendar = household?.enabledFeatures.includes("calendar") ?? false;
+  const hasAnyOptionalFeature = hasShopping || hasExpenses || hasCalendar;
 
   const [isLoading, setIsLoading] = useState(true);
   const [pendingTasks, setPendingTasks] = useState<DashTask[]>([]);
@@ -80,7 +85,7 @@ export default function Home() {
   }, [householdId]);
 
   const loadShopping = useCallback(async () => {
-    if (!householdId) return;
+    if (!householdId || !hasShopping) return;
     const { data } = await supabase
       .from("shopping_items")
       .select("*")
@@ -88,10 +93,10 @@ export default function Home() {
       .eq("completed", false)
       .order("created_at", { ascending: false });
     setPendingShopping((data ?? []).map((i) => ({ id: i.id, text: i.text, completed: i.completed, price: i.price, store: i.store })));
-  }, [householdId]);
+  }, [householdId, hasShopping]);
 
   const loadEvents = useCallback(async () => {
-    if (!householdId) return;
+    if (!householdId || !hasCalendar) return;
     const { data } = await supabase
       .from("calendar_events")
       .select("*")
@@ -106,10 +111,10 @@ export default function Home() {
         .sort((a, b) => eventDateTime(a).getTime() - eventDateTime(b).getTime())
         .slice(0, 4)
     );
-  }, [householdId]);
+  }, [householdId, hasCalendar]);
 
   const loadFinances = useCallback(async () => {
-    if (!householdId || !userId) return;
+    if (!householdId || !userId || !hasExpenses) return;
     const now = new Date();
     const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -129,7 +134,7 @@ export default function Home() {
     setVtActive((vtTx ?? []).length > 0);
     setMainBalance(Math.round((openingMain + mainTx.reduce((s, t) => s + t.amount, 0)) * 100) / 100);
     setVtMinBuffer(minBuffer);
-  }, [householdId, userId]);
+  }, [householdId, userId, hasExpenses]);
 
   useEffect(() => {
     if (!householdId || !userId) return;
@@ -141,20 +146,26 @@ export default function Home() {
 
   useEffect(() => {
     if (!householdId || !userId) return;
-    const channel = supabase
-      .channel(`dashboard-${householdId}-${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `household_id=eq.${householdId}` }, loadTasks)
-      .on("postgres_changes", { event: "*", schema: "public", table: "shopping_items", filter: `household_id=eq.${householdId}` }, loadShopping)
-      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `household_id=eq.${householdId}` }, loadEvents)
-      .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: `user_id=eq.${userId}` }, loadFinances)
-      .on("postgres_changes", { event: "*", schema: "public", table: "budgets", filter: `user_id=eq.${userId}` }, loadFinances)
-      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_config", filter: `household_id=eq.${householdId}` }, loadFinances)
-      .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_tx", filter: `household_id=eq.${householdId}` }, loadFinances)
-      .subscribe();
+    const channel = supabase.channel(`dashboard-${householdId}-${userId}`);
+    channel.on("postgres_changes", { event: "*", schema: "public", table: "tasks", filter: `household_id=eq.${householdId}` }, loadTasks);
+    if (hasShopping) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table: "shopping_items", filter: `household_id=eq.${householdId}` }, loadShopping);
+    }
+    if (hasCalendar) {
+      channel.on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `household_id=eq.${householdId}` }, loadEvents);
+    }
+    if (hasExpenses) {
+      channel
+        .on("postgres_changes", { event: "*", schema: "public", table: "expenses", filter: `user_id=eq.${userId}` }, loadFinances)
+        .on("postgres_changes", { event: "*", schema: "public", table: "budgets", filter: `user_id=eq.${userId}` }, loadFinances)
+        .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_config", filter: `household_id=eq.${householdId}` }, loadFinances)
+        .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_tx", filter: `household_id=eq.${householdId}` }, loadFinances);
+    }
+    channel.subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [householdId, userId, loadTasks, loadShopping, loadEvents, loadFinances]);
+  }, [householdId, userId, hasShopping, hasCalendar, hasExpenses, loadTasks, loadShopping, loadEvents, loadFinances]);
 
   const mainStatus: "ok" | "warn" | "bad" = mainBalance < 0 ? "bad" : mainBalance < vtMinBuffer ? "warn" : "ok";
 
@@ -166,10 +177,10 @@ export default function Home() {
 
   const kpis = [
     { label: "Tasks pending", value: String(pendingTasks.length), icon: CheckSquare, href: "/tasks" },
-    { label: "Events today", value: String(eventsTodayCount), icon: CalendarIcon, href: "/calendar" },
-    { label: "Shopping items", value: String(pendingShopping.length), icon: ShoppingCart, href: "/shopping" },
-    { label: "Spent this month", value: `$${spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
-  ];
+    hasCalendar && { label: "Events today", value: String(eventsTodayCount), icon: CalendarIcon, href: "/calendar" },
+    hasShopping && { label: "Shopping items", value: String(pendingShopping.length), icon: ShoppingCart, href: "/shopping" },
+    hasExpenses && { label: "Spent this month", value: `$${spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
+  ].filter((k): k is { label: string; value: string; icon: typeof CheckSquare; href: string } => !!k);
 
   const budgetPct = totalBudget > 0 ? Math.min(100, Math.round((spentThisMonth / totalBudget) * 100)) : 0;
 
@@ -223,44 +234,49 @@ export default function Home() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming events */}
-        <section className="surface p-5 animate-rise" style={{ "--stagger-i": 2 } as React.CSSProperties}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-headline">Coming up</h2>
-            <Link href="/calendar" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-              View calendar <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {upcomingEvents.length === 0 ? (
-            <p className="text-caption py-4">No upcoming events. Your schedule is clear.</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingEvents.map((ev) => {
-                const evDate = new Date(`${ev.date}T00:00:00`);
-                const isToday = evDate.toDateString() === new Date().toDateString();
-                return (
-                  <div key={ev.id} className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 text-xs font-semibold"
-                      style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-                    >
-                      {evDate.toLocaleDateString(undefined, { day: "numeric" })}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm truncate">{ev.title}</div>
-                      <div className="flex items-center gap-2 text-caption">
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{isToday ? "Today" : evDate.toLocaleDateString(undefined, { weekday: "short" })} · {ev.time}</span>
-                        {ev.location && <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3" />{ev.location}</span>}
+        {hasCalendar && (
+          <section className="surface p-5 animate-rise" style={{ "--stagger-i": 2 } as React.CSSProperties}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-headline">Coming up</h2>
+              <Link href="/calendar" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
+                View calendar <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            {upcomingEvents.length === 0 ? (
+              <p className="text-caption py-4">No upcoming events. Your schedule is clear.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingEvents.map((ev) => {
+                  const evDate = new Date(`${ev.date}T00:00:00`);
+                  const isToday = evDate.toDateString() === new Date().toDateString();
+                  return (
+                    <div key={ev.id} className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 text-xs font-semibold"
+                        style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+                      >
+                        {evDate.toLocaleDateString(undefined, { day: "numeric" })}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{ev.title}</div>
+                        <div className="flex items-center gap-2 text-caption">
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{isToday ? "Today" : evDate.toLocaleDateString(undefined, { weekday: "short" })} · {ev.time}</span>
+                          {ev.location && <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3" />{ev.location}</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Active tasks */}
-        <section className="surface p-5 animate-rise" style={{ "--stagger-i": 3 } as React.CSSProperties}>
+        <section
+          className={`surface p-5 animate-rise ${!hasAnyOptionalFeature ? "lg:col-span-2" : ""}`}
+          style={{ "--stagger-i": 3 } as React.CSSProperties}
+        >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-headline">Active tasks</h2>
             <Link href="/tasks" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
@@ -288,81 +304,99 @@ export default function Home() {
         </section>
 
         {/* Finances */}
-        <section className="surface p-5 animate-rise" style={{ "--stagger-i": 4 } as React.CSSProperties}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-headline">Finances</h2>
-            <Link href="/expenses" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-              View budget <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {vtActive ? (
-            <div>
-              <div className="text-micro normal-case">Hauptkonto buffer</div>
-              <div
-                className="text-3xl font-semibold mt-1"
-                style={{
-                  color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : "var(--text)",
-                }}
-              >
-                {mainBalance.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CHF
-              </div>
-              <div
-                className="text-caption mt-1"
-                style={{ color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : undefined }}
-              >
-                {mainStatus === "bad" ? "Below zero" : mainStatus === "warn" ? "Below minimum buffer" : "Healthy buffer"}
-              </div>
+        {hasExpenses && (
+          <section className="surface p-5 animate-rise" style={{ "--stagger-i": 4 } as React.CSSProperties}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-headline">Finances</h2>
+              <Link href="/expenses" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
+                View budget <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-          ) : totalBudget > 0 ? (
-            <div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-semibold">${spentThisMonth.toFixed(0)}</span>
-                <span className="text-caption">of ${totalBudget.toFixed(0)} budgeted</span>
-              </div>
-              <div className="mt-3 h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
+            {vtActive ? (
+              <div>
+                <div className="text-micro normal-case">Hauptkonto buffer</div>
                 <div
-                  className="h-full rounded-full"
+                  className="text-3xl font-semibold mt-1"
                   style={{
-                    width: `${budgetPct}%`,
-                    background: budgetPct >= 100 ? "var(--danger)" : budgetPct >= 85 ? "var(--warning)" : "var(--accent)",
-                    transition: "width var(--dur-slow) var(--ease-spring)",
+                    color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : "var(--text)",
                   }}
-                />
+                >
+                  {mainBalance.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CHF
+                </div>
+                <div
+                  className="text-caption mt-1"
+                  style={{ color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : undefined }}
+                >
+                  {mainStatus === "bad" ? "Below zero" : mainStatus === "warn" ? "Below minimum buffer" : "Healthy buffer"}
+                </div>
               </div>
-              <div className="text-caption mt-1">{budgetPct}% of this month&apos;s budget used</div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-2xl font-semibold">${spentThisMonth.toFixed(2)}</div>
-              <p className="text-caption mt-2">spent this month · set up a budget or the Verteilertopf for a fuller picture</p>
-            </div>
-          )}
-        </section>
+            ) : totalBudget > 0 ? (
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-2xl font-semibold">${spentThisMonth.toFixed(0)}</span>
+                  <span className="text-caption">of ${totalBudget.toFixed(0)} budgeted</span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${budgetPct}%`,
+                      background: budgetPct >= 100 ? "var(--danger)" : budgetPct >= 85 ? "var(--warning)" : "var(--accent)",
+                      transition: "width var(--dur-slow) var(--ease-spring)",
+                    }}
+                  />
+                </div>
+                <div className="text-caption mt-1">{budgetPct}% of this month&apos;s budget used</div>
+              </div>
+            ) : (
+              <div>
+                <div className="text-2xl font-semibold">${spentThisMonth.toFixed(2)}</div>
+                <p className="text-caption mt-2">spent this month · set up a budget or the Verteilertopf for a fuller picture</p>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Shopping preview */}
-        <section className="surface p-5 animate-rise" style={{ "--stagger-i": 5 } as React.CSSProperties}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-headline">Shopping list</h2>
-            <Link href="/shopping" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-              View list <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {pendingShopping.length === 0 ? (
-            <p className="text-caption py-4">List is empty.</p>
-          ) : (
-            <div className="space-y-3">
-              {pendingShopping.slice(0, 4).map((it) => (
-                <div key={it.id} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-medium text-sm truncate">{it.text}</div>
-                    {it.store && <div className="text-caption truncate">{it.store}</div>}
-                  </div>
-                  {it.price && <div className="text-sm font-mono shrink-0">${it.price.toFixed(2)}</div>}
-                </div>
-              ))}
+        {hasShopping && (
+          <section className="surface p-5 animate-rise" style={{ "--stagger-i": 5 } as React.CSSProperties}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-headline">Shopping list</h2>
+              <Link href="/shopping" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
+                View list <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
-          )}
-        </section>
+            {pendingShopping.length === 0 ? (
+              <p className="text-caption py-4">List is empty.</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingShopping.slice(0, 4).map((it) => (
+                  <div key={it.id} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm truncate">{it.text}</div>
+                      {it.store && <div className="text-caption truncate">{it.store}</div>}
+                    </div>
+                    {it.price && <div className="text-sm font-mono shrink-0">${it.price.toFixed(2)}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Nudge toward the optional features when none are on yet */}
+        {!hasAnyOptionalFeature && (
+          <section className="surface p-5 animate-rise lg:col-span-2 text-center" style={{ "--stagger-i": 4 } as React.CSSProperties}>
+            <Sparkles className="w-6 h-6 mx-auto mb-2" style={{ color: "var(--accent)" }} />
+            <h2 className="text-headline mb-1">More than tasks</h2>
+            <p className="text-body text-[var(--text-secondary)] mb-4">
+              Shopping list, Expenses & Budget, and Calendar are available whenever your household is ready for them.
+            </p>
+            <Link href="/settings" className="btn btn-primary inline-flex">
+              Explore features in Settings
+            </Link>
+          </section>
+        )}
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import {
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import FeatureOnboarding from '../components/FeatureOnboarding';
 
 interface CalendarEvent {
   id: string;
@@ -48,6 +49,7 @@ function parseDateOnly(iso: string) {
 export default function CalendarPage() {
   const { household } = useAuth();
   const householdId = household?.id;
+  const isEnabled = household?.enabledFeatures.includes("calendar") ?? false;
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -270,6 +272,22 @@ export default function CalendarPage() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  if (!isEnabled) {
+    return (
+      <FeatureOnboarding
+        feature="calendar"
+        icon={CalendarIcon}
+        title="Calendar"
+        description="A shared household calendar for events, with a nearby-activity discovery tab."
+        bullets={[
+          "Everyone in the household sees the same events, live",
+          "Cleaning-plan tasks can sync their due dates here automatically",
+          "Snap a photo of a flyer or ticket and attach it to an event",
+        ]}
+      />
     );
   }
 
