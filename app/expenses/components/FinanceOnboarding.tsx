@@ -1,24 +1,27 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, PiggyBank, Receipt, Sparkles, Wallet } from "lucide-react";
+import { Check, Coins, PiggyBank, Receipt, Sparkles, Wallet } from "lucide-react";
 import { showToast } from "../../../lib/toast";
 import { chf, r2 } from "../format";
 import { useVerteilertopf } from "../hooks/useVerteilertopf";
 import { useDebts } from "../hooks/useDebts";
 import { usePots } from "../hooks/usePots";
+import { useBudgets } from "../hooks/useBudgets";
 import { CreateDebtForm } from "./Debts";
 
-const STEPS = ["Willkommen", "Lohn verteilen", "Schulden", "Sparziele"] as const;
+const STEPS = ["Willkommen", "Lohn verteilen", "Budgets", "Schulden", "Sparziele"] as const;
 
 export default function FinanceOnboarding({
   vt,
   debts,
   pots,
+  budgets,
 }: {
   vt: ReturnType<typeof useVerteilertopf>;
   debts: ReturnType<typeof useDebts>;
   pots: ReturnType<typeof usePots>;
+  budgets: ReturnType<typeof useBudgets>;
 }) {
   const [step, setStep] = useState(0);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -52,8 +55,9 @@ export default function FinanceOnboarding({
         <div key={step} className="animate-rise">
           {step === 0 && <WelcomeStep />}
           {step === 1 && <IncomeStep vt={vt} />}
-          {step === 2 && <DebtsStep debts={debts} />}
-          {step === 3 && <SavingsStep pots={pots} />}
+          {step === 2 && <BudgetStep budgets={budgets} />}
+          {step === 3 && <DebtsStep debts={debts} />}
+          {step === 4 && <SavingsStep pots={pots} />}
         </div>
 
         <div className="flex items-center justify-between mt-8 pt-6 border-t divider">
@@ -87,12 +91,13 @@ function WelcomeStep() {
       </div>
       <h1 className="text-title mb-2">Finanzen einrichten</h1>
       <p className="text-body text-[var(--text-secondary)] mb-6">
-        Drei kurze Schritte, dann läuft der Lohn verteilen automatisch mit den richtigen Zahlen. Schulden und Sparziele
-        kannst du hier gleich anlegen — oder überspringen und später in den Tabs nachtragen.
+        Vier kurze Schritte, dann läuft der Lohn verteilen automatisch mit den richtigen Zahlen. Budgets, Schulden und
+        Sparziele kannst du hier gleich anlegen — oder überspringen und später in den Tabs nachtragen.
       </p>
       <ul className="text-left space-y-2 max-w-sm mx-auto">
         {[
           { icon: Wallet, text: "Daueraufträge & Puffer für den Lohneingang festlegen" },
+          { icon: Coins, text: "Budgets pro Kategorie festlegen (optional)" },
           { icon: Receipt, text: "Bestehende Schulden erfassen (optional)" },
           { icon: PiggyBank, text: "Erste Sparziele anlegen (optional)" },
         ].map(({ icon: Icon, text }) => (
@@ -186,6 +191,53 @@ function IncomeStep({ vt }: { vt: ReturnType<typeof useVerteilertopf> }) {
   );
 }
 
+function BudgetStep({ budgets: b }: { budgets: ReturnType<typeof useBudgets> }) {
+  const { budgets, addBudget } = b;
+  const [category, setCategory] = useState("");
+  const [amount, setAmount] = useState("");
+
+  // Commit on blur too, not just the "Anlegen" click — otherwise a budget
+  // typed right before "Weiter"/"Fertig" (which never fires that click) is
+  // silently dropped.
+  const commitPending = () => {
+    const amt = parseFloat(amount.replace(",", "."));
+    if (!category || isNaN(amt)) return;
+    addBudget(category, r2(amt));
+    setCategory("");
+    setAmount("");
+  };
+
+  return (
+    <div>
+      <h2 className="text-headline mb-1">Erste Budgets anlegen</h2>
+      <p className="text-caption mb-4">
+        Leg pro Kategorie ein monatliches Budget fest. Optional — überspringen geht jederzeit, weitere Budgets lassen
+        sich später unter Budgets &amp; Ausgaben anlegen.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <input value={category} onChange={(e) => setCategory(e.target.value)} onBlur={commitPending} placeholder="Kategorie" className="field" />
+        <input value={amount} onChange={(e) => setAmount(e.target.value)} onBlur={commitPending} placeholder="Betrag pro Monat" className="field w-36" />
+        <button onClick={commitPending} className="btn btn-primary">
+          Anlegen
+        </button>
+      </div>
+      {budgets.length > 0 && (
+        <div className="space-y-2 mt-3">
+          {budgets.map((budget) => (
+            <div key={budget.id} className="surface-2 p-3 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 font-medium">
+                <Check className="w-4 h-4" style={{ color: "var(--success)" }} />
+                {budget.category}
+              </div>
+              <div className="text-xs text-[var(--text-secondary)]">{budget.amount.toFixed(2)} CHF / Monat</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DebtsStep({ debts: d }: { debts: ReturnType<typeof useDebts> }) {
   const { debts, createDebt } = d;
   return (
@@ -216,25 +268,27 @@ function SavingsStep({ pots: p }: { pots: ReturnType<typeof usePots> }) {
   const [target, setTarget] = useState("");
   const [shared, setShared] = useState(false);
 
+  // Commit on blur too, not just the "Anlegen" click — otherwise a goal
+  // typed right before "Fertig" (which never fires that click) is silently
+  // dropped.
+  const commitPending = () => {
+    const t = parseFloat(target.replace(",", "."));
+    if (!name || isNaN(t)) return;
+    createPot(name, t, shared);
+    setName("");
+    setTarget("");
+    setShared(false);
+  };
+
   return (
     <div>
       <h2 className="text-headline mb-1">Erste Sparziele anlegen</h2>
       <p className="text-caption mb-4">Wofür wollt ihr sparen? Optional — überspringen geht jederzeit, weitere Ziele lassen sich später unter Sparziele anlegen.</p>
       <div className="space-y-2">
         <div className="flex flex-wrap gap-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name des Sparziels" className="field" />
-          <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Zielbetrag" className="field w-36" />
-          <button
-            onClick={() => {
-              const t = parseFloat(target.replace(",", "."));
-              if (!name || isNaN(t)) return;
-              createPot(name, t, shared);
-              setName("");
-              setTarget("");
-              setShared(false);
-            }}
-            className="btn btn-primary"
-          >
+          <input value={name} onChange={(e) => setName(e.target.value)} onBlur={commitPending} placeholder="Name des Sparziels" className="field" />
+          <input value={target} onChange={(e) => setTarget(e.target.value)} onBlur={commitPending} placeholder="Zielbetrag" className="field w-36" />
+          <button onClick={commitPending} className="btn btn-primary">
             Anlegen
           </button>
         </div>
