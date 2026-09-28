@@ -30,7 +30,7 @@ interface PillRect {
 // different arrangement for the device (skill section 16, "Flexibility").
 const Sidebar = () => {
   const pathname = usePathname();
-  const { user, household, logout } = useAuth();
+  const { user, household, logout, isAuthenticated } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const [pill, setPill] = useState<PillRect>({ x: 0, y: 0, w: 0, h: 0, ready: false });
@@ -70,8 +70,9 @@ const Sidebar = () => {
     };
   }, [activeHref, pathname]);
 
-  // Don't show navigation on login page — after hooks, so hook order stays stable.
-  if (pathname === "/login") return null;
+  // Don't show navigation on the login page or while signed out — after
+  // hooks, so hook order stays stable.
+  if (pathname === "/login" || !isAuthenticated) return null;
 
   return (
     <nav

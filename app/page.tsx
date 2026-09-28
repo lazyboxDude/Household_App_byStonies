@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "./context/AuthContext";
 import { supabase } from "./lib/supabase";
+import LandingPage from "./components/LandingPage";
 
 interface DashTask {
   id: string;
@@ -52,7 +53,7 @@ function startOfToday() {
 }
 
 export default function Home() {
-  const { user, household } = useAuth();
+  const { user, household, isAuthenticated } = useAuth();
   const userId = user?.id;
   const householdId = household?.id;
   const hasShopping = household?.enabledFeatures.includes("shopping") ?? false;
@@ -182,6 +183,10 @@ export default function Home() {
 
   const budgetPct = totalBudget > 0 ? Math.min(100, Math.round((spentThisMonth / totalBudget) * 100)) : 0;
 
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
   if (!householdId) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
@@ -194,7 +199,7 @@ export default function Home() {
             Join or create a household to see your dashboard.
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
-            Go to Login
+            Continue setup
           </Link>
         </div>
       </div>
