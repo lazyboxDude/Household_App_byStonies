@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Check, HeartHandshake, Sparkles } from "lucide-react";
 import { showToast } from "../../../lib/toast";
 import { chf, r2, uid } from "../format";
@@ -12,6 +12,49 @@ import type { useMoneyOnboarding } from "./useMoneyOnboarding";
 const STEPS = ["Willkommen", "Ziele", "Einnahmen", "Feste Kosten", "Bauchgefühl", "Ergebnis", "Nächster Schritt"] as const;
 
 const DEFAULT_INCOME_LABELS = ["Gehalt / Hauptverdienst", "Nebenverdienst", "Sonstiges"];
+
+function parseAmount(text: string): number {
+  return parseFloat(text.replace(",", ".")) || 0;
+}
+
+// A plain controlled input bound to a numeric value round-trips every
+// keystroke through parseFloat, which strips a trailing "," or "." before
+// the person can type the decimal digits after it. This keeps its own text
+// while typing and only re-syncs from the outside when the numeric value
+// changes for some other reason (e.g. loaded from the server).
+function MoneyInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [text, setText] = useState(value ? String(value).replace(".", ",") : "");
+
+  useEffect(() => {
+    if (parseAmount(text) !== value) {
+      setText(value ? String(value).replace(".", ",") : "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only resync when the external value itself changes
+  }, [value]);
+
+  return (
+    <input
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(parseAmount(e.target.value));
+      }}
+      placeholder={placeholder}
+      className={className}
+    />
+  );
+}
 
 export default function MoneyOnboarding({
   data,
@@ -187,30 +230,12 @@ function IncomeStep({
             />
             {incomeVariable ? (
               <>
-                <input
-                  inputMode="decimal"
-                  value={entry.min || ""}
-                  onChange={(e) => update(entry.id, { min: parseFloat(e.target.value.replace(",", ".")) || 0 })}
-                  placeholder="von"
-                  className="field w-24 font-mono"
-                />
+                <MoneyInput value={entry.min} onChange={(min) => update(entry.id, { min })} placeholder="von" className="field w-24 font-mono" />
                 <span className="text-caption">–</span>
-                <input
-                  inputMode="decimal"
-                  value={entry.max || ""}
-                  onChange={(e) => update(entry.id, { max: parseFloat(e.target.value.replace(",", ".")) || 0 })}
-                  placeholder="bis"
-                  className="field w-24 font-mono"
-                />
+                <MoneyInput value={entry.max} onChange={(max) => update(entry.id, { max })} placeholder="bis" className="field w-24 font-mono" />
               </>
             ) : (
-              <input
-                inputMode="decimal"
-                value={entry.amount || ""}
-                onChange={(e) => update(entry.id, { amount: parseFloat(e.target.value.replace(",", ".")) || 0 })}
-                placeholder="0"
-                className="field w-28 font-mono"
-              />
+              <MoneyInput value={entry.amount} onChange={(amount) => update(entry.id, { amount })} placeholder="0" className="field w-28 font-mono" />
             )}
           </div>
         ))}
@@ -268,23 +293,13 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
         <div className="space-y-2 mb-3">
           {fixedCosts.map((c) => (
             <div key={c.id} className="flex flex-wrap items-center gap-2">
-              {c.chipKey ? (
-                <span className="text-sm font-medium flex-1 min-w-[8rem]">{c.label}</span>
-              ) : (
-                <input
-                  value={c.label}
-                  onChange={(e) => updateLabel(c.id, e.target.value)}
-                  placeholder="Eigener Posten"
-                  className="field flex-1 min-w-[8rem]"
-                />
-              )}
               <input
-                inputMode="decimal"
-                value={c.amount || ""}
-                onChange={(e) => updateAmount(c.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
-                placeholder="0"
-                className="field w-28 font-mono"
+                value={c.label}
+                onChange={(e) => updateLabel(c.id, e.target.value)}
+                placeholder="Eigener Posten"
+                className="field flex-1 min-w-[8rem]"
               />
+              <MoneyInput value={c.amount} onChange={(amount) => updateAmount(c.id, amount)} placeholder="0" className="field w-28 font-mono" />
               {!c.chipKey && (
                 <button onClick={() => removeCustom(c.id)} className="press text-[var(--text-tertiary)] hover:text-[var(--danger)] text-sm px-2">
                   ✕

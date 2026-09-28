@@ -114,9 +114,19 @@ export default function ExpensesPage() {
   }
 
   // The warm, goal-first onboarding (goals, income, fixed costs, mood, first
-  // result) runs once before the more technical Verteilertopf setup wizard.
+  // result) replaces the old Verteilertopf setup wizard as the first thing a
+  // household sees — finishing it goes straight to the dashboard instead of
+  // chaining into that more technical wizard (still reachable later from the
+  // "Lohn verteilen" / "Einstellungen" tabs, whenever someone wants it).
   if (!moneyOnboarding.completed) {
-    return <MoneyOnboarding data={moneyOnboarding} onDone={() => {}} />;
+    return (
+      <MoneyOnboarding
+        data={moneyOnboarding}
+        onDone={() => {
+          if (!vt.onboardingCompleted) vt.completeOnboarding();
+        }}
+      />
+    );
   }
 
   if (!vt.onboardingCompleted) {
