@@ -356,6 +356,50 @@ export type Database = {
           },
         ]
       }
+      money_onboarding: {
+        Row: {
+          completed: boolean
+          fixed_costs: Json
+          goals: string[]
+          household_id: string
+          income: Json
+          income_variable: boolean
+          mood: string | null
+          step: number
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          fixed_costs?: Json
+          goals?: string[]
+          household_id: string
+          income?: Json
+          income_variable?: boolean
+          mood?: string | null
+          step?: number
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          fixed_costs?: Json
+          goals?: string[]
+          household_id?: string
+          income?: Json
+          income_variable?: boolean
+          mood?: string | null
+          step?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "money_onboarding_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pots: {
         Row: {
           created_at: string

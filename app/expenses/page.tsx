@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import FeatureOnboarding from '../components/FeatureOnboarding';
 import FinanceOnboarding from './components/FinanceOnboarding';
+import MoneyOnboarding from './onboarding/MoneyOnboarding';
+import { useMoneyOnboarding } from './onboarding/useMoneyOnboarding';
 import FinanceOverview from './components/FinanceOverview';
 import IncomeDistribution from './components/IncomeDistribution';
 import BudgetsExpenses from './components/BudgetsExpenses';
@@ -42,7 +44,8 @@ export default function ExpensesPage() {
   const budgetsHook = useBudgets(userId, householdId);
   const potsHook = usePots(userId, householdId);
   const debtsHook = useDebts(userId, householdId);
-  const isLoading = vt.isLoading || budgetsHook.isLoading || potsHook.isLoading || debtsHook.isLoading;
+  const moneyOnboarding = useMoneyOnboarding(householdId);
+  const isLoading = vt.isLoading || budgetsHook.isLoading || potsHook.isLoading || debtsHook.isLoading || moneyOnboarding.isLoading;
 
   // The Shopping list auto-creates an expense (via Supabase) when an item is
   // checked off, then dispatches this event so we can offer an undo banner.
@@ -108,6 +111,12 @@ export default function ExpensesPage() {
         <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
       </div>
     );
+  }
+
+  // The warm, goal-first onboarding (goals, income, fixed costs, mood, first
+  // result) runs once before the more technical Verteilertopf setup wizard.
+  if (!moneyOnboarding.completed) {
+    return <MoneyOnboarding data={moneyOnboarding} onDone={() => {}} />;
   }
 
   if (!vt.onboardingCompleted) {
