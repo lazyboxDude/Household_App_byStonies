@@ -118,11 +118,20 @@ export default function ExpensesPage() {
   // household sees — finishing it goes straight to the dashboard instead of
   // chaining into that more technical wizard (still reachable later from the
   // "Lohn verteilen" / "Einstellungen" tabs, whenever someone wants it).
+  // The fixed costs typed in during that onboarding are the only numbers it
+  // collects that the dashboard can show directly, so they're carried over
+  // into real Budget rows here — otherwise they'd be saved in the
+  // money_onboarding row and never surface anywhere in the app.
   if (!moneyOnboarding.completed) {
     return (
       <MoneyOnboarding
         data={moneyOnboarding}
-        onDone={() => {
+        onDone={async () => {
+          for (const cost of moneyOnboarding.fixedCosts) {
+            if (cost.amount > 0 && cost.label.trim()) {
+              await budgetsHook.addBudget(cost.label.trim(), cost.amount);
+            }
+          }
           if (!vt.onboardingCompleted) vt.completeOnboarding();
         }}
       />
