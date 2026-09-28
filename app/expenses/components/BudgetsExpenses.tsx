@@ -130,7 +130,7 @@ export default function BudgetsExpenses({ budgets: b }: { budgets: ReturnType<ty
   const monthExpenses = expenses.filter((exp) => exp.date.startsWith(selectedMonth));
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-rise">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-rise items-start">
       {/* Left: Budgets */}
       <div className="surface p-4">
         <h2 className="text-headline mb-3">Budgets</h2>

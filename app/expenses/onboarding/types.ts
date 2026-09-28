@@ -12,11 +12,15 @@ export interface IncomeEntry {
   max: number; // used when income is variable
 }
 
+export type CostFrequency = "monatlich" | "jaehrlich";
+
 export interface FixedCostEntry {
   id: string;
   label: string;
   amount: number;
   chipKey: string | null; // which suggestion chip this came from, if any
+  frequency: CostFrequency; // "monatlich" (default) becomes a Budget, "jaehrlich" becomes a Rechnungsplaner-Eintrag
+  dueMonth: number | null; // 1–12, only set (and used) when frequency is "jaehrlich"
 }
 
 export type Mood = "entspannt" | "geht_so" | "unsicher" | "gestresst";

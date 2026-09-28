@@ -10,7 +10,6 @@ import FinanceOnboarding from './components/FinanceOnboarding';
 import MoneyOnboarding from './onboarding/MoneyOnboarding';
 import { useMoneyOnboarding } from './onboarding/useMoneyOnboarding';
 import FinanceOverview from './components/FinanceOverview';
-import IncomeDistribution from './components/IncomeDistribution';
 import BudgetsExpenses from './components/BudgetsExpenses';
 import BillsPlanner from './components/BillsPlanner';
 import Debts from './components/Debts';
@@ -24,7 +23,6 @@ import { Expense, FinanceTab } from './types';
 
 const TABS: { key: FinanceTab; label: string }[] = [
   { key: 'uebersicht', label: 'Übersicht' },
-  { key: 'lohn', label: 'Lohn verteilen' },
   { key: 'budgets', label: 'Budgets & Ausgaben' },
   { key: 'planer', label: 'Rechnungen-Planer' },
   { key: 'schulden', label: 'Schulden' },
@@ -117,18 +115,24 @@ export default function ExpensesPage() {
   // result) replaces the old Verteilertopf setup wizard as the first thing a
   // household sees — finishing it goes straight to the dashboard instead of
   // chaining into that more technical wizard (still reachable later from the
-  // "Lohn verteilen" / "Einstellungen" tabs, whenever someone wants it).
+  // "Übersicht" / "Einstellungen" tabs, whenever someone wants it).
   // The fixed costs typed in during that onboarding are the only numbers it
   // collects that the dashboard can show directly, so they're carried over
-  // into real Budget rows here — otherwise they'd be saved in the
-  // money_onboarding row and never surface anywhere in the app.
+  // here — monthly ones into real Budget rows, once-a-year ones into the
+  // Rechnungen-Planer — otherwise they'd be saved in the money_onboarding row
+  // and never surface anywhere in the app.
   if (!moneyOnboarding.completed) {
     return (
       <MoneyOnboarding
         data={moneyOnboarding}
         onDone={async () => {
           for (const cost of moneyOnboarding.fixedCosts) {
-            if (cost.amount > 0 && cost.label.trim()) {
+            if (cost.amount <= 0 || !cost.label.trim()) continue;
+            if (cost.frequency === 'jaehrlich' && cost.dueMonth) {
+              // A once-a-year cost (e.g. an insurance bill) belongs in the
+              // Rechnungen-Planer, not as a monthly Budget row.
+              await vt.submitBill({ name: cost.label.trim(), amount: cost.amount, months: [cost.dueMonth] }, null);
+            } else {
               await budgetsHook.addBudget(cost.label.trim(), cost.amount);
             }
           }
@@ -186,7 +190,6 @@ export default function ExpensesPage() {
           onNavigate={setTab}
         />
       )}
-      {tab === 'lohn' && <IncomeDistribution vt={vt} />}
       {tab === 'budgets' && <BudgetsExpenses budgets={budgetsHook} />}
       {tab === 'planer' && <BillsPlanner vt={vt} />}
       {tab === 'schulden' && <Debts debts={debtsHook} />}

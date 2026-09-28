@@ -6,6 +6,7 @@ import { ACC, ACCOUNTS, MON, MS } from "../constants";
 import { chf, fdate, fmt, curYM } from "../format";
 import { Budget, Debt, FinanceTab, Pot } from "../types";
 import { useVerteilertopf } from "../hooks/useVerteilertopf";
+import IncomeDistribution from "./IncomeDistribution";
 
 export default function FinanceOverview({
   vt,
@@ -90,6 +91,12 @@ export default function FinanceOverview({
             </div>
           );
         })}
+      </div>
+
+      {/* Lohn verteilen — no tab of its own, handled directly here */}
+      <div>
+        <h2 className="text-headline mb-3">Lohn verteilen</h2>
+        <IncomeDistribution vt={vt} />
       </div>
 
       {/* Budgets summary */}

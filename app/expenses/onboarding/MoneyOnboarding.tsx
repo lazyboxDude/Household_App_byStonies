@@ -3,8 +3,9 @@
 import React, { useEffect, useState } from "react";
 import { Check, HeartHandshake, Sparkles } from "lucide-react";
 import { showToast } from "../../../lib/toast";
+import { MON } from "../constants";
 import { chf, r2, uid } from "../format";
-import { calcAvailable } from "./calc";
+import { calcAvailable, totalFixedCosts } from "./calc";
 import { FIXED_COST_CHIPS, GOALS, MOOD_OPTIONS, T, nextStepFor, resultHeadline } from "./copy";
 import type { FixedCostEntry, GoalId, IncomeEntry, Mood } from "./types";
 import type { useMoneyOnboarding } from "./useMoneyOnboarding";
@@ -266,15 +267,22 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
     if (existing) {
       onChange(fixedCosts.filter((c) => c.id !== existing.id));
     } else {
-      onChange([...fixedCosts, { id: uid(), label, amount: 0, chipKey: key }]);
+      onChange([...fixedCosts, { id: uid(), label, amount: 0, chipKey: key, frequency: "monatlich", dueMonth: null }]);
     }
   };
-  const addCustom = () => onChange([...fixedCosts, { id: uid(), label: "", amount: 0, chipKey: null }]);
+  const addCustom = () => onChange([...fixedCosts, { id: uid(), label: "", amount: 0, chipKey: null, frequency: "monatlich", dueMonth: null }]);
   const removeCustom = (id: string) => onChange(fixedCosts.filter((c) => c.id !== id));
   const updateAmount = (id: string, amount: number) => onChange(fixedCosts.map((c) => (c.id === id ? { ...c, amount } : c)));
   const updateLabel = (id: string, label: string) => onChange(fixedCosts.map((c) => (c.id === id ? { ...c, label } : c)));
+  const toggleYearly = (id: string) =>
+    onChange(
+      fixedCosts.map((c) =>
+        c.id === id ? { ...c, frequency: c.frequency === "jaehrlich" ? "monatlich" : "jaehrlich", dueMonth: null } : c
+      )
+    );
+  const updateDueMonth = (id: string, dueMonth: number) => onChange(fixedCosts.map((c) => (c.id === id ? { ...c, dueMonth } : c)));
 
-  const total = r2(fixedCosts.reduce((s, c) => s + (c.amount || 0), 0));
+  const total = totalFixedCosts(fixedCosts);
 
   return (
     <div>
@@ -291,22 +299,46 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
 
       {fixedCosts.length > 0 && (
         <div className="space-y-2 mb-3">
-          {fixedCosts.map((c) => (
-            <div key={c.id} className="flex flex-wrap items-center gap-2">
-              <input
-                value={c.label}
-                onChange={(e) => updateLabel(c.id, e.target.value)}
-                placeholder="Eigener Posten"
-                className="field flex-1 min-w-[8rem]"
-              />
-              <MoneyInput value={c.amount} onChange={(amount) => updateAmount(c.id, amount)} placeholder="0" className="field w-28 font-mono" />
-              {!c.chipKey && (
-                <button onClick={() => removeCustom(c.id)} className="press text-[var(--text-tertiary)] hover:text-[var(--danger)] text-sm px-2">
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
+          {fixedCosts.map((c) => {
+            const isYearly = c.frequency === "jaehrlich";
+            return (
+              <div key={c.id} className="flex flex-wrap items-center gap-2">
+                <input
+                  value={c.label}
+                  onChange={(e) => updateLabel(c.id, e.target.value)}
+                  placeholder="Eigener Posten"
+                  className="field flex-1 min-w-[8rem]"
+                />
+                <MoneyInput
+                  value={c.amount}
+                  onChange={(amount) => updateAmount(c.id, amount)}
+                  placeholder={isYearly ? T.fixedCosts.yearlyAmountPlaceholder : "0"}
+                  className="field w-28 font-mono"
+                />
+                <label className="flex items-center gap-1 text-xs text-[var(--text-secondary)] cursor-pointer whitespace-nowrap">
+                  <input type="checkbox" checked={isYearly} onChange={() => toggleYearly(c.id)} />
+                  {T.fixedCosts.yearly}
+                </label>
+                {isYearly && (
+                  <select
+                    value={c.dueMonth ?? ""}
+                    onChange={(e) => updateDueMonth(c.id, Number(e.target.value))}
+                    className="field w-auto text-xs py-1"
+                  >
+                    <option value="">{T.fixedCosts.yearlyMonthPlaceholder}</option>
+                    {MON.map((m, i) => (
+                      <option key={m} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                )}
+                {!c.chipKey && (
+                  <button onClick={() => removeCustom(c.id)} className="press text-[var(--text-tertiary)] hover:text-[var(--danger)] text-sm px-2">
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

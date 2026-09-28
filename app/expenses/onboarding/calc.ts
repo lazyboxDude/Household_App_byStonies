@@ -7,8 +7,16 @@ function r2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+// A "jaehrlich" entry (e.g. a yearly insurance bill) is a lump sum due once a
+// year, not a monthly cost — it counts here as its /12 monthly equivalent so
+// the result screen's "available per month" figure stays accurate.
+function monthlyEquivalent(c: FixedCostEntry): number {
+  const amt = c.amount || 0;
+  return c.frequency === "jaehrlich" ? amt / 12 : amt;
+}
+
 export function totalFixedCosts(costs: FixedCostEntry[]): number {
-  return r2(costs.reduce((sum, c) => sum + (c.amount || 0), 0));
+  return r2(costs.reduce((sum, c) => sum + monthlyEquivalent(c), 0));
 }
 
 export function totalIncomeFixed(income: IncomeEntry[]): number {

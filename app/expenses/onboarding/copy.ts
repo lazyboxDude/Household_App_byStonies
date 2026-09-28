@@ -18,12 +18,17 @@ export const GOALS: { id: GoalId; label: string; icon: LucideIcon }[] = [
 
 export const FIXED_COST_CHIPS: { key: string; label: string }[] = [
   { key: "miete", label: "Miete" },
+  { key: "lebensmittel", label: "Lebensmittel" },
   { key: "strom", label: "Strom" },
   { key: "internet", label: "Internet/Handy" },
   { key: "versicherungen", label: "Versicherungen" },
+  { key: "transport", label: "Transport" },
+  { key: "hygiene", label: "Hygiene" },
+  { key: "freizeit", label: "Freizeit" },
+  { key: "kleidung", label: "Kleidung" },
+  { key: "gesundheit", label: "Gesundheit" },
   { key: "abos", label: "Abos" },
   { key: "abzahlungen", label: "Abzahlungen" },
-  { key: "transport", label: "Transport" },
 ];
 
 export const MOOD_OPTIONS: { id: Mood; label: string }[] = [
@@ -86,9 +91,12 @@ export const T = {
     feedback: "Gut, das reicht schon.",
   },
   fixedCosts: {
-    title: "Was geht jeden Monat automatisch weg?",
-    body: "Tipp einfach an, was auf dich zutrifft — alles andere lässt du weg.",
+    title: "Wofür geht dein Geld jeden Monat drauf?",
+    body: "Miete genauso wie Lebensmittel oder Freizeit — tipp an, was zutrifft, den Rest lässt du weg.",
     addCustom: "+ Eigener Posten",
+    yearly: "Fällt nur 1x im Jahr an",
+    yearlyMonthPlaceholder: "Welcher Monat?",
+    yearlyAmountPlaceholder: "Betrag pro Jahr",
   },
   mood: {
     title: "Wie fühlst du dich gerade bei deinem Geld?",

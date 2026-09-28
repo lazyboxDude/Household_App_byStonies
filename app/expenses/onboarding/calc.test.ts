@@ -10,7 +10,7 @@ function income(entries: Partial<IncomeEntry>[]): IncomeEntry[] {
   return entries.map((e, i) => ({ id: String(i), label: "", amount: 0, min: 0, max: 0, ...e }));
 }
 function costs(entries: Partial<FixedCostEntry>[]): FixedCostEntry[] {
-  return entries.map((e, i) => ({ id: String(i), label: "", amount: 0, chipKey: null, ...e }));
+  return entries.map((e, i) => ({ id: String(i), label: "", amount: 0, chipKey: null, frequency: "monatlich", dueMonth: null, ...e }));
 }
 
 test("totalFixedCosts sums amounts", () => {
@@ -19,6 +19,10 @@ test("totalFixedCosts sums amounts", () => {
 
 test("totalFixedCosts with no entries is zero", () => {
   assert.equal(totalFixedCosts([]), 0);
+});
+
+test("totalFixedCosts counts a jaehrlich entry as its monthly equivalent", () => {
+  assert.equal(totalFixedCosts(costs([{ amount: 100 }, { amount: 1200, frequency: "jaehrlich" }])), 200);
 });
 
 test("totalIncomeFixed sums amounts", () => {

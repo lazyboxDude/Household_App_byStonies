@@ -57,5 +57,6 @@ export interface DistTransaction {
 }
 
 // The Finanzen feature is a single tab bar covering both the Verteilertopf
-// (account/income planning) and the Budgets & Ausgaben side.
-export type FinanceTab = "uebersicht" | "lohn" | "budgets" | "planer" | "schulden" | "sparziele" | "einstellungen";
+// (account/income planning) and the Budgets & Ausgaben side. Lohn verteilen
+// has no tab of its own — it's handled directly on the Übersicht tab.
+export type FinanceTab = "uebersicht" | "budgets" | "planer" | "schulden" | "sparziele" | "einstellungen";
