@@ -17,3 +17,13 @@ A standard Next.js (App Router) + TypeScript app for couples to manage shared ho
 - Keep them standalone: semantic HTML, inline `<style>`, no build step or external dependencies, readable on a phone, light and dark mode via `prefers-color-scheme`.
 - Exceptions that must stay Markdown because tooling reads them: `CLAUDE.md`, `AGENTS.md`, `README.md`, and `.claude/skills/*/SKILL.md`.
 - Existing `.md` files are left as is unless asked to convert them (`docs/FEATURE_RESEARCH.md` has already been converted to `docs/feature-research.html`).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
