@@ -82,13 +82,27 @@
     margin: 1rem 0;
   }
   .callout h3 { margin-top: .75rem; }
+  .idea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 6px;
+    padding: .25rem 1rem .5rem;
+    margin: 1rem 0;
+  }
+  .idea h3 { margin-top: .75rem; }
+  .proposal { font-size: .8rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .04em; }
+  dl.qa dt { font-weight: 600; margin-top: .75rem; }
+  dl.qa dd { margin: .15rem 0 0; }
 </style>
 </head>
 <body>
 <main>
   <h1>Feature Research: Homsy, Sweepy, Bring!</h1>
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
-  below so we know what's next. Status below was checked against the code on 2026-10-05.</p>
+  below so we know what's next. Status below was checked against the code on 2026-10-05.
+  The section <a href="#routinen">Idea: Routinen</a> is a <strong>proposal</strong> for recurring chores and bills
+  (Abfuhr, Stromrechnung, …) — nothing in it is implemented yet.</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -128,7 +142,9 @@
       <tbody>
         <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Done — Tasks: Cleaning Plan</td></tr>
         <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Done — Tasks: Cleaning Plan</td></tr>
-        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan (not yet for general tasks)</td></tr>
+        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan (not yet for general tasks or bills; see <a href="#routinen">Routinen</a>)</td></tr>
+        <tr><td>Recurring household chores that are fixed in the calendar (Abfuhr, Papiersammlung)</td><td>(our own synthesis)</td><td>Proposal — <a href="#routinen">Routinen</a></td></tr>
+        <tr><td>Recurring bills with payer, split and “paid” status (Strom, Internet, Serafe)</td><td>(our own synthesis)</td><td>Proposal — <a href="#routinen">Routinen</a>; today only <code>verteilertopf_bills</code> (name, amount, months)</td></tr>
         <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Done — one-way sync via <code>calendarSync.ts</code></td></tr>
         <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Partial — overdue badge per room only</td></tr>
         <tr><td>Task rotation between household members</td><td>Homsy</td><td>Backlog</td></tr>
@@ -186,7 +202,8 @@
   <ul class="todo">
     <li class="done"><input type="checkbox" disabled checked><span>Tasks page: general household tasks (one-off), shared or private.</span>
       <ul class="todo">
-        <li><input type="checkbox" disabled><span>Daily/recurring general tasks — <code>tasks</code> has no recurrence field yet (recurrence exists only in the Cleaning Plan).</span></li>
+        <li><input type="checkbox" disabled><span>Daily/recurring general tasks — <code>tasks</code> has no recurrence field yet (recurrence exists only in the Cleaning Plan).
+          Superseded by <a href="#routinen">Routinen</a> rather than bolting a recurrence column onto <code>tasks</code>.</span></li>
         <li><input type="checkbox" disabled><span><code>TaskOnboarding.tsx</code> promises “starter tasks below” but creates none (starter tasks are only seeded on household creation).</span></li>
       </ul>
     </li>
@@ -197,15 +214,19 @@
         <li class="done"><input type="checkbox" disabled checked><span>Attach cleaning supplies to a task</span></li>
         <li class="done"><input type="checkbox" disabled checked><span>Set recurrence per task (daily/weekly/biweekly/monthly/once)</span></li>
         <li class="done"><input type="checkbox" disabled checked><span>Link cleaning tasks to the Calendar (event upserted on create and on mark-done)</span></li>
-        <li><input type="checkbox" disabled><span>“monthly” is a fixed 30 days, not a calendar month.</span></li>
+        <li><input type="checkbox" disabled><span>“monthly” is a fixed 30 days, not a calendar month (the Routinen schedule engine fixes this with real month arithmetic).</span></li>
       </ul>
     </li>
   </ul>
 
   <h3>Next</h3>
   <ul class="todo">
+    <li><input type="checkbox" disabled><span><strong>Routinen</strong> — one model for recurring chores, reminders and bills (Abfuhr, Strom, Miete, …),
+      with a responsible person or rotation and an optional cost split. Phase 1 (schedule engine, chores/reminders, “Diese Woche”, calendar sync)
+      first; phases and open questions in <a href="#routinen">Idea: Routinen</a>.</span></li>
     <li><input type="checkbox" disabled><span>Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview. Today: red overdue counter per room only.</span></li>
-    <li><input type="checkbox" disabled><span>Task rotation: assign a recurring task to rotate automatically between household members. <code>assignee</code> is currently a free-text string, not linked to <code>household_members</code>.</span></li>
+    <li><input type="checkbox" disabled><span>Task rotation: assign a recurring task to rotate automatically between household members. <code>assignee</code> is currently a free-text string, not linked to <code>household_members</code>.
+      Covered by Routinen phase 3, but linking <code>assignee</code> to a user id is a prerequisite.</span></li>
     <li><input type="checkbox" disabled><span>Completion streaks per person + simple leaderboard. The earlier points/levels UI was removed;
       <code>member_stats</code> and <code>tasks.points</code> remain unused in the schema.</span></li>
     <li class="done"><input type="checkbox" disabled checked><span>Real backend: households, tasks, cleaning plan, calendar, shopping and finance all live in
@@ -218,7 +239,10 @@
   <h3>Finanzen — known gaps</h3>
   <ul class="todo">
     <li><input type="checkbox" disabled><span>Savings goals: no delete, no withdrawal, no deposit history.</span></li>
-    <li><input type="checkbox" disabled><span>Money onboarding only turns fixed costs into budgets; income and goals are not carried into the Verteilertopf config.</span></li>
+    <li><input type="checkbox" disabled><span>Money onboarding only turns fixed costs into budgets; income and goals are not carried into the Verteilertopf config.
+      Recurring fixed costs (Strom, Internet, Serafe) could additionally become bill routines.</span></li>
+    <li><input type="checkbox" disabled><span><code>verteilertopf_bills</code> has no payer, no split and no “paid” state — bills are only a monthly funding target,
+      so nobody can see which bill is due next or who has to pay it. Addressed by Routinen phase 2.</span></li>
     <li><input type="checkbox" disabled><span>Distributions cannot be reversed; no manual bookings on accounts.</span></li>
     <li><input type="checkbox" disabled><span>Edit dialogs use <code>window.prompt</code>; optimistic updates (pots, debts, budgets, expenses, bills) have no error rollback.</span></li>
     <li><input type="checkbox" disabled><span>Debt payments are not stored as history, only <code>remaining</code> changes.</span></li>
@@ -241,6 +265,217 @@
     <li><input type="checkbox" disabled><span>General UI pass: the current look was flagged as needing improvement — revisit now that the Cleaning Plan
       and Finanzen data models are in place.</span></li>
   </ul>
+
+  <h2 id="routinen">Idea: Routinen — one rhythm for chores and bills</h2>
+  <p class="proposal">Proposal — not implemented</p>
+
+  <h3>The problem</h3>
+  <p>A household runs on things that come back: Kehricht-Abfuhr every second Thursday, Papiersammlung on fixed dates, the
+  Strom-Abschlag on the 1st, the Jahresabrechnung in March, Serafe every quarter, the bathroom every week.
+  Today the app handles recurrence in three places that don't talk to each other:</p>
+  <ul>
+    <li><strong>Cleaning Plan</strong> — <code>cleaning_tasks.next_due</code>, interval-only, “after done” logic, monthly = 30 days.</li>
+    <li><strong>Rechnungen-Planer</strong> — <code>verteilertopf_bills.months[]</code>, a funding forecast only; no due date, payer, split or “paid”.</li>
+    <li><strong>General tasks</strong> — no recurrence at all.</li>
+  </ul>
+  <p>Abfuhr doesn't fit any of them: it is fixed to the calendar, costs nothing, and the question is only
+  “who puts the bin out tonight?”.</p>
+
+  <div class="idea">
+    <h3>The idea in one sentence</h3>
+    <p>A <strong>Routine</strong> is something that comes back on a schedule. Every routine answers three questions —
+    <strong>When?</strong> <strong>Who?</strong> <strong>How much?</strong> — and the app turns the answers into one shared
+    “Diese Woche” view, calendar entries and (for bills) expenses.</p>
+    <p>A chore, a reminder and a bill are the same thing with different parts switched on:</p>
+    <ul>
+      <li><strong>Reminder</strong> (Abfuhr, Papiersammlung): When ✓, Who optional, How much —</li>
+      <li><strong>Chore</strong> (Bad putzen, Pflanzen giessen): When ✓, Who ✓ (fixed, rotating, open), How much —</li>
+      <li><strong>Bill</strong> (Strom, Internet, Miete, Serafe): When ✓, Who pays ✓, How much ✓ and how it is split</li>
+    </ul>
+  </div>
+
+  <h3>When — schedules</h3>
+  <p>The Cleaning Plan only knows “every N days after last done”. Real households need more, and they need two
+  different anchoring modes:</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Schedule type</th><th>Real-world example</th><th>Mode</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Every N days/weeks/months/years</td><td>Staubsaugen every 7 days; Serafe every 3 months</td><td>after done <em>or</em> fixed</td></tr>
+        <tr><td>Weekday, optionally every N-th week</td><td>Kehricht every second Thursday</td><td>fixed</td></tr>
+        <tr><td>Day of month (or “last day”), optionally only some months</td><td>Strom-Abschlag on the 1st; Jahresabrechnung in March</td><td>fixed</td></tr>
+        <tr><td>N-th weekday of the month</td><td>Kartonsammlung: first Monday</td><td>fixed</td></tr>
+        <tr><td>Explicit date list</td><td>Entsorgungskalender of the Gemeinde (imported once a year)</td><td>fixed</td></tr>
+        <tr><td>Active months (season)</td><td>Grünabfuhr only March–November</td><td>fixed</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>Fixed</strong> (calendar-bound) vs. <strong>after done</strong> (relative to completion) is the key distinction.
+  Abfuhr and bills are fixed: if you miss Thursday, the next one is still in two weeks. Cleaning is after-done: if you
+  vacuum late, the next round starts from then. The existing Cleaning Plan is the after-done special case. Date lists and
+  weekday/month-day schedules are fixed-only.</p>
+
+  <h3>Who — responsibility</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Mode</th><th>How it works</th><th>Fits</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Fixed</td><td>One person always does it (“I take care of Strom, you take care of Internet”).</td><td>Couples, bills</td></tr>
+        <tr><td>Rotation</td><td>Round-robin through the members; each occurrence has exactly one person.</td><td>WG, Abfuhr, Bad</td></tr>
+        <tr><td>Fair share</td><td>The app proposes whoever has carried the least effort lately (weighted by <code>effort</code>).</td><td>Couples with uneven chores</td></tr>
+        <tr><td>Open</td><td>Nobody assigned; whoever does it first taps “Ich mach's”.</td><td>Light chores</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>How much — bills</h3>
+  <ul>
+    <li><strong>Amount kind</strong>: <em>fixed</em> (Miete, Internet), <em>estimate</em> (Strom-Abschlag, can be corrected when the real bill arrives) or <em>variable</em> (entered when paid).</li>
+    <li><strong>Payer</strong>: who pays it to the outside world (invoice stays with one person, or comes out of the joint account).</li>
+    <li><strong>Split</strong>: percentages per member — equal, by income share (couples), or custom (WG: Internet equal, Heizung by room size). Members not involved are simply left out.</li>
+    <li><strong>Flow</strong>: due → tap “Bezahlt” → actual amount → an <code>expenses</code> row is created (same pattern as the shopping check-off),
+      and the difference to the estimate feeds the Rechnungen-Planer forecast. Yearly routines can add a follow-up reminder “Jahresabrechnung prüfen — Nachzahlung oder Guthaben?”.</li>
+    <li><strong>Settle-up</strong> (WG, and couples without a joint account): a running “wer schuldet wem” balance from the splits, with a “settled” action. Couples who pay from the joint Verteilertopf account don't need it and never see it.</li>
+  </ul>
+
+  <h3>Paar vs. WG</h3>
+  <p>One household setting — “Wie wohnt ihr?” (Paar / WG) — switches defaults. The data model is identical; only presets,
+  wording and visible features differ.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th></th><th>Paar</th><th>WG</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Responsibility default</td><td>Fixed or fair share — “you take Strom, I take Abfuhr”</td><td>Rotation with skip/swap</td></tr>
+        <tr><td>Bill split default</td><td>50/50 or by income share; often paid from the joint account → no settle-up</td><td>Per-bill custom split; settle-up balance always on</td></tr>
+        <tr><td>Fairness view</td><td>Gentle balance bar, off by default (“we don't want a scoreboard”)</td><td>Opt-in; useful as an argument-ender</td></tr>
+        <tr><td>Private routines</td><td>Rare (own meds, own car)</td><td>Common (own room, own subscriptions) — reuse the “Only me” toggle</td></tr>
+        <tr><td>Absence</td><td>Rare</td><td>“Ich bin vom 10.–24. weg” skips me in rotations and splits</td></tr>
+        <tr><td>Wording</td><td>“wir / du / ich”</td><td>“Mitbewohner:innen”</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Households with 2 members get the Paar defaults, 3+ the WG defaults, and it can be changed any time.</p>
+
+  <h3>Signature features</h3>
+  <ol>
+    <li><strong>“Diese Woche”</strong> — one agenda mixing chores, Abfuhr and bills for the next 7 days, filterable to “mine”. Doubles as the dashboard widget.
+<pre><code>Diese Woche
+Do 08.  🗑️ Kehricht rausstellen        → Mia (Rotation)
+Fr 09.  ⚡ Strom-Abschlag  CHF 95      → Jonas zahlt · 50/50
+Sa 10.  🛁 Bad putzen                  → offen  [Ich mach's]
+So 11.  ♻️ Papiersammlung (morgen früh)</code></pre></li>
+    <li><strong>Evening-before reminder</strong> (<code>lead_days</code>) — “Morgen Kehricht — Tonne rausstellen”. In-app banner first;
+      real push once the service worker exists (see Later).</li>
+    <li><strong>Swap &amp; absence</strong> — one tap “tauschen” hands an occurrence to someone else; absence ranges skip a person in rotations.</li>
+    <li><strong>Fairness-Waage</strong> — share of effort (<code>effort</code> 1–5 per routine) over the last 30 days against a target split
+      (50/50, or 40/60 for part-time). No points, no leaderboard by default.</li>
+    <li><strong>Entsorgungskalender import</strong> — paste or upload the municipality's ICS/CSV once a year and get all Abfuhr dates as a date-list routine.</li>
+    <li><strong>Starter pack</strong> — in onboarding, tick the typical routines (Kehricht, Karton, Strom, Internet, Miete, Serafe, Krankenkasse, Putzplan).
+      The money onboarding's fixed costs can be offered as bill routines instead of only budgets.</li>
+    <li><strong>Calendar</strong> — every routine mirrors its upcoming occurrences into <code>calendar_events</code>, generalising
+      <code>calendarSync.ts</code> from <code>source_cleaning_task_id</code> to a <code>source_routine_id</code>.</li>
+  </ol>
+
+  <h3>Data model sketch</h3>
+<pre><code>type RoutineKind = "chore" | "reminder" | "bill";
+
+type Schedule =
+  | { type: "interval"; every: number; unit: "day" | "week" | "month" | "year"; anchor: string }
+  | { type: "weekday"; weekdays: number[]; everyNWeeks?: number; anchor?: string }
+  | { type: "monthday"; day: number | "last"; months?: number[] }
+  | { type: "nth_weekday"; nth: 1 | 2 | 3 | 4 | -1; weekday: number; months?: number[] }
+  | { type: "dates"; dates: string[] };            // imported Entsorgungskalender
+
+interface Routine {
+  id: string;
+  householdId: string;
+  kind: RoutineKind;
+  title: string;
+  icon: string;
+  schedule: Schedule;
+  mode: "fixed" | "after_done";    // after_done only with type "interval"
+  activeMonths?: number[];         // season, e.g. Grünabfuhr 3–11
+  leadDays: number;                // remind N days before
+  isShared: boolean;               // false = "Only me"
+
+  // Who
+  assignment: "fixed" | "rotation" | "fair_share" | "open";
+  assigneeId?: string;             // user id (fixed)
+  rotation?: string[];             // user ids in order
+  effort: 1 | 2 | 3 | 5;
+  roomId?: string;                 // keeps the Cleaning Plan link
+
+  // How much (kind = "bill")
+  amount?: number;
+  amountKind?: "fixed" | "estimate" | "variable";
+  payerId?: string;
+  split?: Record&lt;string, number&gt;;  // user id -> percent, sums to 100
+  expenseCategory?: string;
+}
+
+interface Occurrence {
+  id: string;
+  routineId: string;
+  dueDate: string;                 // ISO date
+  status: "open" | "done" | "skipped";
+  assignedTo?: string;
+  doneBy?: string;
+  doneAt?: string;
+  actualAmount?: number;
+  expenseId?: string;              // created on "bezahlt"
+}</code></pre>
+  <p>Occurrences are materialised for the next ~8 weeks (and extended on app open or by a daily job) rather than
+  computed on the fly: that keeps history for the fairness view and lets a single occurrence be swapped, skipped or
+  paid with a different amount without touching the routine.</p>
+
+  <h3>How it fits the existing code</h3>
+  <ul>
+    <li><strong>Schedule engine</strong> — a pure function <code>nextOccurrences(schedule, from, count)</code> with unit tests next to the existing
+      <code>calc.test.ts</code> pattern; month arithmetic fixes the “monthly = 30 days” bug. Needs <code>npm test</code> in CI to be worth anything.</li>
+    <li><strong>Calendar</strong> — extend <code>calendarSync.ts</code>; deletion keeps working through DB cascade.</li>
+    <li><strong>Rechnungen-Planer</strong> — bill routines become the source of truth; the planner derives <code>months</code> and amount from them
+      instead of keeping its own list. Needs a one-time migration of <code>verteilertopf_bills</code>.</li>
+    <li><strong>Cleaning Plan</strong> — stays as the room view. Later its tasks become routines with a <code>roomId</code>; until then both coexist.</li>
+    <li><strong>Members</strong> — <code>assignee</code> must move from a free-text string to a <code>household_members</code> user id
+      (prerequisite for rotation, fairness and splits).</li>
+    <li><strong>Migrations</strong> — the new tables need RLS via <code>is_household_member</code>; this is a good moment to add the missing
+      migrations folder to the repo.</li>
+  </ul>
+
+  <h3>Phasing</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Phase</th><th>Scope</th><th>Result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="tag">1 — Rhythm</td><td>Schedule engine + tests, <code>routines</code>/<code>occurrences</code> tables, kinds chore + reminder, fixed and after-done, “Diese Woche”, calendar sync, starter pack with Abfuhr</td><td>Abfuhr and recurring chores work for any household</td></tr>
+        <tr><td class="tag">2 — Bills</td><td>Bill kind: amount, payer, “bezahlt” → expense, link to Rechnungen-Planer, Jahresabrechnung reminder</td><td>Stromrechnung is tracked from due date to paid</td></tr>
+        <tr><td class="tag">3 — Fairness</td><td>Rotation, swap, absence, split with settle-up, Fairness-Waage, Paar/WG presets</td><td>Fits couples and WGs differently</td></tr>
+        <tr><td class="tag">4 — Polish</td><td>Entsorgungskalender import, push reminders, Cleaning Plan migration</td><td>Feature complete</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Open questions</h3>
+  <dl class="qa">
+    <dt>Name</dt>
+    <dd>“Routinen” is the working title. Alternatives: “Wiederkehrendes”, “Fixtermine”. Does it become its own tab or live inside Tasks?</dd>
+    <dt>Bills: replace or sync <code>verteilertopf_bills</code>?</dt>
+    <dd>Replacing avoids two sources of truth but needs a migration and touches the Finanzen forecast. Recommended: replace, in phase 2.</dd>
+    <dt>Settle-up scope</dt>
+    <dd>Is “wer schuldet wem” in scope for couples who pay from the joint account? Proposal: only shown when members pay privately.</dd>
+    <dt>Occurrence storage</dt>
+    <dd>Materialised (proposed) vs. computed on the fly. Materialising needs a place to extend the window — on app open is enough for now.</dd>
+    <dt>Fairness tone</dt>
+    <dd>Shown by default in WG mode, hidden by default for couples. Is that the right call?</dd>
+  </dl>
 
   <h2>Data model sketch (Cleaning Plan)</h2>
   <pre><code>type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "once";
