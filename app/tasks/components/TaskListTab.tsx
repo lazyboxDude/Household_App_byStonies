@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Plus, Trash2, User, ListTodo, Loader2, Lock, Users } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, User, Lock, Users } from "lucide-react";
+import Mascot, { MascotLoader } from "@/components/Mascot";
 import { Task } from "../types";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import { useI18n } from "../../context/LanguageContext";
 import SwipeToDelete, { type SwipeToDeleteHandle } from "../../components/SwipeToDelete";
 
 export default function TaskListTab({ householdId }: { householdId: string }) {
   const { user } = useAuth();
+  const { t: tr } = useI18n();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -99,9 +102,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
-      </div>
+      <MascotLoader size={64} className="py-12" label={tr("Loading", "Lädt")} />
     );
   }
 
@@ -114,7 +115,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
-          placeholder="Buy a toolbox, set up smart home, ..."
+          placeholder={tr("Buy a toolbox, set up smart home, ...", "Werkzeugkasten kaufen, Smart Home einrichten, …")}
           className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-[var(--text)] placeholder-[var(--text-tertiary)]"
         />
         <button
@@ -125,12 +126,12 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
             background: newTaskShared ? "var(--accent-soft)" : "var(--surface-2)",
             color: newTaskShared ? "var(--accent)" : "var(--text-secondary)",
           }}
-          title={newTaskShared ? "Visible to the whole household" : "Only visible to you"}
+          title={newTaskShared ? tr("Visible to the whole household", "Für den ganzen Haushalt sichtbar") : tr("Only visible to you", "Nur für dich sichtbar")}
         >
           {newTaskShared ? <Users className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-          {newTaskShared ? "Shared" : "Only me"}
+          {newTaskShared ? tr("Shared", "Geteilt") : tr("Only me", "Nur ich")}
         </button>
-        <button onClick={addTask} className="btn btn-icon" style={{ background: "#4f46e5", color: "white" }}>
+        <button onClick={addTask} aria-label={tr("Add task", "Aufgabe hinzufügen")} className="btn btn-icon" style={{ background: "#4f46e5", color: "white" }}>
           <Plus className="w-5 h-5" />
         </button>
       </div>
@@ -180,7 +181,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
                         )}
                         {!task.is_shared && (
                           <span className="flex items-center gap-1 bg-[var(--surface-2)] px-2 py-0.5 rounded-full">
-                            <Lock className="w-3 h-3" /> Only me
+                            <Lock className="w-3 h-3" /> {tr("Only me", "Nur ich")}
                           </span>
                         )}
                       </div>
@@ -192,7 +193,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
                   <button
                     onClick={() => toggleShared(task.id)}
                     className="press row-action text-[var(--text-tertiary)] hover:text-[var(--text)] p-2"
-                    title={task.is_shared ? "Make private" : "Share with household"}
+                    title={task.is_shared ? tr("Make private", "Privat machen") : tr("Share with household", "Mit dem Haushalt teilen")}
                   >
                     {task.is_shared ? <Lock className="w-4 h-4" /> : <Users className="w-4 h-4" />}
                   </button>
@@ -201,6 +202,8 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
                 <button
                   onClick={() => deleteTask(task.id)}
                   className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2"
+                  title={tr("Delete", "Löschen")}
+                  aria-label={tr("Delete", "Löschen")}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -210,9 +213,10 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
         ))}
 
         {tasks.length === 0 && (
-          <div className="text-center py-12 text-[var(--text-secondary)]">
-            <ListTodo className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
-            <p>No tasks yet. Add one to get started.</p>
+          <div className="flex flex-col items-center text-center py-10 text-[var(--text-secondary)]">
+            <Mascot mood="sleepy" size={88} />
+            <p className="font-hand text-2xl font-semibold mt-2">{tr("No tasks yet.", "Noch keine Aufgaben.")}</p>
+            <p className="text-caption">{tr("Write the first one down, I'll watch.", "Schreib die erste auf, ich schau zu.")}</p>
           </div>
         )}
       </div>

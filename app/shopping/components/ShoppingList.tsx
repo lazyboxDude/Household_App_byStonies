@@ -1,5 +1,7 @@
 import { Plus, Trash2, MapPin, Search, DollarSign, ExternalLink, Percent } from "lucide-react";
 import { ShoppingItem } from "../types";
+import Mascot from "@/components/Mascot";
+import { useI18n } from "../../context/LanguageContext";
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -34,11 +36,12 @@ export default function ShoppingList({
   searchItem,
   viewSales
 }: ShoppingListProps) {
+  const { t } = useI18n();
   return (
     <>
       <div className="flex justify-end mb-4">
         <span className="text-caption">
-          {items.filter((i) => !i.completed).length} items left
+          {t(`${items.filter((i) => !i.completed).length} items left`, `${items.filter((i) => !i.completed).length} Artikel offen`)}
         </span>
       </div>
 
@@ -49,7 +52,7 @@ export default function ShoppingList({
             type="text"
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
-            placeholder="What do we need? (e.g. Milk)"
+            placeholder={t("What do we need? (e.g. Milk)", "Was brauchen wir? (z. B. Milch)")}
             className="field"
           />
 
@@ -61,7 +64,7 @@ export default function ShoppingList({
                 step="0.01"
                 value={newPrice}
                 onChange={(e) => setNewPrice(e.target.value)}
-                placeholder="Price"
+                placeholder={t("Price", "Preis")}
                 className="field pl-9"
               />
             </div>
@@ -72,7 +75,7 @@ export default function ShoppingList({
                 type="text"
                 value={newStore}
                 onChange={(e) => setNewStore(e.target.value)}
-                placeholder="Store (optional)"
+                placeholder={t("Store (optional)", "Geschäft (optional)")}
                 list="shops-list"
                 className="field pl-9"
               />
@@ -86,7 +89,7 @@ export default function ShoppingList({
                   type="button"
                   onClick={() => viewSales(newStore)}
                   className="press absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-full transition-colors"
-                  title="View current sales"
+                  title={t("View current sales", "Aktuelle Angebote ansehen")}
                 >
                   <Percent className="w-4 h-4" />
                 </button>
@@ -97,6 +100,7 @@ export default function ShoppingList({
               type="submit"
               disabled={!newItem.trim()}
               className="btn btn-primary px-6"
+              aria-label={t("Add item", "Artikel hinzufügen")}
             >
               <Plus className="w-6 h-6" />
             </button>
@@ -113,7 +117,7 @@ export default function ShoppingList({
             style={{ background: "rgba(59,130,246,0.12)", color: "#3b82f6", borderColor: "transparent" }}
           >
             <MapPin className="w-3 h-3" />
-            Find Nearby
+            {t("Find Nearby", "In der Nähe suchen")}
           </button>
           {shops.map(shop => (
             <button
@@ -130,8 +134,9 @@ export default function ShoppingList({
       {/* Shopping List */}
       <div className="surface overflow-hidden">
         {items.length === 0 ? (
-          <div className="p-8 text-center text-[var(--text-secondary)]">
-            <p>Your shopping list is empty!</p>
+          <div className="flex flex-col items-center p-8 text-center text-[var(--text-secondary)]">
+            <Mascot mood="sleepy" size={80} />
+            <p className="font-hand text-2xl font-semibold mt-2">{t("The list is empty.", "Die Liste ist leer.")}</p>
           </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -190,7 +195,7 @@ export default function ShoppingList({
                             ? "text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
                             : "text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         }`}
-                        title={item.store?.toLowerCase().includes('migros') ? "Search on Migros.ch" : "Find prices nearby"}
+                        title={item.store?.toLowerCase().includes('migros') ? t("Search on Migros.ch", "Auf Migros.ch suchen") : t("Find prices nearby", "Preise in der Nähe finden")}
                       >
                         {item.store?.toLowerCase().includes('migros') ? <ExternalLink className="w-4 h-4" /> : <Search className="w-4 h-4" />}
                       </button>
@@ -207,7 +212,7 @@ export default function ShoppingList({
                         <button
                           onClick={() => viewSales(item.store!)}
                           className="press flex items-center hover:text-orange-500 transition-colors group/store"
-                          title="View store sales"
+                          title={t("View store sales", "Angebote des Geschäfts ansehen")}
                         >
                           <MapPin className="w-3 h-3 mr-1 group-hover/store:text-orange-500" />
                           <span className="border-b border-transparent group-hover/store:border-orange-500">
@@ -223,7 +228,7 @@ export default function ShoppingList({
                 <button
                   onClick={() => deleteItem(item.id)}
                   className="press text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2 rounded-full hover:bg-[var(--danger-soft)] transition-colors ml-2"
-                  aria-label="Delete item"
+                  aria-label={t("Delete item", "Artikel löschen")}
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>

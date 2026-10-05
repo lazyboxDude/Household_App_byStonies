@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { showToast } from "../../../lib/toast";
 import { Budget, Expense } from "../types";
+import { useI18n } from "../../context/LanguageContext";
 
 export function useBudgets(userId: string | undefined, householdId: string | undefined) {
+  const { t } = useI18n();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +82,7 @@ export function useBudgets(userId: string | undefined, householdId: string | und
   const editBudget = async (id: string, category: string, amount: number) => {
     setBudgets((prev) => prev.map((x) => (x.id === id ? { ...x, category, amount } : x)));
     await supabase.from("budgets").update({ category, amount }).eq("id", id);
-    showToast("Budget aktualisiert", "success");
+    showToast(t("Budget updated", "Budget aktualisiert"), "success");
   };
 
   const addExpense = async (input: { title: string; amount: number; date: string; category: string; note?: string }) => {
@@ -110,7 +112,7 @@ export function useBudgets(userId: string | undefined, householdId: string | und
   const editExpense = async (id: string, updates: { title: string; amount: number; category: string; note?: string }) => {
     setExpenses((prev) => prev.map((x) => (x.id === id ? { ...x, ...updates } : x)));
     await supabase.from("expenses").update({ ...updates, note: updates.note ?? null }).eq("id", id);
-    showToast("Ausgabe aktualisiert", "success");
+    showToast(t("Expense updated", "Ausgabe aktualisiert"), "success");
   };
 
   const deleteExpense = async (id: string) => {
