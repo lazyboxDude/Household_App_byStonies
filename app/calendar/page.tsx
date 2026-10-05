@@ -20,7 +20,9 @@ import {
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import type { Tables } from '../lib/database.types';
 import FeatureOnboarding from '../components/FeatureOnboarding';
+import { showToast } from '../../lib/toast';
 
 interface CalendarEvent {
   id: string;
@@ -30,6 +32,9 @@ interface CalendarEvent {
   type: 'task' | 'shopping' | 'event';
   location?: string;
   photo?: string; // base64 data URL or a real URL
+  // Set for events mirrored from a cleaning task (see app/tasks/calendarSync.ts).
+  // They are managed from the Tasks page, so they are read-only here.
+  sourceCleaningTaskId?: string;
 }
 
 interface Suggestion {
@@ -45,6 +50,22 @@ interface Suggestion {
 function parseDateOnly(iso: string) {
   return new Date(`${iso}T00:00:00`);
 }
+
+function toCalendarEvent(ev: Tables<'calendar_events'>): CalendarEvent {
+  return {
+    id: ev.id,
+    title: ev.title,
+    date: parseDateOnly(ev.date),
+    // A Postgres `time` column can come back as "HH:mm:ss"; the UI only uses "HH:mm".
+    time: ev.time.slice(0, 5),
+    type: ev.type as CalendarEvent['type'],
+    location: ev.location ?? undefined,
+    photo: ev.photo_url ?? undefined,
+    sourceCleaningTaskId: ev.source_cleaning_task_id ?? undefined,
+  };
+}
+
+const byTime = (a: CalendarEvent, b: CalendarEvent) => a.time.localeCompare(b.time);
 
 export default function CalendarPage() {
   const { household } = useAuth();
@@ -64,7 +85,9 @@ export default function CalendarPage() {
 
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [newEventTime, setNewEventTime] = useState('12:00');
+  const [isSaving, setIsSaving] = useState(false);
   const [newEventType, setNewEventType] = useState<'task' | 'shopping' | 'event'>('event');
   const [newEventLocation, setNewEventLocation] = useState('');
   const [newEventPhoto, setNewEventPhoto] = useState<string | null>(null);
@@ -75,19 +98,12 @@ export default function CalendarPage() {
       .from('calendar_events')
       .select('*')
       .eq('household_id', householdId)
-      .order('date', { ascending: true });
-    if (!error) {
-      setEvents(
-        (data ?? []).map((ev) => ({
-          id: ev.id,
-          title: ev.title,
-          date: parseDateOnly(ev.date),
-          time: ev.time,
-          type: ev.type as 'task' | 'shopping' | 'event',
-          location: ev.location ?? undefined,
-          photo: ev.photo_url ?? undefined,
-        }))
-      );
+      .order('date', { ascending: true })
+      .order('time', { ascending: true });
+    if (error) {
+      showToast('Could not load events', 'error');
+    } else {
+      setEvents((data ?? []).map(toCalendarEvent));
     }
     setIsLoading(false);
   }, [householdId]);
@@ -161,21 +177,28 @@ export default function CalendarPage() {
     setNewEventLocation(suggestion.location || '');
     setNewEventType(suggestion.category === 'Shopping' ? 'shopping' : 'event');
     setNewEventTime('18:00'); // Default evening time
-    setSelectedDate(selectedDate);
+    setNewEventDate(format(selectedDate, 'yyyy-MM-dd'));
+    setNewEventPhoto(null);
     setEditingEvent(null);
     setIsModalOpen(true);
   };
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today);
+  };
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
+  // Weeks start on Monday (matches the household's locale, not date-fns' Sunday default).
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   const openModal = (event?: CalendarEvent) => {
     if (event) {
@@ -184,7 +207,7 @@ export default function CalendarPage() {
       setNewEventTime(event.time);
       setNewEventType(event.type);
       setNewEventLocation(event.location || '');
-      setSelectedDate(event.date);
+      setNewEventDate(format(event.date, 'yyyy-MM-dd'));
       setNewEventPhoto(event.photo || null);
     } else {
       setEditingEvent(null);
@@ -192,6 +215,7 @@ export default function CalendarPage() {
       setNewEventTime('12:00');
       setNewEventType('event');
       setNewEventLocation('');
+      setNewEventDate(format(selectedDate, 'yyyy-MM-dd'));
       setNewEventPhoto(null);
     }
     setIsModalOpen(true);
@@ -199,61 +223,55 @@ export default function CalendarPage() {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEventTitle || !householdId) return;
+    if (!newEventTitle.trim() || !newEventDate || !householdId || isSaving) return;
 
     const row = {
-      title: newEventTitle,
+      title: newEventTitle.trim(),
       time: newEventTime,
       type: newEventType,
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      location: newEventLocation || null,
+      date: newEventDate,
+      location: newEventLocation.trim() || null,
       photo_url: newEventPhoto || null,
     };
 
-    if (editingEvent) {
-      setEvents((prev) =>
-        prev.map((ev) =>
-          ev.id === editingEvent.id
-            ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto || undefined }
-            : ev
-        )
-      );
-      await supabase.from('calendar_events').update(row).eq('id', editingEvent.id);
-    } else {
-      const { data } = await supabase
-        .from('calendar_events')
-        .insert({ household_id: householdId, ...row })
-        .select()
-        .single();
-      if (data) {
-        setEvents((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            title: data.title,
-            date: parseDateOnly(data.date),
-            time: data.time,
-            type: data.type as 'task' | 'shopping' | 'event',
-            location: data.location ?? undefined,
-            photo: data.photo_url ?? undefined,
-          },
-        ]);
-      }
+    setIsSaving(true);
+    const { data, error } = editingEvent
+      ? await supabase.from('calendar_events').update(row).eq('id', editingEvent.id).select().single()
+      : await supabase.from('calendar_events').insert({ household_id: householdId, ...row }).select().single();
+    setIsSaving(false);
+
+    // Keep the modal open on failure so the input isn't lost.
+    if (error || !data) {
+      showToast('Could not save event. Please try again.', 'error');
+      return;
     }
 
+    const saved = toCalendarEvent(data);
+    setEvents((prev) =>
+      editingEvent ? prev.map((ev) => (ev.id === saved.id ? saved : ev)) : [...prev, saved]
+    );
+    // Jump to the saved day so a changed date doesn't make the event "disappear".
+    setSelectedDate(saved.date);
+    setCurrentDate(saved.date);
     setIsModalOpen(false);
     setNewEventPhoto(null);
   };
 
   const handleDeleteEvent = async () => {
     if (!editingEvent) return;
+    const { error } = await supabase.from('calendar_events').delete().eq('id', editingEvent.id);
+    if (error) {
+      showToast('Could not delete event. Please try again.', 'error');
+      return;
+    }
     setEvents((prev) => prev.filter((ev) => ev.id !== editingEvent.id));
     setIsModalOpen(false);
-    await supabase.from('calendar_events').delete().eq('id', editingEvent.id);
   };
 
+  const isReadOnlyEvent = !!editingEvent?.sourceCleaningTaskId;
+
   const getEventsForDay = (date: Date) => {
-    return events.filter(event => isSameDay(event.date, date));
+    return events.filter(event => isSameDay(event.date, date)).sort(byTime);
   };
 
   if (!householdId) {
@@ -314,6 +332,7 @@ export default function CalendarPage() {
         <div className="flex items-center gap-4 surface p-1">
           <button
             onClick={prevMonth}
+            aria-label="Previous month"
             className="press p-2 hover:bg-[var(--surface-2)] rounded-[var(--radius-sm)] transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -323,9 +342,17 @@ export default function CalendarPage() {
           </span>
           <button
             onClick={nextMonth}
+            aria-label="Next month"
             className="press p-2 hover:bg-[var(--surface-2)] rounded-[var(--radius-sm)] transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
+          </button>
+          <button
+            onClick={goToToday}
+            className="press px-3 py-2 text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--surface-2)] transition-colors"
+            style={{ color: "var(--accent)" }}
+          >
+            Today
           </button>
         </div>
 
@@ -511,13 +538,19 @@ export default function CalendarPage() {
         >
           <div className="material-sheet animate-sheet rounded-t-[var(--radius-lg)] md:rounded-[var(--radius-lg)] shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b divider flex justify-between items-center">
-              <h3 className="text-title">{editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
+              <h3 className="text-title">{isReadOnlyEvent ? 'Cleaning Task' : editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="press text-[var(--text-tertiary)] hover:text-[var(--text)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
+              {isReadOnlyEvent && (
+                <p className="text-caption text-[var(--text-secondary)]">
+                  This event comes from the cleaning plan. Change its date or remove it on the Tasks page.
+                </p>
+              )}
+              <fieldset disabled={isReadOnlyEvent} className="space-y-4 min-w-0">
               <div>
                 <label className="block text-caption mb-1.5">Photo (Optional)</label>
                 <input
@@ -531,12 +564,15 @@ export default function CalendarPage() {
                       reader.onload = async (ev) => {
                         const imageData = ev.target?.result as string;
                         setNewEventPhoto(imageData);
-                        // OCR: extract text from image
-                        const { data } = await Tesseract.recognize(imageData, 'eng');
-                        if (data.text) {
-                          // Try to autofill event title with first line of text
-                          const firstLine = data.text.split('\n').find(line => line.trim().length > 0);
-                          if (firstLine) setNewEventTitle(firstLine.trim());
+                        // OCR: suggest a title from the first line of text, but never
+                        // overwrite something the user already typed. A failed scan
+                        // just means no suggestion — the photo is still attached.
+                        try {
+                          const { data } = await Tesseract.recognize(imageData, 'eng');
+                          const firstLine = data.text?.split('\n').find(line => line.trim().length > 0);
+                          if (firstLine) setNewEventTitle((current) => current.trim() ? current : firstLine.trim());
+                        } catch {
+                          // ignore OCR failures
                         }
                       };
                       reader.readAsDataURL(file);
@@ -556,6 +592,7 @@ export default function CalendarPage() {
                   onChange={(e) => setNewEventTitle(e.target.value)}
                   placeholder="Grocery shopping, Date night, etc."
                   className="field"
+                  required
                   autoFocus
                 />
               </div>
@@ -563,9 +600,13 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-caption mb-1.5">Date</label>
-                  <div className="field text-[var(--text-secondary)]" style={{ background: "var(--surface-3)" }}>
-                    {format(selectedDate, 'MMM d, yyyy')}
-                  </div>
+                  <input
+                    type="date"
+                    value={newEventDate}
+                    onChange={(e) => setNewEventDate(e.target.value)}
+                    className="field"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-caption mb-1.5">Time</label>
@@ -574,6 +615,7 @@ export default function CalendarPage() {
                     value={newEventTime}
                     onChange={(e) => setNewEventTime(e.target.value)}
                     className="field"
+                    required
                   />
                 </div>
               </div>
@@ -613,7 +655,14 @@ export default function CalendarPage() {
                 </div>
               </div>
 
+              </fieldset>
+
               <div className="flex gap-3 mt-6">
+                {isReadOnlyEvent ? (
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-primary flex-1 py-3">
+                    Close
+                  </button>
+                ) : (<>
                 {editingEvent && (
                   <button
                     type="button"
@@ -625,11 +674,13 @@ export default function CalendarPage() {
                 )}
                 <button
                   type="submit"
+                  disabled={isSaving}
                   className="btn btn-primary py-3"
                   style={{ flex: 2, boxShadow: "0 8px 20px -8px var(--accent-ring)" }}
                 >
-                  {editingEvent ? 'Update Event' : 'Save Event'}
+                  {isSaving ? 'Saving…' : editingEvent ? 'Update Event' : 'Save Event'}
                 </button>
+                </>)}
               </div>
             </form>
           </div>
