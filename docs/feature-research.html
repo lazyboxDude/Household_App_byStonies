@@ -102,7 +102,7 @@
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
   below so we know what's next. Status below was checked against the code on 2026-10-05.
   The section <a href="#routinen">Idea: Routinen</a> covers recurring chores and bills (Abfuhr, Stromrechnung, …):
-  <strong>phases 1 and 2 are built</strong> (phase 2 still needs its migration applied), phases 3–4 are proposals.</p>
+  <strong>phases 1 and 2 are built and their migrations are applied</strong>, phases 3–4 are proposals.</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -230,7 +230,7 @@
     </li>
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 2</strong> — bills with amount, payer, “Bezahlt” (optionally as expense and as a Verteilertopf booking), planner link, Jahresabrechnung reminder.</span>
       <ul class="todo">
-        <li><input type="checkbox" disabled><span>Apply <code>supabase/migrations/20261006090000_routines_bills.sql</code> (additive: bill columns on <code>routines</code> and <code>routine_occurrences</code>), then regenerate <code>app/lib/database.types.ts</code>.</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Migration <code>supabase/migrations/20261005131918_routines_bills.sql</code> is applied (2026-10-05; additive bill columns on <code>routines</code> and <code>routine_occurrences</code>). The hand-extended types match the live column list and foreign-key names; regenerate <code>app/lib/database.types.ts</code> once to pick up the unrelated <code>calendar_feed</code> additions.</span></li>
         <li><input type="checkbox" disabled><span>Bills cannot be edited yet (delete and re-create), same as other routines.</span></li>
         <li><input type="checkbox" disabled><span>Existing manual bills in the Rechnungen-Planer are not migrated; both lists feed the forecast, so a bill must not be entered in both places.</span></li>
       </ul>
