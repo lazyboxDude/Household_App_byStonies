@@ -4,6 +4,7 @@ import { useAuth, OptionalFeature } from "../context/AuthContext";
 import { Copy, LogOut, User, Home, Shield, ArrowRight, ShoppingCart, DollarSign, Calendar, Sparkles, type LucideIcon } from "lucide-react";
 import Image from 'next/image';
 import { useState } from "react";
+import CalendarFeedCard from "./components/CalendarFeedCard";
 
 const FEATURES: { key: OptionalFeature; icon: LucideIcon; title: string; description: string }[] = [
   {
@@ -274,10 +275,12 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {household?.enabledFeatures.includes("calendar") && <CalendarFeedCard householdId={household.id} />}
+
       <button
         onClick={logout}
         className="btn btn-danger w-full py-3 animate-rise"
-        style={{ "--stagger-i": 4 } as React.CSSProperties}
+        style={{ "--stagger-i": 5 } as React.CSSProperties}
       >
         <LogOut className="w-5 h-5" />
         Sign Out

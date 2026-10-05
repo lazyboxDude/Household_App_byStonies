@@ -283,6 +283,7 @@ export type Database = {
       }
       households: {
         Row: {
+          calendar_feed_token: string
           created_at: string
           created_by: string
           enabled_features: string[]
@@ -292,6 +293,7 @@ export type Database = {
           ownership_mode: string
         }
         Insert: {
+          calendar_feed_token?: string
           created_at?: string
           created_by: string
           enabled_features?: string[]
@@ -301,6 +303,7 @@ export type Database = {
           ownership_mode?: string
         }
         Update: {
+          calendar_feed_token?: string
           created_at?: string
           created_by?: string
           enabled_features?: string[]
@@ -733,6 +736,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_calendar_feed: { Args: { p_token: string }; Returns: Json }
+      rotate_calendar_feed_token: {
+        Args: { p_household_id: string }
+        Returns: string
+      }
       create_household: {
         Args: { p_name: string; p_ownership_mode?: string }
         Returns: {
