@@ -102,7 +102,7 @@
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
   below so we know what's next. Status below was checked against the code on 2026-10-05.
   The section <a href="#routinen">Idea: Routinen</a> covers recurring chores and bills (Abfuhr, Stromrechnung, …):
-  <strong>phases 1 and 2 are built and applied, phase 3 is built</strong> (its migration still has to be applied), phase 4 is a proposal.</p>
+  <strong>phases 1–3 are built and their migrations are applied</strong>, phase 4 is a proposal.</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -238,7 +238,7 @@
     </li>
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 3</strong> — rotation, fair share, swap, absence, Fairness-Waage, bill splits with “wer schuldet wem”, Paar/WG starting points.</span>
       <ul class="todo">
-        <li><input type="checkbox" disabled><span>Apply <code>supabase/migrations/20261006120000_routines_team.sql</code> (additive: assignment/rotation/effort/split on <code>routines</code>, locked/split on <code>routine_occurrences</code>, tables <code>routine_absences</code>, <code>routine_settlements</code>, <code>routine_settings</code>), then regenerate <code>app/lib/database.types.ts</code>.</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Migration <code>supabase/migrations/20261005133259_routines_team.sql</code> is applied (2026-10-05; additive: assignment/rotation/effort/split on <code>routines</code>, locked/split on <code>routine_occurrences</code>, tables <code>routine_absences</code>, <code>routine_settlements</code>, <code>routine_settings</code>). The hand-extended <code>app/lib/database.types.ts</code> matches the live columns, constraints and foreign-key names; regenerate it once to pick up the unrelated <code>calendar_feed</code> additions.</span></li>
         <li><input type="checkbox" disabled><span>Splits are equal or custom percentages. “By income share” is not built: the money onboarding keeps income per household, not per person.</span></li>
         <li><input type="checkbox" disabled><span>Absences only affect who is next in a rotation or fair share. Bill splits are not reduced for someone who is away (the rent does not shrink).</span></li>
         <li><input type="checkbox" disabled><span>The rotation order follows the member list; it cannot be reordered by hand yet. “Only me” (private routines) is not built.</span></li>
