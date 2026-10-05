@@ -1,20 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { Check, SkipForward, Undo2, User } from "lucide-react";
+import { chf } from "../../../expenses/format";
 import { dueLabel, type AgendaItem } from "../agenda";
 import type { Occurrence } from "../types";
-import type { UndoableAction } from "../useRoutines";
+import type { PayInput, UndoableAction } from "../useRoutines";
+import PayPanel from "./PayPanel";
 
 interface Props {
   items: AgendaItem[];
   memberName: (id: string | null) => string | null;
   onResolve: (occ: Occurrence, status: "done" | "skipped") => void;
+  onPay: (occ: Occurrence, input: PayInput) => Promise<boolean>;
+  finance: { expensesEnabled: boolean; hasVerteilertopf: boolean };
   undoable: UndoableAction | null;
   emptyText?: string;
 }
 
-// "Diese Woche": chores, Abfuhr and reminders for the next 7 days in one calm list.
-export default function WeekAgenda({ items, memberName, onResolve, undoable, emptyText }: Props) {
+function shortDate(iso: string) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString("de-CH", { day: "numeric", month: "numeric", timeZone: "UTC" });
+}
+
+// "Diese Woche": chores, Abfuhr, reminders and bills in one calm list.
+export default function WeekAgenda({ items, memberName, onResolve, onPay, finance, undoable, emptyText }: Props) {
+  const [payingId, setPayingId] = useState<string | null>(null);
+
   return (
     <div>
       {items.length === 0 ? (
@@ -23,41 +34,72 @@ export default function WeekAgenda({ items, memberName, onResolve, undoable, emp
         <ul className="space-y-1">
           {items.map((item) => {
             const { routine, occurrence } = item;
-            const who = memberName(occurrence.assignedTo);
+            const isBill = routine.kind === "bill";
+            const person = memberName(isBill ? routine.payerId : occurrence.assignedTo);
             const waiting = item.group === "waiting";
+            const amount = isBill ? occurrence.amount ?? routine.amount : null;
+            const when = waiting
+              ? isBill ? `Offen seit ${shortDate(occurrence.dueDate)}` : "Wartet schon"
+              : dueLabel(item.daysUntil, occurrence.dueDate);
             return (
-              <li key={occurrence.id} className="group flex items-center gap-3 py-2">
-                <button
-                  type="button"
-                  aria-label={`${routine.title} erledigt`}
-                  onClick={() => onResolve(occurrence, "done")}
-                  className="press w-7 h-7 rounded-full border-2 shrink-0 flex items-center justify-center text-transparent hover:text-[var(--success)]"
-                  style={{ borderColor: "var(--border-strong)" }}
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-                <span className="text-xl shrink-0" aria-hidden>{routine.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm truncate">{routine.title}</div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption">
-                    <span
-                      className={item.headsUp || item.group === "today" ? "font-semibold" : undefined}
-                      style={item.headsUp || item.group === "today" ? { color: "var(--accent)" } : undefined}
-                    >
-                      {waiting ? "Wartet schon" : dueLabel(item.daysUntil, occurrence.dueDate)}
-                    </span>
-                    {who && <span className="flex items-center gap-1"><User className="w-3 h-3" />{who}</span>}
+              <li key={occurrence.id} className="py-2">
+                <div className="group flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label={isBill ? `${routine.title} bezahlt` : `${routine.title} erledigt`}
+                    onClick={() => (isBill ? setPayingId(occurrence.id) : onResolve(occurrence, "done"))}
+                    className="press w-7 h-7 rounded-full border-2 shrink-0 flex items-center justify-center text-transparent hover:text-[var(--success)]"
+                    style={{ borderColor: "var(--border-strong)" }}
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <span className="text-xl shrink-0" aria-hidden>{routine.icon}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-sm truncate">{routine.title}</div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption">
+                      <span
+                        className={item.headsUp || item.group === "today" ? "font-semibold" : undefined}
+                        style={item.headsUp || item.group === "today" ? { color: "var(--accent)" } : undefined}
+                      >
+                        {when}
+                      </span>
+                      {amount != null && (
+                        <span className="font-mono">
+                          {routine.amountKind === "estimate" && occurrence.amount == null ? "ca. " : ""}{chf(amount)}
+                        </span>
+                      )}
+                      {person && (
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />{isBill ? `${person} zahlt` : person}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => onResolve(occurrence, "skipped")}
+                    className="press row-action btn btn-ghost btn-sm"
+                    aria-label={`${routine.title} diesmal auslassen`}
+                    title="Diesmal auslassen"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onResolve(occurrence, "skipped")}
-                  className="press row-action btn btn-ghost btn-sm"
-                  aria-label={`${routine.title} diesmal auslassen`}
-                  title="Diesmal auslassen"
-                >
-                  <SkipForward className="w-4 h-4" />
-                </button>
+                {isBill && payingId === occurrence.id && (
+                  <div className="mt-2">
+                    <PayPanel
+                      routine={routine}
+                      occurrence={occurrence}
+                      finance={finance}
+                      onConfirm={async (input) => {
+                        const ok = await onPay(occurrence, input);
+                        if (ok) setPayingId(null);
+                        return ok;
+                      }}
+                      onCancel={() => setPayingId(null)}
+                    />
+                  </div>
+                )}
               </li>
             );
           })}

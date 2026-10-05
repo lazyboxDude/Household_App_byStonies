@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { TrendingUp, Trash2, Pencil } from "lucide-react";
+import Link from "next/link";
+import { TrendingUp, Trash2, Pencil, Repeat } from "lucide-react";
 import { showToast } from "../../../lib/toast";
 import { MON, MS } from "../constants";
 import { chf, fmt } from "../format";
@@ -9,8 +10,8 @@ import { IrregularBill } from "../types";
 import { useVerteilertopf, ProjectionMonth, monthlySoll } from "../hooks/useVerteilertopf";
 
 export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteilertopf> }) {
-  const { settings, bal, bills, soll, proj, minP, submitBill, deleteBill } = vt;
-  const msoll = monthlySoll(bills);
+  const { settings, bal, bills, routineBills, soll, proj, minP, submitBill, deleteBill } = vt;
+  const msoll = monthlySoll([...bills, ...routineBills]);
 
   const [billName, setBillName] = useState("");
   const [billAmount, setBillAmount] = useState("");
@@ -77,7 +78,11 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="surface p-4">
           <h3 className="text-headline mb-3">Unregelmässige Rechnungen</h3>
-          {bills.length === 0 && <p className="text-caption">Noch keine Rechnungen erfasst.</p>}
+          {bills.length === 0 && (
+            <p className="text-caption">
+              {routineBills.length > 0 ? "Hier ist noch nichts erfasst. Deine Rechnungen aus den Routinen siehst du rechts." : "Noch keine Rechnungen erfasst."}
+            </p>
+          )}
           <div className="space-y-2">
             {bills.map((b) => (
               <div key={b.id} className="flex items-center justify-between border-t divider pt-2 first:border-0 first:pt-0 text-sm">
@@ -100,6 +105,24 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
             ))}
           </div>
         </div>
+        <div className="space-y-6">
+        {routineBills.length > 0 && (
+          <div className="surface p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-headline flex items-center gap-2"><Repeat className="w-4 h-4" /> Aus Routinen</h3>
+              <Link href="/tasks" className="text-caption underline">Bearbeiten</Link>
+            </div>
+            <div className="space-y-2">
+              {routineBills.map((b) => (
+                <div key={b.id} className="border-t divider pt-2 first:border-0 first:pt-0 text-sm">
+                  <div className="font-medium">{b.name}</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{b.months.length === 12 ? "Jeden Monat" : b.months.map((m) => MS[m - 1]).join(", ")} · {chf(b.amount)}/Fälligkeit · {chf(b.amount * b.months.length)}/Jahr</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-caption mt-3">Diese Rechnungen pflegst du bei den Routinen. Hier fliessen sie in die Prognose ein.</p>
+          </div>
+        )}
         <div className="surface p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-headline">{editBillId ? "Rechnung bearbeiten" : "Rechnung hinzufügen"}</h3>
@@ -130,6 +153,7 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
             </div>
             <button type="submit" className="btn btn-primary w-full py-2.5">{editBillId ? "Änderungen speichern" : "Rechnung hinzufügen"}</button>
           </form>
+        </div>
         </div>
       </div>
     </div>

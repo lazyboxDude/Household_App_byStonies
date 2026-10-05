@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { Plus, Repeat, Trash2, Loader2 } from "lucide-react";
+import { chf } from "../../../expenses/format";
 import { useAuth } from "../../../context/AuthContext";
 import { buildAgenda } from "../agenda";
+import { plannerBills } from "../billPlan";
 import { describeRoutine } from "../describe";
 import { useRoutines } from "../useRoutines";
 import RoutineForm from "./RoutineForm";
@@ -13,10 +15,11 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
   const { user, household } = useAuth();
   const members = household?.members ?? [];
   const calendarEnabled = household?.enabledFeatures.includes("calendar") ?? false;
-  const { routines, occurrences, today, isLoading, undoable, addRoutine, deleteRoutine, resolve } = useRoutines(
+  const expensesEnabled = household?.enabledFeatures.includes("expenses") ?? false;
+  const { routines, occurrences, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, finance } = useRoutines(
     householdId,
     user?.id,
-    calendarEnabled
+    { calendarEnabled, expensesEnabled }
   );
 
   const [adding, setAdding] = useState(false);
@@ -24,6 +27,7 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
 
   const memberName = (id: string | null) => (id ? members.find((m) => m.id === id)?.name ?? null : null);
   const agenda = buildAgenda(routines, occurrences, today);
+  const yearlyBills = plannerBills(routines, today).reduce((sum, b) => sum + b.amount * b.months.length, 0);
 
   if (isLoading) {
     return (
@@ -42,6 +46,8 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
             items={agenda}
             memberName={memberName}
             onResolve={resolve}
+            onPay={payBill}
+            finance={finance}
             undoable={undoable}
             emptyText={routines.length === 0 ? "Hier erscheint, was in den nächsten Tagen ansteht." : "Diese Woche steht nichts an."}
           />
@@ -52,6 +58,7 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
             today={today}
             members={members}
             calendarEnabled={calendarEnabled}
+            expensesEnabled={expensesEnabled}
             onSubmit={addRoutine}
             onCancel={() => setAdding(false)}
           />
@@ -91,7 +98,8 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
                   <div className="font-medium text-sm truncate">{r.title}</div>
                   <div className="text-caption truncate">
                     {describeRoutine(r)}
-                    {memberName(r.assigneeId) ? ` · ${memberName(r.assigneeId)}` : ""}
+                    {r.kind === "bill" && r.amount != null ? ` · ${r.amountKind === "estimate" ? "ca. " : ""}${chf(r.amount)}` : ""}
+                    {memberName(r.kind === "bill" ? r.payerId : r.assigneeId) ? ` · ${memberName(r.kind === "bill" ? r.payerId : r.assigneeId)}` : ""}
                   </div>
                 </div>
                 {confirmDeleteId === r.id ? (
@@ -127,6 +135,9 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
               </li>
             ))}
           </ul>
+        )}
+        {yearlyBills > 0 && (
+          <p className="text-caption mt-3">Deine Rechnungen hier kommen zusammen auf etwa {chf(yearlyBills)} im Jahr.</p>
         )}
       </section>
     </div>

@@ -12,7 +12,11 @@ export default function RoutinesWidget({ householdId, style }: { householdId: st
   const { user, household } = useAuth();
   const members = household?.members ?? [];
   const calendarEnabled = household?.enabledFeatures.includes("calendar") ?? false;
-  const { routines, occurrences, today, undoable, resolve } = useRoutines(householdId, user?.id, calendarEnabled);
+  const expensesEnabled = household?.enabledFeatures.includes("expenses") ?? false;
+  const { routines, occurrences, today, undoable, resolve, payBill, finance } = useRoutines(householdId, user?.id, {
+    calendarEnabled,
+    expensesEnabled,
+  });
 
   if (routines.length === 0) return null;
 
@@ -27,7 +31,7 @@ export default function RoutinesWidget({ householdId, style }: { householdId: st
           Routinen <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
-      <WeekAgenda items={items} memberName={memberName} onResolve={resolve} undoable={undoable} />
+      <WeekAgenda items={items} memberName={memberName} onResolve={resolve} onPay={payBill} finance={finance} undoable={undoable} />
     </section>
   );
 }

@@ -503,39 +503,62 @@ export type Database = {
       }
       routine_occurrences: {
         Row: {
+          amount: number | null
           assigned_to: string | null
           created_at: string
           done_at: string | null
           done_by: string | null
+          expense_id: string | null
           due_date: string
           household_id: string
           id: string
           routine_id: string
           status: string
+          vt_tx_id: string | null
         }
         Insert: {
+          amount?: number | null
           assigned_to?: string | null
           created_at?: string
           done_at?: string | null
           done_by?: string | null
           due_date: string
+          expense_id?: string | null
           household_id: string
           id?: string
           routine_id: string
           status?: string
+          vt_tx_id?: string | null
         }
         Update: {
+          amount?: number | null
           assigned_to?: string | null
           created_at?: string
           done_at?: string | null
           done_by?: string | null
           due_date?: string
+          expense_id?: string | null
           household_id?: string
           id?: string
           routine_id?: string
           status?: string
+          vt_tx_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "routine_occurrences_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_vt_tx_id_fkey"
+            columns: ["vt_tx_id"]
+            isOneToOne: false
+            referencedRelation: "verteilertopf_tx"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "routine_occurrences_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -569,45 +592,57 @@ export type Database = {
       routines: {
         Row: {
           active_months: number[] | null
+          amount: number | null
+          amount_kind: string | null
           assignee_id: string | null
           created_at: string
           created_by: string | null
+          expense_category: string | null
           household_id: string
           icon: string
           id: string
           kind: string
           lead_days: number
           mode: string
+          payer_id: string | null
           schedule: Json
           show_in_calendar: boolean
           title: string
         }
         Insert: {
           active_months?: number[] | null
+          amount?: number | null
+          amount_kind?: string | null
           assignee_id?: string | null
           created_at?: string
           created_by?: string | null
+          expense_category?: string | null
           household_id: string
           icon?: string
           id?: string
           kind: string
           lead_days?: number
           mode?: string
+          payer_id?: string | null
           schedule: Json
           show_in_calendar?: boolean
           title: string
         }
         Update: {
           active_months?: number[] | null
+          amount?: number | null
+          amount_kind?: string | null
           assignee_id?: string | null
           created_at?: string
           created_by?: string | null
+          expense_category?: string | null
           household_id?: string
           icon?: string
           id?: string
           kind?: string
           lead_days?: number
           mode?: string
+          payer_id?: string | null
           schedule?: Json
           show_in_calendar?: boolean
           title?: string
@@ -616,6 +651,13 @@ export type Database = {
           {
             foreignKeyName: "routines_assignee_id_fkey"
             columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_payer_id_fkey"
+            columns: ["payer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

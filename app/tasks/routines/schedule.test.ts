@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { addMonths, nextAfterDone, occurrencesBetween, parseDateList } from "./schedule.ts";
 import { buildAgenda } from "./agenda.ts";
 import { missingOccurrences } from "./ensure.ts";
-import { buildRoutine, emptyForm, formFromTemplate, previewDates } from "./formModel.ts";
+import { buildRoutine, emptyForm, formFromTemplate, parseAmount, previewDates, withKind } from "./formModel.ts";
 import { ROUTINE_TEMPLATES } from "./templates.ts";
 import { describeRoutine } from "./describe.ts";
+import { plannerBills, routineToPlannerBill } from "./billPlan.ts";
 import type { Occurrence, Routine, Schedule } from "./types.ts";
 
 test("addMonths clamps to the end of the month", () => {
@@ -137,11 +138,12 @@ function routine(p: Partial<Routine>): Routine {
     id: "r1", householdId: "h", kind: "chore", title: "Bad putzen", icon: "🛁",
     schedule: { type: "interval", every: 1, unit: "week", anchor: "2026-11-01" },
     mode: "after_done", activeMonths: null, leadDays: 0, assigneeId: null, showInCalendar: true,
+    amount: null, amountKind: null, payerId: null, expenseCategory: null,
     ...p,
   };
 }
 function occ(p: Partial<Occurrence>): Occurrence {
-  return { id: "o", routineId: "r1", dueDate: "2026-11-10", status: "open", assignedTo: null, doneBy: null, doneAt: null, ...p };
+  return { id: "o", routineId: "r1", dueDate: "2026-11-10", status: "open", assignedTo: null, doneBy: null, doneAt: null, amount: null, expenseId: null, vtTxId: null, ...p };
 }
 
 test("agenda: groups today, soon and waiting chores; ignores done and far-away ones", () => {
@@ -223,8 +225,8 @@ test("form: date list reports unreadable dates and accepts Swiss format", () => 
   if (good.ok) assert.deepEqual(good.routine.schedule, { type: "dates", dates: ["2026-11-12", "2026-12-10"] });
 });
 
-test("form: every template builds a valid routine with upcoming dates (except the empty date list)", () => {
-  for (const t of ROUTINE_TEMPLATES) {
+test("form: every chore/reminder template builds a valid routine with upcoming dates (except the empty date list)", () => {
+  for (const t of ROUTINE_TEMPLATES.filter((x) => x.kind !== "bill")) {
     const form = formFromTemplate(t, "2026-11-10");
     if (t.key === "papier") {
       assert.equal(buildRoutine(form).ok, false); // needs the Gemeinde's dates first
@@ -254,4 +256,101 @@ test("describeRoutine reads like a person would say it", () => {
     "Jeden Di · Mär–Nov"
   );
   assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "nth_weekday", nth: 1, weekday: 1 } })), "Erster Montag im Monat");
+});
+
+// --- bills ---
+
+function bill(p: Partial<Routine>): Routine {
+  return routine({
+    id: "s", kind: "bill", title: "Strom-Abschlag", icon: "💡", mode: "fixed", leadDays: 7,
+    schedule: { type: "monthday", day: 1 }, amount: 95, amountKind: "estimate", ...p,
+  });
+}
+
+test("agenda: unpaid bills stay and never collapse, even when old", () => {
+  const items = buildAgenda([bill({})], [
+    occ({ id: "jan", routineId: "s", dueDate: "2026-09-01" }),
+    occ({ id: "feb", routineId: "s", dueDate: "2026-10-01" }),
+  ], "2026-10-05");
+  assert.deepEqual(items.map((i) => [i.occurrence.id, i.group]), [["jan", "waiting"], ["feb", "waiting"]]);
+});
+
+test("agenda: a bill shows up as far ahead as its heads-up window", () => {
+  const s = bill({ leadDays: 7 });
+  const items = buildAgenda([s], [
+    occ({ id: "near", routineId: "s", dueDate: "2026-10-12" }),
+    occ({ id: "far", routineId: "s", dueDate: "2026-10-13" }),
+  ], "2026-10-05");
+  assert.deepEqual(items.map((i) => [i.occurrence.id, i.headsUp]), [["near", true]]);
+});
+
+test("planner: a monthly bill is due every month, a quarterly one in four", () => {
+  const monthly = routineToPlannerBill(bill({}), "2026-10-05");
+  assert.equal(monthly?.months.length, 12);
+  assert.equal(monthly?.amount, 95);
+  const serafe = routineToPlannerBill(bill({ id: "q", title: "Serafe", amount: 100, schedule: { type: "monthday", day: 1, months: [1, 4, 7, 10] } }), "2026-10-05");
+  assert.deepEqual(serafe?.months, [1, 4, 7, 10]);
+  assert.equal(serafe?.amount, 100);
+});
+
+test("planner: yearly total stays exact for bills due more than once a month", () => {
+  const weekly = routineToPlannerBill(bill({ amount: 10, schedule: { type: "weekday", weekdays: [1] } }), "2026-10-05");
+  assert.ok(weekly);
+  // A 12-month window holds 52 or 53 Mondays; the yearly total is amount x count either way.
+  const total = Math.round(weekly!.amount * weekly!.months.length);
+  assert.ok(total === 520 || total === 530, String(total));
+});
+
+test("planner: chores, reminders and bills without an amount are left out", () => {
+  const chore = routine({});
+  const unknown = bill({ id: "v", amount: null, amountKind: "variable" });
+  assert.deepEqual(plannerBills([chore, unknown, bill({})], "2026-10-05").map((b) => b.id), ["s"]);
+});
+
+test("parseAmount reads Swiss and plain notation", () => {
+  assert.equal(parseAmount("95"), 95);
+  assert.equal(parseAmount("95,50"), 95.5);
+  assert.equal(parseAmount("1'250.00"), 1250);
+  assert.equal(parseAmount(" "), null);
+  assert.equal(parseAmount("viel"), null);
+  assert.equal(parseAmount("-5"), null);
+});
+
+test("form: switching to Rechnung sets monthly-on-the-1st with a week of notice", () => {
+  const f = withKind(emptyForm("2026-10-05"), "bill");
+  assert.equal(f.repeat, "monthday");
+  assert.equal(f.mode, "fixed");
+  assert.equal(f.leadDays, 7);
+});
+
+test("form: a bill needs an amount unless it varies", () => {
+  const base = withKind({ ...emptyForm("2026-10-05"), title: "Strom" }, "bill");
+  assert.equal(buildRoutine({ ...base, amountKind: "fixed", amountText: "" }).ok, false);
+  assert.equal(buildRoutine({ ...base, amountKind: "estimate", amountText: "" }).ok, false);
+  const variable = buildRoutine({ ...base, amountKind: "variable", amountText: "" });
+  assert.ok(variable.ok);
+  const fixed = buildRoutine({ ...base, amountKind: "fixed", amountText: "1850", payerId: "u1", expenseCategory: " Wohnen " });
+  assert.ok(fixed.ok);
+  if (fixed.ok) {
+    assert.deepEqual(
+      [fixed.routine.kind, fixed.routine.amount, fixed.routine.amountKind, fixed.routine.payerId, fixed.routine.expenseCategory, fixed.routine.mode],
+      ["bill", 1850, "fixed", "u1", "Wohnen", "fixed"]
+    );
+  }
+});
+
+test("form: chores and reminders never carry money fields", () => {
+  const r = buildRoutine({ ...emptyForm("2026-10-05"), title: "Bad", amountText: "50", amountKind: "estimate", payerId: "u1", expenseCategory: "x" });
+  assert.ok(r.ok);
+  if (r.ok) assert.deepEqual([r.routine.amount, r.routine.amountKind, r.routine.payerId, r.routine.expenseCategory], [null, null, null, null]);
+});
+
+test("form: bill templates need only an amount to become valid", () => {
+  for (const t of ROUTINE_TEMPLATES.filter((x) => x.kind === "bill")) {
+    const form = formFromTemplate(t, "2026-10-05");
+    assert.equal(buildRoutine(form).ok, false, t.key);
+    const built = buildRoutine({ ...form, amountText: "100" });
+    assert.ok(built.ok, t.key);
+    if (built.ok) assert.ok(previewDates(built.routine, "2026-10-05").length > 0, t.key);
+  }
 });

@@ -102,7 +102,7 @@
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
   below so we know what's next. Status below was checked against the code on 2026-10-05.
   The section <a href="#routinen">Idea: Routinen</a> covers recurring chores and bills (Abfuhr, Stromrechnung, …):
-  <strong>phase 1 is built and its migration is applied</strong>, phases 2–4 are still proposals.</p>
+  <strong>phases 1 and 2 are built</strong> (phase 2 still needs its migration applied), phases 3–4 are proposals.</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -142,9 +142,9 @@
       <tbody>
         <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Done — Tasks: Cleaning Plan</td></tr>
         <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Done — Tasks: Cleaning Plan</td></tr>
-        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan and Routinen (not yet for bills)</td></tr>
+        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan and Routinen (chores, reminders, bills)</td></tr>
         <tr><td>Recurring household chores that are fixed in the calendar (Abfuhr, Papiersammlung)</td><td>(our own synthesis)</td><td>Done (phase 1) — Tasks: <a href="#routinen">Routinen</a></td></tr>
-        <tr><td>Recurring bills with payer, split and “paid” status (Strom, Internet, Serafe)</td><td>(our own synthesis)</td><td>Proposal — <a href="#routinen">Routinen</a>; today only <code>verteilertopf_bills</code> (name, amount, months)</td></tr>
+        <tr><td>Recurring bills with payer, “paid” status and bookings (Strom, Internet, Serafe)</td><td>(our own synthesis)</td><td>Done (phase 2) — Tasks: <a href="#routinen">Routinen</a>, feeds the Rechnungen-Planer; split between members is phase 3</td></tr>
         <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Done — one-way sync via <code>calendarSync.ts</code></td></tr>
         <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Partial — overdue badge per room only</td></tr>
         <tr><td>Task rotation between household members</td><td>Homsy</td><td>Backlog</td></tr>
@@ -225,7 +225,14 @@
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 1</strong> — schedule engine, chores and reminders, “Diese Woche”, calendar sync, starter templates.</span>
       <ul class="todo">
         <li class="done"><input type="checkbox" disabled checked><span>Migration <code>supabase/migrations/20261005125910_routines.sql</code> is applied to the Supabase project (2026-10-05). <code>app/lib/database.types.ts</code> was extended by hand and matches the generated types for these tables; it still lacks the unrelated <code>calendar_feed</code> additions (<code>households.calendar_feed_token</code>, <code>get_calendar_feed</code>, <code>rotate_calendar_feed_token</code>) — regenerate it once to pick them up.</span></li>
-        <li><input type="checkbox" disabled><span>Phases 2–4 (bills, rotation/fairness, import and push) — see <a href="#routinen">Idea: Routinen</a>.</span></li>
+        <li><input type="checkbox" disabled><span>Phases 3–4 (rotation/fairness, import and push) — see <a href="#routinen">Idea: Routinen</a>.</span></li>
+      </ul>
+    </li>
+    <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 2</strong> — bills with amount, payer, “Bezahlt” (optionally as expense and as a Verteilertopf booking), planner link, Jahresabrechnung reminder.</span>
+      <ul class="todo">
+        <li><input type="checkbox" disabled><span>Apply <code>supabase/migrations/20261006090000_routines_bills.sql</code> (additive: bill columns on <code>routines</code> and <code>routine_occurrences</code>), then regenerate <code>app/lib/database.types.ts</code>.</span></li>
+        <li><input type="checkbox" disabled><span>Bills cannot be edited yet (delete and re-create), same as other routines.</span></li>
+        <li><input type="checkbox" disabled><span>Existing manual bills in the Rechnungen-Planer are not migrated; both lists feed the forecast, so a bill must not be entered in both places.</span></li>
       </ul>
     </li>
     <li><input type="checkbox" disabled><span>Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview. Today: red overdue counter per room only.</span></li>
@@ -245,9 +252,9 @@
   <ul class="todo">
     <li><input type="checkbox" disabled><span>Savings goals: no delete, no withdrawal, no deposit history.</span></li>
     <li><input type="checkbox" disabled><span>Money onboarding only turns fixed costs into budgets; income and goals are not carried into the Verteilertopf config.
-      Recurring fixed costs (Strom, Internet, Serafe) could additionally become bill routines.</span></li>
-    <li><input type="checkbox" disabled><span><code>verteilertopf_bills</code> has no payer, no split and no “paid” state — bills are only a monthly funding target,
-      so nobody can see which bill is due next or who has to pay it. Addressed by Routinen phase 2.</span></li>
+      Recurring fixed costs (Strom, Internet, Serafe) could additionally become bill routines (starter templates exist in the Routinen form).</span></li>
+    <li><input type="checkbox" disabled><span><code>verteilertopf_bills</code> still has no payer, no split and no “paid” state — bills are only a monthly funding target.
+      Bill routines (phase 2) cover that and feed the same forecast; the old list stays for now.</span></li>
     <li><input type="checkbox" disabled><span>Distributions cannot be reversed; no manual bookings on accounts.</span></li>
     <li><input type="checkbox" disabled><span>Edit dialogs use <code>window.prompt</code>; optimistic updates (pots, debts, budgets, expenses, bills) have no error rollback.</span></li>
     <li><input type="checkbox" disabled><span>Debt payments are not stored as history, only <code>remaining</code> changes.</span></li>
@@ -341,10 +348,11 @@
   <ul>
     <li><strong>Amount kind</strong>: <em>fixed</em> (Miete, Internet), <em>estimate</em> (Strom-Abschlag, can be corrected when the real bill arrives) or <em>variable</em> (entered when paid).</li>
     <li><strong>Payer</strong>: who pays it to the outside world (invoice stays with one person, or comes out of the joint account).</li>
-    <li><strong>Split</strong>: percentages per member — equal, by income share (couples), or custom (WG: Internet equal, Heizung by room size). Members not involved are simply left out.</li>
-    <li><strong>Flow</strong>: due → tap “Bezahlt” → actual amount → an <code>expenses</code> row is created (same pattern as the shopping check-off),
-      and the difference to the estimate feeds the Rechnungen-Planer forecast. Yearly routines can add a follow-up reminder “Jahresabrechnung prüfen — Nachzahlung oder Guthaben?”.</li>
-    <li><strong>Settle-up</strong> (WG, and couples without a joint account): a running “wer schuldet wem” balance from the splits, with a “settled” action. Couples who pay from the joint Verteilertopf account don't need it and never see it.</li>
+    <li><strong>Split</strong> <span class="tag">phase 3</span>: percentages per member — equal, by income share (couples), or custom (WG: Internet equal, Heizung by room size). Members not involved are simply left out.</li>
+    <li><strong>Flow</strong> <span class="tag">built</span>: due → tap “Bezahlt” → actual amount → optionally an <code>expenses</code> row for the person paying (same pattern as the shopping check-off)
+      and optionally a debit on a Verteilertopf account (<code>verteilertopf_tx</code>, kind “expense”). For estimate/variable bills the paid amount can become the amount for the next due dates,
+      which is what the forecast uses. Everything is undoable for 8 seconds. The follow-up “Strom: Jahresabrechnung prüfen” (Nachzahlung oder Guthaben?) is a reminder template, not an automatic link.</li>
+    <li><strong>Settle-up</strong> <span class="tag">phase 3</span> (WG, and couples without a joint account): a running “wer schuldet wem” balance from the splits, with a “settled” action. Couples who pay from the joint Verteilertopf account don't need it and never see it.</li>
   </ul>
 
   <h3>Paar vs. WG</h3>
@@ -369,7 +377,7 @@
 
   <h3>Signature features</h3>
   <ol>
-    <li><strong>“Diese Woche”</strong> <span class="tag">built, without bills and without a “mine” filter</span> — one agenda mixing chores and Abfuhr for the next 7 days. Doubles as the dashboard card.
+    <li><strong>“Diese Woche”</strong> <span class="tag">built, without a “mine” filter</span> — one agenda mixing chores, Abfuhr and bills for the next 7 days (a bill shows as far ahead as its “Vorher Bescheid sagen”; unpaid bills stay until paid or skipped). Doubles as the dashboard card.
 <pre><code>Diese Woche
 Do 08.  🗑️ Kehricht rausstellen        → Mia (Rotation)
 Fr 09.  ⚡ Strom-Abschlag  CHF 95      → Jonas zahlt · 50/50
@@ -388,8 +396,8 @@ So 11.  ♻️ Papiersammlung (morgen früh)</code></pre></li>
   </ol>
 
   <h3>Data model sketch</h3>
-  <p>Phase 1 builds the subset below without <code>bill</code>, <code>effort</code>, <code>rotation</code>, <code>fair_share</code>, the money fields
-  and <code>isShared</code>; the real types are in <code>app/tasks/routines/types.ts</code>. Weekdays use JS numbering (0 = Sunday).</p>
+  <p>Phases 1–2 build the subset below without <code>effort</code>, <code>rotation</code>, <code>fair_share</code>, <code>split</code>
+  and <code>isShared</code> (and <code>expenseId</code>/<code>vtTxId</code> are stored on the occurrence); the real types are in <code>app/tasks/routines/types.ts</code>. Weekdays use JS numbering (0 = Sunday).</p>
 <pre><code>type RoutineKind = "chore" | "reminder" | "bill";
 
 type Schedule =
@@ -446,8 +454,9 @@ interface Occurrence {
     <li><strong>Schedule engine</strong> — built as pure functions in <code>app/tasks/routines/schedule.ts</code> (<code>occurrencesBetween</code>, <code>nextAfterDone</code>, date-list parser) with
       26 tests in <code>schedule.test.ts</code>; real month arithmetic, all dates calculated in UTC to avoid time-zone shifts. Still needs <code>npm test</code> in CI to be worth anything.</li>
     <li><strong>Calendar</strong> — Routinen sync lives in <code>useRoutines.ts</code>, separate from the Cleaning Plan's <code>calendarSync.ts</code>; deletion works through DB cascade.</li>
-    <li><strong>Rechnungen-Planer</strong> — bill routines become the source of truth; the planner derives <code>months</code> and amount from them
-      instead of keeping its own list. Needs a one-time migration of <code>verteilertopf_bills</code>.</li>
+    <li><strong>Rechnungen-Planer</strong> <span class="tag">built as merge</span> — <code>billPlan.ts</code> reduces each bill routine to “amount, due months” from its real due dates over the next 12 months
+      and <code>useVerteilertopf</code> adds them to the manual list for Soll-Stand, monthly need and the forecast. They show in a read-only “Aus Routinen” card. The yearly total is exact; the per-month
+      amount is an average for bills due more than once a month.</li>
     <li><strong>Cleaning Plan</strong> — stays as the room view. Later its tasks become routines with a <code>roomId</code>; until then both coexist.</li>
     <li><strong>Members</strong> — <code>assignee</code> must move from a free-text string to a <code>household_members</code> user id
       (prerequisite for rotation, fairness and splits).</li>
@@ -463,7 +472,7 @@ interface Occurrence {
       </thead>
       <tbody>
         <tr><td class="tag">1 — Rhythm <span style="font-weight:400">(built)</span></td><td>Schedule engine + tests, <code>routines</code>/<code>occurrences</code> tables, kinds chore + reminder, fixed and after-done, “Diese Woche”, calendar sync, starter pack with Abfuhr</td><td>Abfuhr and recurring chores work for any household</td></tr>
-        <tr><td class="tag">2 — Bills</td><td>Bill kind: amount, payer, “bezahlt” → expense, link to Rechnungen-Planer, Jahresabrechnung reminder</td><td>Stromrechnung is tracked from due date to paid</td></tr>
+        <tr><td class="tag">2 — Bills <span style="font-weight:400">(built)</span></td><td>Bill kind: amount, payer, “bezahlt” → expense, link to Rechnungen-Planer, Jahresabrechnung reminder</td><td>Stromrechnung is tracked from due date to paid</td></tr>
         <tr><td class="tag">3 — Fairness</td><td>Rotation, swap, absence, split with settle-up, Fairness-Waage, Paar/WG presets</td><td>Fits couples and WGs differently</td></tr>
         <tr><td class="tag">4 — Polish</td><td>Entsorgungskalender import, push reminders, Cleaning Plan migration</td><td>Feature complete</td></tr>
       </tbody>
@@ -475,7 +484,8 @@ interface Occurrence {
     <dt>Name</dt>
     <dd>Phase 1 uses “Routinen” as a third tab on the Tasks page (always on, no feature toggle). Still open: a better name, and its own nav entry once bills arrive in phase 2.</dd>
     <dt>Bills: replace or sync <code>verteilertopf_bills</code>?</dt>
-    <dd>Replacing avoids two sources of truth but needs a migration and touches the Finanzen forecast. Recommended: replace, in phase 2.</dd>
+    <dd>Phase 2 went with <strong>merging</strong>: both lists feed the forecast and the manual one is untouched, so no production data had to be migrated. The cost is two places to enter bills.
+      Open: migrate the manual bills into routines and retire <code>verteilertopf_bills</code>.</dd>
     <dt>Settle-up scope</dt>
     <dd>Is “wer schuldet wem” in scope for couples who pay from the joint account? Proposal: only shown when members pay privately.</dd>
     <dt>Occurrence storage</dt>

@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { AccountId, DistSettings, IrregularBill, DistTransaction } from "../types";
 import { curYM, r2, uid } from "../format";
+import { plannerBills } from "../../tasks/routines/billPlan";
+import { todayLocalISO } from "../../tasks/routines/schedule";
+import { toRoutine } from "../../tasks/routines/useRoutines";
+import type { Routine } from "../../tasks/routines/types";
 
 export const ACCOUNT_IDS: AccountId[] = ["main", "taxes", "bills", "joint"];
 const DEFAULT_SETTINGS: DistSettings = { taxes: 0, bills: 0, joint: 0, minBuffer: 0 };
@@ -80,6 +84,8 @@ export function useVerteilertopf(householdId: string | undefined) {
   const [settings, setSettings] = useState<DistSettings>(DEFAULT_SETTINGS);
   const [opening, setOpening] = useState<Record<AccountId, number>>(DEFAULT_OPENING);
   const [bills, setBills] = useState<IrregularBill[]>([]);
+  // Bill routines (Tasks > Routinen) feed the same forecast; they are edited there, not here.
+  const [billRoutines, setBillRoutines] = useState<Routine[]>([]);
   const [tx, setTx] = useState<DistTransaction[]>([]);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,6 +121,12 @@ export function useVerteilertopf(householdId: string | undefined) {
     setBills((data ?? []).map((b) => ({ id: b.id, name: b.name, amount: b.amount, months: b.months })));
   }, [householdId]);
 
+  const loadBillRoutines = useCallback(async () => {
+    if (!householdId) return;
+    const { data, error } = await supabase.from("routines").select("*").eq("household_id", householdId).eq("kind", "bill");
+    if (!error) setBillRoutines((data ?? []).map(toRoutine));
+  }, [householdId]);
+
   const loadTx = useCallback(async () => {
     if (!householdId) return;
     const { data } = await supabase
@@ -140,8 +152,8 @@ export function useVerteilertopf(householdId: string | undefined) {
     if (!householdId) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- refetch on household change needs a loading flag flipped back on
     setIsLoading(true);
-    Promise.all([loadConfig(), loadBills(), loadTx()]).finally(() => setIsLoading(false));
-  }, [householdId, loadConfig, loadBills, loadTx]);
+    Promise.all([loadConfig(), loadBills(), loadBillRoutines(), loadTx()]).finally(() => setIsLoading(false));
+  }, [householdId, loadConfig, loadBills, loadBillRoutines, loadTx]);
 
   useEffect(() => {
     if (!householdId) return;
@@ -149,12 +161,13 @@ export function useVerteilertopf(householdId: string | undefined) {
       .channel(`verteilertopf-${householdId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_config", filter: `household_id=eq.${householdId}` }, loadConfig)
       .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_bills", filter: `household_id=eq.${householdId}` }, loadBills)
+      .on("postgres_changes", { event: "*", schema: "public", table: "routines", filter: `household_id=eq.${householdId}` }, loadBillRoutines)
       .on("postgres_changes", { event: "*", schema: "public", table: "verteilertopf_tx", filter: `household_id=eq.${householdId}` }, loadTx)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [householdId, loadConfig, loadBills, loadTx]);
+  }, [householdId, loadConfig, loadBills, loadBillRoutines, loadTx]);
 
   const bal = useMemo(() => balances(opening, tx), [opening, tx]);
   const ft = fixedTotal(settings);
@@ -166,9 +179,11 @@ export function useVerteilertopf(householdId: string | undefined) {
   );
   const alreadyDistributedThisMonth = dists.some((d) => d.date.startsWith(curYM()));
 
-  const soll = sollStand(bills);
-  const msoll = monthlySoll(bills);
-  const proj = useMemo(() => projection(bills, settings, bal.bills), [bills, settings, bal.bills]);
+  const routineBills = useMemo(() => plannerBills(billRoutines, todayLocalISO()), [billRoutines]);
+  const allBills = useMemo(() => [...bills, ...routineBills], [bills, routineBills]);
+  const soll = sollStand(allBills);
+  const msoll = monthlySoll(allBills);
+  const proj = useMemo(() => projection(allBills, settings, bal.bills), [allBills, settings, bal.bills]);
   const minP = proj.length ? proj.reduce((a, p) => (p.bal < a.bal ? p : a), proj[0]) : null;
   const upcoming = proj.slice(0, 4).filter((p) => p.pay > 0);
 
@@ -270,6 +285,7 @@ export function useVerteilertopf(householdId: string | undefined) {
     settings,
     opening,
     bills,
+    routineBills,
     tx,
     isLoading,
     bal,

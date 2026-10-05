@@ -14,10 +14,13 @@ export interface AgendaItem {
   headsUp: boolean;
 }
 
-// Open occurrences from the next `days` days, plus chores that are still waiting.
-// - Reminders (Abfuhr) that are in the past just drop out; they never pile up.
+// Open occurrences from the next `days` days (or the routine's heads-up window if that is
+// longer, so a bill with "2 Wochen vorher" shows up two weeks ahead), plus what is still waiting.
+// - Reminders (Abfuhr) in the past just drop out; they never pile up.
 // - A chore that was missed several times shows once, with its latest date;
 //   completing it catches up the older ones (see useRoutines).
+// - Bills never collapse and never drop out: each unpaid due date is its own payment
+//   and stays until it is paid or skipped.
 export function buildAgenda(
   routines: Routine[],
   occurrences: Occurrence[],
@@ -25,9 +28,16 @@ export function buildAgenda(
   days = 7
 ): AgendaItem[] {
   const byId = new Map(routines.map((r) => [r.id, r]));
-  const horizon = addDays(today, days);
   const items: AgendaItem[] = [];
   const latestWaiting = new Map<string, Occurrence>();
+
+  const waitingItem = (occ: Occurrence, routine: Routine): AgendaItem => ({
+    occurrence: occ,
+    routine,
+    group: "waiting",
+    daysUntil: daysBetween(today, occ.dueDate),
+    headsUp: false,
+  });
 
   for (const occ of occurrences) {
     if (occ.status !== "open") continue;
@@ -35,12 +45,14 @@ export function buildAgenda(
     if (!routine) continue;
 
     if (occ.dueDate < today) {
-      if (routine.kind !== "chore") continue;
-      const prev = latestWaiting.get(routine.id);
-      if (!prev || occ.dueDate > prev.dueDate) latestWaiting.set(routine.id, occ);
+      if (routine.kind === "bill") items.push(waitingItem(occ, routine));
+      else if (routine.kind === "chore") {
+        const prev = latestWaiting.get(routine.id);
+        if (!prev || occ.dueDate > prev.dueDate) latestWaiting.set(routine.id, occ);
+      }
       continue;
     }
-    if (occ.dueDate > horizon) continue;
+    if (occ.dueDate > addDays(today, Math.max(days, routine.leadDays))) continue;
 
     const daysUntil = daysBetween(today, occ.dueDate);
     items.push({
@@ -52,16 +64,7 @@ export function buildAgenda(
     });
   }
 
-  for (const occ of latestWaiting.values()) {
-    const routine = byId.get(occ.routineId)!;
-    items.push({
-      occurrence: occ,
-      routine,
-      group: "waiting",
-      daysUntil: daysBetween(today, occ.dueDate),
-      headsUp: false,
-    });
-  }
+  for (const occ of latestWaiting.values()) items.push(waitingItem(occ, byId.get(occ.routineId)!));
 
   const rank: Record<AgendaGroup, number> = { waiting: 0, today: 1, soon: 2 };
   return items.sort(
@@ -72,7 +75,6 @@ export function buildAgenda(
   );
 }
 
-// "Heute", "Morgen", "Do 12.11." — short and calm.
 export function dueLabel(daysUntil: number, dueDate: string, locale = "de-CH"): string {
   if (daysUntil === 0) return "Heute";
   if (daysUntil === 1) return "Morgen";

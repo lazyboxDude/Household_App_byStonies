@@ -1,7 +1,7 @@
 // Form state <-> Routine. Kept out of the component so it can be tested.
 
 import { addDays, occurrencesBetween, parseDateList, weekdayOf } from "./schedule.ts";
-import type { IntervalUnit, RoutineKind, RoutineMode, Schedule } from "./types.ts";
+import type { AmountKind, IntervalUnit, RoutineKind, RoutineMode, Schedule } from "./types.ts";
 import type { RoutineTemplate } from "./templates.ts";
 
 export interface RoutineFormState {
@@ -24,6 +24,11 @@ export interface RoutineFormState {
   leadDays: number;
   assigneeId: string | null;
   showInCalendar: boolean;
+  // Bills
+  amountText: string; // as typed, so "95,50" and an empty field both work
+  amountKind: AmountKind;
+  payerId: string | null;
+  expenseCategory: string;
 }
 
 export interface BuiltRoutine {
@@ -36,6 +41,18 @@ export interface BuiltRoutine {
   leadDays: number;
   assigneeId: string | null;
   showInCalendar: boolean;
+  amount: number | null;
+  amountKind: AmountKind | null;
+  payerId: string | null;
+  expenseCategory: string | null;
+}
+
+// "95", "95.50", "95,50", "1'250.00" -> number; empty or unreadable -> null.
+export function parseAmount(text: string): number | null {
+  const cleaned = text.trim().replace(/[\s'’]/g, "").replace(",", ".");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }
 
 // The next date on or after `from` that falls on one of the weekdays.
@@ -69,7 +86,19 @@ export function emptyForm(today: string): RoutineFormState {
     leadDays: 0,
     assigneeId: null,
     showInCalendar: true,
+    amountText: "",
+    amountKind: "fixed",
+    payerId: null,
+    expenseCategory: "",
   };
+}
+
+// Switching to "Rechnung" moves the sensible defaults along: monthly on the 1st, fixed date,
+// a week of notice. Switching away leaves what the person already set.
+export function withKind(f: RoutineFormState, kind: RoutineKind): RoutineFormState {
+  if (kind === f.kind) return f;
+  if (kind === "bill") return { ...f, kind, repeat: "monthday", mode: "fixed", monthDay: 1, leadDays: Math.max(f.leadDays, 7) };
+  return { ...f, kind };
 }
 
 export function formFromTemplate(t: RoutineTemplate, today: string): RoutineFormState {
@@ -81,6 +110,7 @@ export function formFromTemplate(t: RoutineTemplate, today: string): RoutineForm
     mode: t.mode,
     leadDays: t.leadDays,
     months: t.activeMonths ?? [],
+    amountKind: t.amountKind ?? "fixed",
   };
   const s = t.schedule(today);
   base.repeat = s.type;
@@ -135,8 +165,14 @@ export function buildRoutine(f: RoutineFormState): BuildResult {
     }
   }
 
-  // "After done" only exists for intervals; everything else follows the calendar.
-  const mode: RoutineMode = f.repeat === "interval" ? f.mode : "fixed";
+  const isBill = f.kind === "bill";
+  const amount = isBill ? parseAmount(f.amountText) : null;
+  if (isBill && f.amountKind !== "variable" && amount === null) {
+    return { ok: false, message: f.amountKind === "estimate" ? "Wie viel ist es ungefähr?" : "Wie viel kostet es?" };
+  }
+
+  // "After done" only exists for intervals; bills and everything else follow the calendar.
+  const mode: RoutineMode = f.repeat === "interval" && !isBill ? f.mode : "fixed";
   return {
     ok: true,
     routine: {
@@ -150,8 +186,12 @@ export function buildRoutine(f: RoutineFormState): BuildResult {
       activeMonths:
         f.months.length > 0 && mode === "fixed" && (f.repeat === "weekday" || f.repeat === "interval") ? f.months : null,
       leadDays: f.leadDays,
-      assigneeId: f.assigneeId,
+      assigneeId: isBill ? null : f.assigneeId,
       showInCalendar: f.showInCalendar,
+      amount,
+      amountKind: isBill ? f.amountKind : null,
+      payerId: isBill ? f.payerId : null,
+      expenseCategory: isBill && f.expenseCategory.trim() ? f.expenseCategory.trim() : null,
     },
   };
 }

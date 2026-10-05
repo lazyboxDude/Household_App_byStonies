@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { Json } from "../../lib/database.types";
 import { showToast } from "../../../lib/toast";
+import { chf } from "../../expenses/format";
 import { missingOccurrences } from "./ensure";
 import { nextAfterDone, todayLocalISO } from "./schedule";
-import type { Occurrence, OccurrenceStatus, Routine, RoutineKind, RoutineMode, Schedule } from "./types";
+import type { AmountKind, Occurrence, OccurrenceStatus, Routine, RoutineKind, RoutineMode, Schedule } from "./types";
 
 const ERROR_TEXT = "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?";
 const UNDO_WINDOW_MS = 8000;
@@ -21,6 +22,23 @@ export interface NewRoutine {
   leadDays: number;
   assigneeId: string | null;
   showInCalendar: boolean;
+  amount: number | null;
+  amountKind: AmountKind | null;
+  payerId: string | null;
+  expenseCategory: string | null;
+}
+
+// Where a paid bill is booked. All optional: paying only closes the bill.
+export interface PayInput {
+  amount: number;
+  bookExpense: boolean; // as an expense of the person paying
+  account: "bills" | "joint" | "main" | "taxes" | null; // Verteilertopf account to debit
+  keepAmount: boolean; // use this amount for the next due dates
+}
+
+export interface Features {
+  calendarEnabled: boolean;
+  expensesEnabled: boolean;
 }
 
 export interface UndoableAction {
@@ -28,9 +46,10 @@ export interface UndoableAction {
   undo: () => Promise<void>;
 }
 
-function toRoutine(r: {
+export function toRoutine(r: {
   id: string; household_id: string; kind: string; title: string; icon: string; schedule: Json;
   mode: string; active_months: number[] | null; lead_days: number; assignee_id: string | null; show_in_calendar: boolean;
+  amount: number | null; amount_kind: string | null; payer_id: string | null; expense_category: string | null;
 }): Routine {
   return {
     id: r.id,
@@ -44,12 +63,17 @@ function toRoutine(r: {
     leadDays: r.lead_days,
     assigneeId: r.assignee_id,
     showInCalendar: r.show_in_calendar,
+    amount: r.amount,
+    amountKind: r.amount_kind as AmountKind | null,
+    payerId: r.payer_id,
+    expenseCategory: r.expense_category,
   };
 }
 
 function toOccurrence(o: {
   id: string; routine_id: string; due_date: string; status: string;
   assigned_to: string | null; done_by: string | null; done_at: string | null;
+  amount: number | null; expense_id: string | null; vt_tx_id: string | null;
 }): Occurrence {
   return {
     id: o.id,
@@ -59,16 +83,22 @@ function toOccurrence(o: {
     assignedTo: o.assigned_to,
     doneBy: o.done_by,
     doneAt: o.done_at,
+    amount: o.amount,
+    expenseId: o.expense_id,
+    vtTxId: o.vt_tx_id,
   };
 }
 
 // Loads a household's routines and their occurrences, fills the next ~8 weeks,
 // and mirrors open occurrences into the calendar when that feature is on.
-export function useRoutines(householdId: string | undefined, userId: string | undefined, calendarEnabled: boolean) {
+export function useRoutines(householdId: string | undefined, userId: string | undefined, features: Features) {
+  const { calendarEnabled, expensesEnabled } = features;
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [undoable, setUndoable] = useState<UndoableAction | null>(null);
+  // Whether this household uses the Verteilertopf, so the pay panel can offer to debit an account.
+  const [hasVerteilertopf, setHasVerteilertopf] = useState(false);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const today = todayLocalISO();
 
@@ -108,7 +138,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
           return [{
             household_id: householdId,
             source_occurrence_id: o.id,
-            title: `${r.icon} ${r.title}`,
+            title: `${r.icon} ${r.title}${r.kind === "bill" && (o.amount ?? r.amount) != null ? ` · ${chf((o.amount ?? r.amount)!)}` : ""}`,
             date: o.dueDate,
             time: "09:00",
             type: r.kind === "chore" ? "task" : "event",
@@ -157,6 +187,15 @@ export function useRoutines(householdId: string | undefined, userId: string | un
   }, [householdId, refresh]);
 
   useEffect(() => {
+    if (!householdId || !expensesEnabled) return;
+    supabase
+      .from("verteilertopf_tx")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", householdId)
+      .then(({ count }) => setHasVerteilertopf((count ?? 0) > 0));
+  }, [householdId, expensesEnabled]);
+
+  useEffect(() => {
     if (!householdId) return;
     const channel = supabase
       .channel(`routines-${householdId}-${Math.random().toString(36).slice(2, 8)}`)
@@ -199,6 +238,10 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         lead_days: input.leadDays,
         assignee_id: input.assigneeId,
         show_in_calendar: input.showInCalendar,
+        amount: input.amount,
+        amount_kind: input.amountKind,
+        payer_id: input.payerId,
+        expense_category: input.expenseCategory,
       });
       if (error) {
         showToast(ERROR_TEXT, "error");
@@ -252,7 +295,8 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         }
       }
 
-      const older = occurrences.filter(
+      // Only a chore catches up: every unpaid bill is its own payment and stays open.
+      const older = routine.kind !== "chore" ? [] : occurrences.filter(
         (o) => o.routineId === routine.id && o.status === "open" && o.id !== occ.id && o.dueDate < occ.dueDate
       );
       const { error } = await supabase
@@ -286,5 +330,92 @@ export function useRoutines(householdId: string | undefined, userId: string | un
     [routines, occurrences, householdId, userId, refresh, offerUndo]
   );
 
-  return { routines, occurrences, today, isLoading, undoable, addRoutine, deleteRoutine, resolve };
+  // Pays a bill: closes the occurrence and, if asked, books it as an expense and/or debits a
+  // Verteilertopf account. Each step is undone again if a later one fails.
+  const payBill = useCallback(
+    async (occ: Occurrence, input: PayInput): Promise<boolean> => {
+      const routine = routines.find((r) => r.id === occ.routineId);
+      if (!routine || routine.kind !== "bill" || !householdId) return false;
+      const day = todayLocalISO();
+      const amount = Math.round(input.amount * 100) / 100;
+
+      let expenseId: string | null = null;
+      let txId: string | null = null;
+      const rollback = async () => {
+        if (expenseId) await supabase.from("expenses").delete().eq("id", expenseId);
+        if (txId) await supabase.from("verteilertopf_tx").delete().eq("id", txId);
+      };
+
+      if (input.bookExpense && userId) {
+        const { data, error } = await supabase
+          .from("expenses")
+          .insert({
+            household_id: householdId,
+            user_id: userId,
+            title: routine.title,
+            amount,
+            date: new Date().toISOString(),
+            category: routine.expenseCategory || "Rechnungen",
+            note: "Aus Routinen",
+          })
+          .select("id")
+          .single();
+        if (error || !data) {
+          showToast(ERROR_TEXT, "error");
+          return false;
+        }
+        expenseId = data.id;
+      }
+
+      if (input.account) {
+        const { data, error } = await supabase
+          .from("verteilertopf_tx")
+          .insert({ household_id: householdId, kind: "expense", date: day, account: input.account, amount: -amount, description: routine.title })
+          .select("id")
+          .single();
+        if (error || !data) {
+          await rollback();
+          showToast(ERROR_TEXT, "error");
+          return false;
+        }
+        txId = data.id;
+      }
+
+      const { error } = await supabase
+        .from("routine_occurrences")
+        .update({ status: "done", done_by: userId ?? null, done_at: new Date().toISOString(), amount, expense_id: expenseId, vt_tx_id: txId })
+        .eq("id", occ.id);
+      if (error) {
+        await rollback();
+        showToast(ERROR_TEXT, "error");
+        return false;
+      }
+
+      const previousAmount = routine.amount;
+      const newAmount = input.keepAmount && routine.amountKind !== "fixed" && amount !== routine.amount ? amount : null;
+      if (newAmount !== null) await supabase.from("routines").update({ amount: newAmount }).eq("id", routine.id);
+      await supabase.from("calendar_events").delete().eq("source_occurrence_id", occ.id);
+
+      await refresh(true);
+      offerUndo({
+        label: `„${routine.title}“ bezahlt`,
+        undo: async () => {
+          await supabase
+            .from("routine_occurrences")
+            .update({ status: "open", done_by: null, done_at: null, amount: null, expense_id: null, vt_tx_id: null })
+            .eq("id", occ.id);
+          await rollback();
+          if (newAmount !== null) await supabase.from("routines").update({ amount: previousAmount }).eq("id", routine.id);
+          await refresh(true);
+        },
+      });
+      return true;
+    },
+    [routines, householdId, userId, refresh, offerUndo]
+  );
+
+  return {
+    routines, occurrences, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill,
+    finance: { expensesEnabled, hasVerteilertopf },
+  };
 }

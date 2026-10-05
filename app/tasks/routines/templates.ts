@@ -1,7 +1,7 @@
-// Starter pack: typical Swiss household routines. A template only pre-fills the
+// Starter pack: typical Swiss household routines, chores and bills. A template only pre-fills the
 // form — the person still picks the weekday that matches their Gemeinde.
 
-import type { RoutineKind, RoutineMode, Schedule } from "./types.ts";
+import type { AmountKind, RoutineKind, RoutineMode, Schedule } from "./types.ts";
 
 export interface RoutineTemplate {
   key: string;
@@ -11,6 +11,7 @@ export interface RoutineTemplate {
   mode: RoutineMode;
   leadDays: number;
   activeMonths: number[] | null;
+  amountKind?: AmountKind; // bills only; the amount itself is up to the household
   // The schedule is built from today's date so intervals start right away.
   schedule: (todayISO: string) => Schedule;
 }
@@ -85,5 +86,71 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
     leadDays: 0,
     activeMonths: null,
     schedule: (today) => ({ type: "interval", every: 4, unit: "day", anchor: today }),
+  },
+
+  {
+    key: "miete",
+    title: "Miete",
+    icon: "🏠",
+    kind: "bill",
+    mode: "fixed",
+    leadDays: 7,
+    activeMonths: null,
+    amountKind: "fixed",
+    schedule: () => ({ type: "monthday", day: 1 }),
+  },
+  {
+    key: "strom",
+    title: "Strom-Abschlag",
+    icon: "💡",
+    kind: "bill",
+    mode: "fixed",
+    leadDays: 7,
+    activeMonths: null,
+    amountKind: "estimate",
+    schedule: () => ({ type: "monthday", day: 1 }),
+  },
+  {
+    key: "strom-abrechnung",
+    title: "Strom: Jahresabrechnung prüfen",
+    icon: "📬",
+    kind: "reminder",
+    mode: "fixed",
+    leadDays: 7,
+    activeMonths: null,
+    schedule: () => ({ type: "monthday", day: 15, months: [3] }),
+  },
+  {
+    key: "internet",
+    title: "Internet",
+    icon: "🌐",
+    kind: "bill",
+    mode: "fixed",
+    leadDays: 7,
+    activeMonths: null,
+    amountKind: "fixed",
+    schedule: () => ({ type: "monthday", day: 1 }),
+  },
+  {
+    key: "krankenkasse",
+    title: "Krankenkasse",
+    icon: "🩺",
+    kind: "bill",
+    mode: "fixed",
+    leadDays: 7,
+    activeMonths: null,
+    amountKind: "fixed",
+    schedule: () => ({ type: "monthday", day: 1 }),
+  },
+  {
+    key: "serafe",
+    title: "Serafe",
+    icon: "📺",
+    kind: "bill",
+    mode: "fixed",
+    leadDays: 14,
+    activeMonths: null,
+    amountKind: "fixed",
+    schedule: () => ({ type: "monthday", day: 1, months: [1, 4, 7, 10] }),
   },
 ];
