@@ -1,17 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Check, HeartHandshake, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Check, Sparkles } from "lucide-react";
 import { showToast } from "../../../lib/toast";
 import { chf, r2, uid } from "../format";
 import { calcAvailable } from "./calc";
-import { FIXED_COST_CHIPS, GOALS, MOOD_OPTIONS, T, nextStepFor, resultHeadline } from "./copy";
+import { FIXED_COST_CHIPS, GOALS, MOOD_OPTIONS, copyFor, nextStepFor, resultHeadline } from "./copy";
+import { useI18n } from "../../context/LanguageContext";
 import type { FixedCostEntry, GoalId, IncomeEntry, Mood } from "./types";
 import type { useMoneyOnboarding } from "./useMoneyOnboarding";
 
-const STEPS = ["Willkommen", "Ziele", "Einnahmen", "Feste Kosten", "Bauchgefühl", "Ergebnis", "Nächster Schritt"] as const;
-
-const DEFAULT_INCOME_LABELS = ["Gehalt / Hauptverdienst", "Nebenverdienst", "Sonstiges"];
+const STEP_COUNT = 7;
 
 function parseAmount(text: string): number {
   return parseFloat(text.replace(",", ".")) || 0;
@@ -64,9 +64,11 @@ export default function MoneyOnboarding({
   onDone: () => void;
 }) {
   const { goals, income, incomeVariable, fixedCosts, mood, step: savedStep, save } = data;
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   const [step, setStep] = useState(savedStep || 0);
   const [isFinishing, setIsFinishing] = useState(false);
-  const lastStep = STEPS.length - 1;
+  const lastStep = STEP_COUNT - 1;
 
   const goToStep = (next: number) => {
     const clamped = Math.max(0, Math.min(lastStep, next));
@@ -78,7 +80,7 @@ export default function MoneyOnboarding({
     setIsFinishing(true);
     await save({ completed: true });
     setIsFinishing(false);
-    showToast("Geschafft — hier ist deine erste Übersicht.", "success");
+    showToast(T.toastDone, "success");
     onDone();
   };
 
@@ -86,7 +88,7 @@ export default function MoneyOnboarding({
     <div className="p-6 max-w-2xl mx-auto">
       <div className="surface p-8 animate-sheet">
         <div className="flex items-center justify-center gap-2 mb-6">
-          {STEPS.map((label, i) => (
+          {T.steps.map((label, i) => (
             <div
               key={label}
               className="h-1.5 rounded-full"
@@ -132,11 +134,17 @@ export default function MoneyOnboarding({
 }
 
 function WelcomeStep() {
+  const T = copyFor(useI18n().lang);
   return (
     <div className="text-center">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "var(--accent-soft)" }}>
-        <HeartHandshake className="w-8 h-8" style={{ color: "var(--accent)" }} />
-      </div>
+      <Image
+        src="/mascot/snail-welcome.webp"
+        alt=""
+        width={377}
+        height={488}
+        priority
+        className="mx-auto mb-4 h-52 w-auto drop-shadow-lg"
+      />
       <h1 className="text-title mb-2">{T.welcome.title}</h1>
       <p className="text-body text-[var(--text-secondary)]">{T.welcome.body}</p>
     </div>
@@ -144,6 +152,8 @@ function WelcomeStep() {
 }
 
 function GoalsStep({ goals, onChange }: { goals: GoalId[]; onChange: (goals: GoalId[]) => void }) {
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   const toggle = (id: GoalId) => {
     if (goals.includes(id)) {
       onChange(goals.filter((g) => g !== id));
@@ -172,7 +182,7 @@ function GoalsStep({ goals, onChange }: { goals: GoalId[]; onChange: (goals: Goa
               }}
             >
               <Icon className="w-5 h-5 shrink-0" style={{ color: active ? "var(--accent)" : "var(--text-secondary)" }} />
-              <span className="text-sm font-medium flex-1">{label}</span>
+              <span className="text-sm font-medium flex-1">{label[lang]}</span>
               {active && <Check className="w-4 h-4 shrink-0" style={{ color: "var(--accent)" }} />}
             </button>
           );
@@ -193,14 +203,16 @@ function IncomeStep({
   onChangeIncome: (next: IncomeEntry[]) => void;
   onToggleVariable: (v: boolean) => void;
 }) {
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   // Seed the three suggested fields on first visit — still just a starting
   // point, any of them can be left at 0 and ignored.
-  const entries = income.length > 0 ? income : DEFAULT_INCOME_LABELS.map((label) => ({ id: uid(), label, amount: 0, min: 0, max: 0 }));
+  const entries = income.length > 0 ? income : T.income.defaultLabels.map((label) => ({ id: uid(), label, amount: 0, min: 0, max: 0 }));
 
   const update = (id: string, patch: Partial<IncomeEntry>) => {
     onChangeIncome(entries.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   };
-  const addEntry = () => onChangeIncome([...entries, { id: uid(), label: "Weiterer Posten", amount: 0, min: 0, max: 0 }]);
+  const addEntry = () => onChangeIncome([...entries, { id: uid(), label: T.income.newEntryLabel, amount: 0, min: 0, max: 0 }]);
 
   const total = incomeVariable
     ? { min: r2(entries.reduce((s, e) => s + (e.min || 0), 0)), max: r2(entries.reduce((s, e) => s + (e.max || 0), 0)) }
@@ -225,14 +237,14 @@ function IncomeStep({
             <input
               value={entry.label}
               onChange={(e) => update(entry.id, { label: e.target.value })}
-              placeholder="Bezeichnung"
+              placeholder={T.income.label}
               className="field flex-1 min-w-[10rem]"
             />
             {incomeVariable ? (
               <>
-                <MoneyInput value={entry.min} onChange={(min) => update(entry.id, { min })} placeholder="von" className="field w-24 font-mono" />
+                <MoneyInput value={entry.min} onChange={(min) => update(entry.id, { min })} placeholder={T.income.from} className="field w-24 font-mono" />
                 <span className="text-caption">–</span>
-                <MoneyInput value={entry.max} onChange={(max) => update(entry.id, { max })} placeholder="bis" className="field w-24 font-mono" />
+                <MoneyInput value={entry.max} onChange={(max) => update(entry.id, { max })} placeholder={T.income.to} className="field w-24 font-mono" />
               </>
             ) : (
               <MoneyInput value={entry.amount} onChange={(amount) => update(entry.id, { amount })} placeholder="0" className="field w-28 font-mono" />
@@ -251,7 +263,7 @@ function IncomeStep({
           <b className="text-[var(--text)]">
             {typeof total === "number" ? chf(total) : `${chf(total.min)} – ${chf(total.max)}`}
           </b>
-          {" "}pro Monat.
+          {" "}{T.income.perMonth}
         </p>
       )}
     </div>
@@ -259,6 +271,8 @@ function IncomeStep({
 }
 
 function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]; onChange: (next: FixedCostEntry[]) => void }) {
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   const activeChip = (key: string) => fixedCosts.find((c) => c.chipKey === key);
 
   const toggleChip = (key: string, label: string) => {
@@ -283,8 +297,8 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
 
       <div className="flex flex-wrap gap-2 mb-4">
         {FIXED_COST_CHIPS.map(({ key, label }) => (
-          <button key={key} type="button" className="chip" data-active={!!activeChip(key)} onClick={() => toggleChip(key, label)}>
-            {label}
+          <button key={key} type="button" className="chip" data-active={!!activeChip(key)} onClick={() => toggleChip(key, label[lang])}>
+            {label[lang]}
           </button>
         ))}
       </div>
@@ -296,7 +310,7 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
               <input
                 value={c.label}
                 onChange={(e) => updateLabel(c.id, e.target.value)}
-                placeholder="Eigener Posten"
+                placeholder={T.fixedCosts.customPlaceholder}
                 className="field flex-1 min-w-[8rem]"
               />
               <MoneyInput value={c.amount} onChange={(amount) => updateAmount(c.id, amount)} placeholder="0" className="field w-28 font-mono" />
@@ -316,7 +330,7 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
 
       {total > 0 && (
         <p className="text-caption mt-4">
-          Zusammen <b className="text-[var(--text)]">{chf(total)}</b> pro Monat.
+          {T.fixedCosts.together} <b className="text-[var(--text)]">{chf(total)}</b> {T.fixedCosts.perMonth}
         </p>
       )}
     </div>
@@ -324,6 +338,8 @@ function FixedCostsStep({ fixedCosts, onChange }: { fixedCosts: FixedCostEntry[]
 }
 
 function MoodStep({ mood, onChange }: { mood: Mood | null; onChange: (m: Mood) => void }) {
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   return (
     <div>
       <h2 className="text-headline mb-1">{T.mood.title}</h2>
@@ -338,7 +354,7 @@ function MoodStep({ mood, onChange }: { mood: Mood | null; onChange: (m: Mood) =
             data-active={mood === id}
             style={{ width: "100%" }}
           >
-            {label}
+            {label[lang]}
           </button>
         ))}
       </div>
@@ -357,12 +373,14 @@ function ResultStep({
   fixedCosts: FixedCostEntry[];
   mood: Mood | null;
 }) {
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   const result = calcAvailable(income, fixedCosts, incomeVariable);
-  const { amount, sentence } = resultHeadline(result);
+  const { amount, sentence } = resultHeadline(result, lang);
   const negative = result.kind === "range" ? result.max < 0 : result.amount < 0;
 
   // Mood only softens the lead-in line — never a judgment, never shown as a score.
-  const leadIn = mood === "gestresst" || mood === "unsicher" ? "Schritt für Schritt:" : null;
+  const leadIn = mood === "gestresst" || mood === "unsicher" ? T.result.stepByStep : null;
 
   return (
     <div className="text-center">
@@ -381,10 +399,12 @@ function ResultStep({
 }
 
 function NextStepStep({ goals, onFinish, isFinishing }: { goals: GoalId[]; onFinish: () => void; isFinishing: boolean }) {
+  const { lang } = useI18n();
+  const T = copyFor(lang);
   return (
     <div className="text-center">
       <h2 className="text-headline mb-1">{T.nextStep.title}</h2>
-      <p className="text-body text-[var(--text-secondary)] mb-6 max-w-sm mx-auto">{nextStepFor(goals)}</p>
+      <p className="text-body text-[var(--text-secondary)] mb-6 max-w-sm mx-auto">{nextStepFor(goals, lang)}</p>
       <div className="flex items-center justify-center gap-3 mb-6">
         <button onClick={onFinish} disabled={isFinishing} className="btn btn-primary px-6 py-2.5">
           {isFinishing ? "..." : T.nextStep.doIt}

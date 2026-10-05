@@ -16,12 +16,15 @@ import {
   isSameDay,
   isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Loader2 } from 'lucide-react';
+import { de as dateFnsDe, enUS as dateFnsEn } from 'date-fns/locale';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin } from 'lucide-react';
+import { MascotLoader } from '@/components/Mascot';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/LanguageContext';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../lib/database.types';
-import FeatureOnboarding from '../components/FeatureOnboarding';
 import { showToast } from '../../lib/toast';
+import FeatureOnboarding from '../components/FeatureOnboarding';
 
 interface CalendarEvent {
   id: string;
@@ -35,6 +38,14 @@ interface CalendarEvent {
   // They are managed from the Tasks page, so they are read-only here.
   sourceCleaningTaskId?: string;
 }
+
+type Bi = { en: string; de: string };
+
+const EVENT_TYPE_LABELS: Record<'event' | 'task' | 'shopping', Bi> = {
+  event: { en: 'Event', de: 'Termin' },
+  task: { en: 'Task', de: 'Aufgabe' },
+  shopping: { en: 'Shopping', de: 'Einkauf' },
+};
 
 // A bare "yyyy-MM-dd" parses as UTC midnight in JS, which can shift a day
 // backwards in timezones behind UTC — force local-midnight parsing instead.
@@ -60,6 +71,9 @@ const byTime = (a: CalendarEvent, b: CalendarEvent) => a.time.localeCompare(b.ti
 
 export default function CalendarPage() {
   const { household } = useAuth();
+  const { t, lang } = useI18n();
+  const dfLocale = lang === 'de' ? dateFnsDe : dateFnsEn;
+  const weekStartsOn = lang === 'de' ? 1 : 0;
   const householdId = household?.id;
   const isEnabled = household?.enabledFeatures.includes("calendar") ?? false;
 
@@ -88,12 +102,12 @@ export default function CalendarPage() {
       .order('date', { ascending: true })
       .order('time', { ascending: true });
     if (error) {
-      showToast('Could not load events', 'error');
+      showToast(t('Could not load events', 'Termine konnten nicht geladen werden'), 'error');
     } else {
       setEvents((data ?? []).map(toCalendarEvent));
     }
     setIsLoading(false);
-  }, [householdId]);
+  }, [householdId, t]);
 
   useEffect(() => {
     // Standard fetch-on-mount: loadEvents sets isLoading(false) once done.
@@ -126,12 +140,11 @@ export default function CalendarPage() {
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
-  // Weeks start on Monday (matches the household's locale, not date-fns' Sunday default).
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const startDate = startOfWeek(monthStart, { weekStartsOn });
+  const endDate = endOfWeek(monthEnd, { weekStartsOn });
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
-  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const weekDays = days.slice(0, 7).map((d) => format(d, 'EEE', { locale: dfLocale }));
 
   const openModal = (event?: CalendarEvent) => {
     if (event) {
@@ -175,7 +188,7 @@ export default function CalendarPage() {
 
     // Keep the modal open on failure so the input isn't lost.
     if (error || !data) {
-      showToast('Could not save event. Please try again.', 'error');
+      showToast(t('Could not save event. Please try again.', 'Termin konnte nicht gespeichert werden. Bitte versuche es erneut.'), 'error');
       return;
     }
 
@@ -194,7 +207,7 @@ export default function CalendarPage() {
     if (!editingEvent) return;
     const { error } = await supabase.from('calendar_events').delete().eq('id', editingEvent.id);
     if (error) {
-      showToast('Could not delete event. Please try again.', 'error');
+      showToast(t('Could not delete event. Please try again.', 'Termin konnte nicht gelöscht werden. Bitte versuche es erneut.'), 'error');
       return;
     }
     setEvents((prev) => prev.filter((ev) => ev.id !== editingEvent.id));
@@ -212,14 +225,14 @@ export default function CalendarPage() {
       <div className="p-4 md:p-8 max-w-6xl mx-auto">
         <h1 className="text-display flex items-center gap-2 mb-8 animate-rise">
           <CalendarIcon className="w-8 h-8 text-orange-600" />
-          Calendar
+          {t('Calendar', 'Kalender')}
         </h1>
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body text-[var(--text-secondary)] mb-4">
-            Join or create a household to share a calendar.
+            {t('Join or create a household to share a calendar.', 'Tritt einem Haushalt bei oder erstelle einen, um einen Kalender zu teilen.')}
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
-            Go to Login
+            {t('Go to Login', 'Zur Anmeldung')}
           </Link>
         </div>
       </div>
@@ -231,12 +244,15 @@ export default function CalendarPage() {
       <FeatureOnboarding
         feature="calendar"
         icon={CalendarIcon}
-        title="Calendar"
-        description="A shared household calendar for events and cleaning tasks."
+        title={t('Calendar', 'Kalender')}
+        description={t(
+          'A shared household calendar for events and cleaning tasks.',
+          'Ein gemeinsamer Haushaltskalender für Termine und Putzaufgaben.'
+        )}
         bullets={[
-          "Everyone in the household sees the same events, live",
-          "Cleaning-plan tasks can sync their due dates here automatically",
-          "Snap a photo of a flyer or ticket and attach it to an event",
+          t('Everyone in the household sees the same events, live', 'Alle im Haushalt sehen dieselben Termine, live'),
+          t('Cleaning-plan tasks can sync their due dates here automatically', 'Aufgaben aus dem Putzplan erscheinen hier automatisch mit ihrem Datum'),
+          t('Snap a photo of a flyer or ticket and attach it to an event', 'Fotografiere einen Flyer oder ein Ticket und hänge es an einen Termin'),
         ]}
       />
     );
@@ -244,9 +260,7 @@ export default function CalendarPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-      </div>
+      <MascotLoader className="py-24" label={t('Loading', 'Lädt')} />
     );
   }
 
@@ -257,25 +271,25 @@ export default function CalendarPage() {
         <div>
           <h1 className="text-display flex items-center gap-2">
             <CalendarIcon className="w-8 h-8 text-orange-600" />
-            Calendar
+            {t('Calendar', 'Kalender')}
           </h1>
-          <p className="text-body text-[var(--text-secondary)] mt-1">Manage your household schedule</p>
+          <p className="text-body text-[var(--text-secondary)] mt-1">{t('Manage your household schedule', 'Termine im Haushalt verwalten')}</p>
         </div>
 
         <div className="flex items-center gap-4 surface p-1">
           <button
             onClick={prevMonth}
-            aria-label="Previous month"
+            aria-label={t('Previous month', 'Voriger Monat')}
             className="press p-2 hover:bg-[var(--surface-2)] rounded-[var(--radius-sm)] transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="text-headline min-w-[140px] text-center">
-            {format(currentDate, 'MMMM yyyy')}
+            {format(currentDate, 'MMMM yyyy', { locale: dfLocale })}
           </span>
           <button
             onClick={nextMonth}
-            aria-label="Next month"
+            aria-label={t('Next month', 'Nächster Monat')}
             className="press p-2 hover:bg-[var(--surface-2)] rounded-[var(--radius-sm)] transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
@@ -285,7 +299,7 @@ export default function CalendarPage() {
             className="press px-3 py-2 text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--surface-2)] transition-colors"
             style={{ color: "var(--accent)" }}
           >
-            Today
+            {t('Today', 'Heute')}
           </button>
         </div>
 
@@ -295,7 +309,7 @@ export default function CalendarPage() {
           style={{ boxShadow: "0 8px 20px -8px var(--accent-ring)" }}
         >
           <Plus className="w-5 h-5" />
-          Add Event
+          {t('Add Event', 'Termin hinzufügen')}
         </button>
       </div>
 
@@ -356,7 +370,7 @@ export default function CalendarPage() {
                     ))}
                     {dayEvents.length > 3 && (
                       <div className="text-[10px] text-[var(--text-tertiary)] pl-1">
-                        +{dayEvents.length - 3} more
+                        {t(`+${dayEvents.length - 3} more`, `+${dayEvents.length - 3} weitere`)}
                       </div>
                     )}
                   </div>
@@ -370,23 +384,26 @@ export default function CalendarPage() {
         <div className="surface p-6 h-fit">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-title">
-              {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE, MMM d')}
+              {isToday(selectedDate) ? t('Today', 'Heute') : format(selectedDate, lang === 'de' ? 'EEEE, d. MMM' : 'EEEE, MMM d', { locale: dfLocale })}
             </h2>
             <span className="text-caption bg-[var(--surface-2)] px-3 py-1 rounded-full">
-              {getEventsForDay(selectedDate).length} Events
+              {(() => {
+                const n = getEventsForDay(selectedDate).length;
+                return t(`${n} ${n === 1 ? 'Event' : 'Events'}`, `${n} ${n === 1 ? 'Termin' : 'Termine'}`);
+              })()}
             </span>
           </div>
 
           <div className="space-y-4 mb-8">
               {getEventsForDay(selectedDate).length === 0 ? (
                 <div className="text-center py-8 text-[var(--text-secondary)]">
-                  <p>No events scheduled</p>
+                  <p>{t('No events scheduled', 'Keine Termine geplant')}</p>
                   <button
                     onClick={() => openModal()}
                     className="press mt-2 text-sm font-medium"
                     style={{ color: "var(--accent)" }}
                   >
-                    Create one now
+                    {t('Create one now', 'Jetzt einen anlegen')}
                   </button>
                 </div>
               ) : (
@@ -405,7 +422,7 @@ export default function CalendarPage() {
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface)] text-[var(--text-secondary)] border divider capitalize">
-                          {event.type}
+                          {EVENT_TYPE_LABELS[event.type][lang]}
                         </span>
                         {event.location && (
                           <span className="text-xs text-[var(--text-tertiary)] flex items-center gap-1 truncate">
@@ -414,7 +431,7 @@ export default function CalendarPage() {
                         )}
                       </div>
                       {event.photo && (
-                        <Image src={event.photo} alt="Event" width={160} height={120} unoptimized className="mt-2 rounded-lg max-h-32 object-cover border divider" />
+                        <Image src={event.photo} alt={t("Event", "Termin")} width={160} height={120} unoptimized className="mt-2 rounded-lg max-h-32 object-cover border divider" />
                       )}
                     </div>
                   </div>
@@ -434,8 +451,10 @@ export default function CalendarPage() {
         >
           <div className="material-sheet animate-sheet rounded-t-[var(--radius-lg)] md:rounded-[var(--radius-lg)] shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b divider flex justify-between items-center">
-              <h3 className="text-title">{isReadOnlyEvent ? 'Cleaning Task' : editingEvent ? 'Edit Event' : 'Add New Event'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="press text-[var(--text-tertiary)] hover:text-[var(--text)]">
+              <h3 className="text-title">
+                {isReadOnlyEvent ? t('Cleaning Task', 'Putzaufgabe') : editingEvent ? t('Edit Event', 'Termin bearbeiten') : t('Add New Event', 'Neuer Termin')}
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} aria-label={t("Close", "Schliessen")} className="press text-[var(--text-tertiary)] hover:text-[var(--text)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -443,12 +462,15 @@ export default function CalendarPage() {
             <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
               {isReadOnlyEvent && (
                 <p className="text-caption text-[var(--text-secondary)]">
-                  This event comes from the cleaning plan. Change its date or remove it on the Tasks page.
+                  {t(
+                    'This event comes from the cleaning plan. Change its date or remove it on the Tasks page.',
+                    'Dieser Termin stammt aus dem Putzplan. Das Datum ändern oder ihn entfernen kannst du auf der Aufgaben-Seite.'
+                  )}
                 </p>
               )}
               <fieldset disabled={isReadOnlyEvent} className="space-y-4 min-w-0">
               <div>
-                <label className="block text-caption mb-1.5">Photo (Optional)</label>
+                <label className="block text-caption mb-1.5">{t('Photo (Optional)', 'Foto (optional)')}</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -464,7 +486,7 @@ export default function CalendarPage() {
                         // overwrite something the user already typed. A failed scan
                         // just means no suggestion — the photo is still attached.
                         try {
-                          const { data } = await Tesseract.recognize(imageData, 'eng');
+                          const { data } = await Tesseract.recognize(imageData, lang === 'de' ? 'deu+eng' : 'eng');
                           const firstLine = data.text?.split('\n').find(line => line.trim().length > 0);
                           if (firstLine) setNewEventTitle((current) => current.trim() ? current : firstLine.trim());
                         } catch {
@@ -477,16 +499,16 @@ export default function CalendarPage() {
                   className="field"
                 />
                 {newEventPhoto && (
-                  <Image src={newEventPhoto} alt="Event" width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border divider" />
+                  <Image src={newEventPhoto} alt={t("Event", "Termin")} width={320} height={200} unoptimized className="mt-2 rounded-lg max-h-40 object-cover border divider" />
                 )}
               </div>
               <div>
-                <label className="block text-caption mb-1.5">Event Title</label>
+                <label className="block text-caption mb-1.5">{t('Event Title', 'Titel')}</label>
                 <input
                   type="text"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
-                  placeholder="Grocery shopping, Date night, etc."
+                  placeholder={t("Grocery shopping, Date night, etc.", "Einkaufen, Date Night usw.")}
                   className="field"
                   required
                   autoFocus
@@ -495,7 +517,7 @@ export default function CalendarPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-caption mb-1.5">Date</label>
+                  <label className="block text-caption mb-1.5">{t('Date', 'Datum')}</label>
                   <input
                     type="date"
                     value={newEventDate}
@@ -505,7 +527,7 @@ export default function CalendarPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-caption mb-1.5">Time</label>
+                  <label className="block text-caption mb-1.5">{t('Time', 'Uhrzeit')}</label>
                   <input
                     type="time"
                     value={newEventTime}
@@ -517,21 +539,21 @@ export default function CalendarPage() {
               </div>
 
               <div>
-                <label className="block text-caption mb-1.5">Location (Optional)</label>
+                <label className="block text-caption mb-1.5">{t('Location (Optional)', 'Ort (optional)')}</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
                   <input
                     type="text"
                     value={newEventLocation}
                     onChange={(e) => setNewEventLocation(e.target.value)}
-                    placeholder="e.g. Central Park, Home, etc."
+                    placeholder={t("e.g. Central Park, Home, etc.", "z. B. Stadtpark, Zuhause usw.")}
                     className="field pl-10"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-caption mb-1.5">Type</label>
+                <label className="block text-caption mb-1.5">{t('Type', 'Art')}</label>
                 <div className="flex gap-2">
                   {(['event', 'task', 'shopping'] as const).map((type) => (
                     <button
@@ -545,7 +567,7 @@ export default function CalendarPage() {
                           : { borderColor: "var(--border)" }
                       }
                     >
-                      {type}
+                      {EVENT_TYPE_LABELS[type][lang]}
                     </button>
                   ))}
                 </div>
@@ -556,27 +578,31 @@ export default function CalendarPage() {
               <div className="flex gap-3 mt-6">
                 {isReadOnlyEvent ? (
                   <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-primary flex-1 py-3">
-                    Close
+                    {t('Close', 'Schliessen')}
                   </button>
-                ) : (<>
-                {editingEvent && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteEvent}
-                    className="btn btn-danger flex-1 py-3"
-                  >
-                    Delete
-                  </button>
+                ) : (
+                  <>
+                    {editingEvent && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteEvent}
+                        className="btn btn-danger flex-1 py-3"
+                      >
+                        {t('Delete', 'Löschen')}
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="btn btn-primary py-3"
+                      style={{ flex: 2, boxShadow: "0 8px 20px -8px var(--accent-ring)" }}
+                    >
+                      {isSaving
+                        ? t('Saving…', 'Speichern…')
+                        : editingEvent ? t('Update Event', 'Termin aktualisieren') : t('Save Event', 'Termin speichern')}
+                    </button>
+                  </>
                 )}
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="btn btn-primary py-3"
-                  style={{ flex: 2, boxShadow: "0 8px 20px -8px var(--accent-ring)" }}
-                >
-                  {isSaving ? 'Saving…' : editingEvent ? 'Update Event' : 'Save Event'}
-                </button>
-                </>)}
               </div>
             </form>
           </div>

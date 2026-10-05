@@ -5,30 +5,48 @@ import { Copy, LogOut, User, Home, Shield, ArrowRight, ShoppingCart, DollarSign,
 import Image from 'next/image';
 import { useState } from "react";
 import CalendarFeedCard from "./components/CalendarFeedCard";
+import { Languages } from "lucide-react";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useI18n } from "../context/LanguageContext";
 
-const FEATURES: { key: OptionalFeature; icon: LucideIcon; title: string; description: string }[] = [
+const FEATURES: {
+  key: OptionalFeature;
+  icon: LucideIcon;
+  title: { en: string; de: string };
+  description: { en: string; de: string };
+}[] = [
   {
     key: "shopping",
     icon: ShoppingCart,
-    title: "Shopping List",
-    description: "A shared list your household can add to and check off together.",
+    title: { en: "Shopping List", de: "Einkaufsliste" },
+    description: {
+      en: "A shared list your household can add to and check off together.",
+      de: "Eine gemeinsame Liste, die alle ergänzen und abhaken können.",
+    },
   },
   {
     key: "expenses",
     icon: DollarSign,
-    title: "Finanzen",
-    description: "Verteilertopf, Budgets & Ausgaben und Sparziele in einem Feature.",
+    title: { en: "Finances", de: "Finanzen" },
+    description: {
+      en: "Verteilertopf, budgets & expenses, and savings goals in one feature.",
+      de: "Verteilertopf, Budgets & Ausgaben und Sparziele in einem Feature.",
+    },
   },
   {
     key: "calendar",
     icon: Calendar,
-    title: "Calendar",
-    description: "A shared household calendar for events, synced with the cleaning plan.",
+    title: { en: "Calendar", de: "Kalender" },
+    description: {
+      en: "A shared household calendar for events, synced with the cleaning plan.",
+      de: "Ein gemeinsamer Haushaltskalender, abgestimmt mit dem Putzplan.",
+    },
   },
 ];
 
 export default function SettingsPage() {
   const { user, household, logout, login, loginWithGoogle, toggleFeature } = useAuth();
+  const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
   const [name, setName] = useState("");
   const [isNameLoading, setIsNameLoading] = useState(false);
@@ -59,7 +77,7 @@ export default function SettingsPage() {
   if (!user) {
     return (
       <div className="p-6 max-w-2xl mx-auto">
-        <h1 className="text-display mb-8 animate-rise">Settings</h1>
+        <h1 className="text-display mb-8 animate-rise">{t("Settings", "Einstellungen")}</h1>
         <div className="surface p-8 animate-rise">
           <div className="text-center mb-8">
             <div
@@ -68,19 +86,19 @@ export default function SettingsPage() {
             >
               <User className="w-8 h-8" style={{ color: "var(--accent)" }} />
             </div>
-            <h2 className="text-title">Sign In</h2>
-            <p className="text-body text-[var(--text-secondary)] mt-2">Log in to manage your household</p>
+            <h2 className="text-title">{t("Sign In", "Anmelden")}</h2>
+            <p className="text-body text-[var(--text-secondary)] mt-2">{t("Log in to manage your household", "Melde dich an, um euren Haushalt zu verwalten")}</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4 max-w-md mx-auto">
             <div>
-              <label className="block text-caption mb-1.5">Your Name</label>
+              <label className="block text-caption mb-1.5">{t("Your Name", "Dein Name")}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="field"
-                placeholder="e.g. Alex"
+                placeholder={t("e.g. Alex", "z. B. Alex")}
               />
             </div>
             <button
@@ -88,7 +106,7 @@ export default function SettingsPage() {
               disabled={!name.trim() || isNameLoading}
               className="btn btn-primary w-full py-3"
             >
-              {isNameLoading ? "Signing in..." : <>Continue <ArrowRight className="w-4 h-4" /></>}
+              {isNameLoading ? t("Signing in...", "Anmelden …") : <>{t("Continue", "Weiter")} <ArrowRight className="w-4 h-4" /></>}
             </button>
 
             <div className="relative my-6">
@@ -96,7 +114,7 @@ export default function SettingsPage() {
                 <div className="w-full border-t divider" />
               </div>
               <div className="relative flex justify-center">
-                <span className="px-2 bg-[var(--surface)] text-caption">Or continue with</span>
+                <span className="px-2 bg-[var(--surface)] text-caption">{t("Or continue with", "Oder weiter mit")}</span>
               </div>
             </div>
 
@@ -107,7 +125,7 @@ export default function SettingsPage() {
               className="btn btn-secondary w-full py-3"
             >
               {isGoogleLoading ? (
-                <span className="animate-pulse">Connecting...</span>
+                <span className="animate-pulse">{t("Connecting...", "Verbinden …")}</span>
               ) : (
                 <>
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -140,13 +158,13 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
-      <h1 className="text-display animate-rise">Settings</h1>
+      <h1 className="text-display animate-rise">{t("Settings", "Einstellungen")}</h1>
 
       {/* Profile Section */}
       <div className="surface p-6 animate-rise" style={{ "--stagger-i": 1 } as React.CSSProperties}>
         <h2 className="text-headline mb-4 flex items-center gap-2">
           <User className="w-5 h-5" style={{ color: "var(--accent)" }} />
-          My Profile
+          {t("My Profile", "Mein Profil")}
         </h2>
         <div className="flex items-center gap-4">
           {user.avatar ? (
@@ -165,7 +183,7 @@ export default function SettingsPage() {
           )}
           <div>
             <p className="text-headline">{user.name}</p>
-            <p className="text-caption">Member since Nov 2025</p>
+            <p className="text-caption">{t("Member since Nov 2025", "Dabei seit Nov. 2025")}</p>
           </div>
         </div>
       </div>
@@ -174,35 +192,35 @@ export default function SettingsPage() {
       <div className="surface p-6 animate-rise" style={{ "--stagger-i": 2 } as React.CSSProperties}>
         <h2 className="text-headline mb-4 flex items-center gap-2">
           <Home className="w-5 h-5" style={{ color: "var(--accent)" }} />
-          Household Management
+          {t("Household Management", "Haushalt verwalten")}
         </h2>
 
         {household ? (
           <div className="space-y-6">
             <div>
-              <label className="text-caption block mb-1">Household Name</label>
+              <label className="text-caption block mb-1">{t("Household Name", "Name des Haushalts")}</label>
               <p className="text-headline">{household.name}</p>
             </div>
 
             <div className="surface-2 p-4" style={{ background: "var(--accent-soft)", borderColor: "transparent" }}>
               <label className="text-caption block mb-2" style={{ color: "var(--accent)" }}>
-                Invite Code
+                {t("Invite Code", "Einladungscode")}
               </label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 bg-[var(--surface)] px-3 py-2 rounded-[var(--radius-sm)] border divider font-mono text-lg tracking-widest text-center">
                   {household.inviteCode}
                 </code>
-                <button onClick={copyCode} className="btn btn-primary btn-icon" title="Copy Code">
+                <button onClick={copyCode} className="btn btn-primary btn-icon" title={t("Copy Code", "Code kopieren")}>
                   {copied ? <Shield className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                 </button>
               </div>
               <p className="text-caption mt-2" style={{ color: "var(--accent)" }}>
-                Share this code with family members to let them join your household.
+                {t("Share this code with family members to let them join your household.", "Teile diesen Code mit deiner Familie, damit sie deinem Haushalt beitreten kann.")}
               </p>
             </div>
 
             <div>
-              <h3 className="text-headline mb-3">Members ({household.members.length})</h3>
+              <h3 className="text-headline mb-3">{t("Members", "Mitglieder")} ({household.members.length})</h3>
               <div className="space-y-1">
                 {household.members.map((member) => (
                   <div key={member.id} className="press flex items-center justify-between p-2 rounded-[var(--radius-md)] hover:bg-[var(--surface-2)]">
@@ -215,7 +233,7 @@ export default function SettingsPage() {
                       <span className="text-body">{member.name}</span>
                     </div>
                     {member.id === user.id && (
-                      <span className="text-micro normal-case px-2 py-1 rounded-full bg-[var(--surface-2)]">You</span>
+                      <span className="text-micro normal-case px-2 py-1 rounded-full bg-[var(--surface-2)]">{t("You", "Du")}</span>
                     )}
                   </div>
                 ))}
@@ -224,9 +242,18 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div className="text-center py-6 text-body text-[var(--text-secondary)]">
-            You are not part of a household yet.
+            {t("You are not part of a household yet.", "Du gehörst noch zu keinem Haushalt.")}
           </div>
         )}
+      </div>
+
+      {/* Language Section */}
+      <div className="surface p-6 animate-rise flex items-center justify-between gap-4" style={{ "--stagger-i": 3 } as React.CSSProperties}>
+        <h2 className="text-headline flex items-center gap-2">
+          <Languages className="w-5 h-5" style={{ color: "var(--accent)" }} />
+          {t("Language", "Sprache")}
+        </h2>
+        <LanguageSwitcher />
       </div>
 
       {/* Features Section */}
@@ -234,10 +261,10 @@ export default function SettingsPage() {
         <div className="surface p-6 animate-rise" style={{ "--stagger-i": 3 } as React.CSSProperties}>
           <h2 className="text-headline mb-1 flex items-center gap-2">
             <Sparkles className="w-5 h-5" style={{ color: "var(--accent)" }} />
-            Features
+            {t("Features", "Funktionen")}
           </h2>
           <p className="text-caption mb-4">
-            Tasks is always on. Turn on the others as your household needs them.
+            {t("Tasks is always on. Turn on the others as your household needs them.", "Aufgaben sind immer an. Schalte die anderen Funktionen ein, wenn dein Haushalt sie braucht.")}
           </p>
           <div className="space-y-4">
             {FEATURES.map((feature) => {
@@ -252,13 +279,13 @@ export default function SettingsPage() {
                     <Icon className="w-5 h-5" style={{ color: "var(--text-secondary)" }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{feature.title}</p>
-                    <p className="text-caption">{feature.description}</p>
+                    <p className="font-medium text-sm">{feature.title[lang]}</p>
+                    <p className="text-caption">{feature.description[lang]}</p>
                   </div>
                   <button
                     role="switch"
                     aria-checked={isOn}
-                    aria-label={`Toggle ${feature.title}`}
+                    aria-label={t(`Toggle ${feature.title.en}`, `${feature.title.de} umschalten`)}
                     onClick={() => toggleFeature(feature.key, !isOn)}
                     className="press relative w-11 h-6 rounded-full transition-colors duration-300 shrink-0"
                     style={{ background: isOn ? "var(--accent)" : "var(--surface-3)" }}
@@ -283,7 +310,7 @@ export default function SettingsPage() {
         style={{ "--stagger-i": 5 } as React.CSSProperties}
       >
         <LogOut className="w-5 h-5" />
-        Sign Out
+        {t("Sign Out", "Abmelden")}
       </button>
     </div>
   );

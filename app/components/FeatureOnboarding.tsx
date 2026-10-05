@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, type LucideIcon } from "lucide-react";
 import { useAuth, OptionalFeature } from "../context/AuthContext";
+import { useI18n } from "../context/LanguageContext";
 
 export default function FeatureOnboarding({
   feature,
@@ -18,6 +19,7 @@ export default function FeatureOnboarding({
   bullets: string[];
 }) {
   const { toggleFeature } = useAuth();
+  const { t } = useI18n();
   const [isEnabling, setIsEnabling] = useState(false);
 
   const handleEnable = async () => {
@@ -46,9 +48,9 @@ export default function FeatureOnboarding({
           ))}
         </ul>
         <button onClick={handleEnable} disabled={isEnabling} className="btn btn-primary px-6 py-3">
-          {isEnabling ? "Enabling..." : `Enable ${title}`}
+          {isEnabling ? t("Enabling...", "Wird aktiviert …") : t(`Enable ${title}`, `${title} aktivieren`)}
         </button>
-        <p className="text-caption mt-3">You can turn this off again anytime in Settings.</p>
+        <p className="text-caption mt-3">{t("You can turn this off again anytime in Settings.", "Du kannst das jederzeit in den Einstellungen wieder ausschalten.")}</p>
       </div>
     </div>
   );

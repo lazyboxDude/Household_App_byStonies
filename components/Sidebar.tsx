@@ -6,14 +6,17 @@ import { usePathname } from "next/navigation";
 import { Home, CheckSquare, DollarSign, ShoppingCart, Settings, LogOut, Calendar } from "lucide-react";
 import { useAuth, OptionalFeature } from "@/app/context/AuthContext";
 import { useEffect, useRef, useState } from "react";
+import Mascot from "@/components/Mascot";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useI18n } from "@/app/context/LanguageContext";
 
-const NAV_ITEMS: { name: string; href: string; icon: typeof Home; feature?: OptionalFeature }[] = [
-  { name: "Dashboard", href: "/", icon: Home },
-  { name: "Tasks", href: "/tasks", icon: CheckSquare },
-  { name: "Shopping", href: "/shopping", icon: ShoppingCart, feature: "shopping" },
-  { name: "Finanzen", href: "/expenses", icon: DollarSign, feature: "expenses" },
-  { name: "Calendar", href: "/calendar", icon: Calendar, feature: "calendar" },
-  { name: "Settings", href: "/settings", icon: Settings },
+const NAV_ITEMS: { en: string; de: string; href: string; icon: typeof Home; feature?: OptionalFeature }[] = [
+  { en: "Dashboard", de: "Übersicht", href: "/", icon: Home },
+  { en: "Tasks", de: "Aufgaben", href: "/tasks", icon: CheckSquare },
+  { en: "Shopping", de: "Einkauf", href: "/shopping", icon: ShoppingCart, feature: "shopping" },
+  { en: "Finances", de: "Finanzen", href: "/expenses", icon: DollarSign, feature: "expenses" },
+  { en: "Calendar", de: "Kalender", href: "/calendar", icon: Calendar, feature: "calendar" },
+  { en: "Settings", de: "Einstellungen", href: "/settings", icon: Settings },
 ];
 
 interface PillRect {
@@ -30,6 +33,7 @@ interface PillRect {
 // different arrangement for the device (skill section 16, "Flexibility").
 const Sidebar = () => {
   const pathname = usePathname();
+  const { t } = useI18n();
   const { user, household, logout, isAuthenticated } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
@@ -82,8 +86,9 @@ const Sidebar = () => {
     >
       <div className="flex md:flex-col h-16 md:h-full px-4 md:px-3 md:py-6">
         {/* Desktop brand */}
-        <div className="hidden md:flex items-center px-2 mb-6 shrink-0">
-          <span className="text-title text-[var(--text)]">Our Home Base</span>
+        <div className="hidden md:flex items-center gap-2 px-2 mb-6 shrink-0">
+          <Mascot size={40} />
+          <span className="text-title text-[var(--text)] whitespace-nowrap" style={{ fontSize: "1.5rem" }}>{t("Our Home Base", "Unsere Home Base")}</span>
         </div>
 
         <div
@@ -108,7 +113,7 @@ const Sidebar = () => {
             const isActive = pathname === item.href;
             return (
               <Link
-                key={item.name}
+                key={item.href}
                 href={item.href}
                 ref={(el) => {
                   itemRefs.current[item.href] = el;
@@ -121,7 +126,7 @@ const Sidebar = () => {
               >
                 <Icon className="w-6 h-6 md:w-5 md:h-5 shrink-0" strokeWidth={isActive ? 2.3 : 1.8} />
                 <span className="w-full text-center md:text-left truncate text-[9.5px] leading-tight md:w-auto md:text-sm font-medium">
-                  {item.name}
+                  {t(item.en, item.de)}
                 </span>
               </Link>
             );
@@ -130,6 +135,7 @@ const Sidebar = () => {
 
         {/* Desktop user menu, pinned to the bottom of the sidebar */}
         <div className="hidden md:flex md:flex-col md:gap-3 md:mt-auto md:pt-4 md:border-t divider shrink-0">
+          <LanguageSwitcher className="self-start ml-2" />
           {user && (
             <div className="flex items-center gap-3 px-2">
               {user.avatar ? (
@@ -150,7 +156,8 @@ const Sidebar = () => {
               <button
                 onClick={logout}
                 className="press btn-icon text-[var(--text-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-colors shrink-0"
-                title="Logout"
+                title={t("Log out", "Abmelden")}
+                aria-label={t("Log out", "Abmelden")}
               >
                 <LogOut className="w-5 h-5" />
               </button>

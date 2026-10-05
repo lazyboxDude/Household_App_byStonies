@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "A collaborative household management app for couples",
     start_url: "/",
     display: "standalone",
-    background_color: "#f5f5f7",
+    background_color: "#f6efe0",
     theme_color: "#ea580c",
     icons: [
       {

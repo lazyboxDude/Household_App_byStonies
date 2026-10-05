@@ -10,10 +10,18 @@ import {
   User,
   CalendarClock,
   DoorOpen,
-  Loader2,
 } from "lucide-react";
+import { MascotLoader } from "@/components/Mascot";
+import { useI18n } from "../../context/LanguageContext";
 import { CleaningTask, Recurrence, Room } from "../types";
-import { DEFAULT_ROOMS, ROOM_ICON_PRESETS, RECURRENCE_OPTIONS, SUPPLY_SUGGESTIONS } from "../constants";
+import {
+  DEFAULT_ROOMS,
+  ROOM_ICON_PRESETS,
+  ROOM_PRESETS,
+  RECURRENCE_OPTIONS,
+  SUPPLY_SUGGESTIONS,
+  localizeKnown,
+} from "../constants";
 import { upsertCleaningCalendarEvent } from "../calendarSync";
 import { supabase } from "../../lib/supabase";
 
@@ -29,14 +37,20 @@ function computeNextDue(recurrence: Recurrence, fromISO: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-function dueStatus(nextDue: string): { label: string; className: string } {
+function dueStatus(
+  nextDue: string,
+  tr: (en: string, de: string) => string,
+  locale: string
+): { label: string; className: string } {
   const today = todayISO();
-  if (nextDue < today) return { label: "Overdue", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
-  if (nextDue === today) return { label: "Due today", className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" };
-  return { label: `Due ${nextDue}`, className: "bg-[var(--surface-2)] text-[var(--text-secondary)]" };
+  if (nextDue < today) return { label: tr("Overdue", "Überfällig"), className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
+  if (nextDue === today) return { label: tr("Due today", "Heute fällig"), className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" };
+  const date = new Date(`${nextDue}T00:00:00`).toLocaleDateString(locale, { day: "numeric", month: "short" });
+  return { label: tr(`Due ${date}`, `Fällig ${date}`), className: "bg-[var(--surface-2)] text-[var(--text-secondary)]" };
 }
 
 export default function CleaningPlanTab({ householdId }: { householdId: string }) {
+  const { t: tr, lang, locale } = useI18n();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -59,7 +73,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
         seedingRef.current = true;
         const { data: seeded } = await supabase
           .from("rooms")
-          .insert(DEFAULT_ROOMS.map((r) => ({ household_id: householdId, name: r.name, icon: r.icon })))
+          .insert(DEFAULT_ROOMS.map((r) => ({ household_id: householdId, name: r.name.en, icon: r.icon })))
           .select();
         list = (seeded ?? []) as Room[];
       }
@@ -198,7 +212,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
       await upsertCleaningCalendarEvent({
         householdId,
         taskId: task.id,
-        title: `${room?.name ?? "Room"}: ${task.title}`,
+        title: `${room ? localizeKnown(room.name, ROOM_PRESETS, lang) : tr("Room", "Raum")}: ${task.title}`,
         date: task.nextDue,
       });
     }
@@ -227,7 +241,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
     await upsertCleaningCalendarEvent({
       householdId,
       taskId: task.id,
-      title: `${room?.name ?? "Room"}: ${task.title}`,
+      title: `${room ? localizeKnown(room.name, ROOM_PRESETS, lang) : tr("Room", "Raum")}: ${task.title}`,
       date: nextDue,
     });
   };
@@ -243,9 +257,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-teal-500" />
-      </div>
+      <MascotLoader size={64} className="py-12" label={tr("Loading", "Lädt")} />
     );
   }
 
@@ -256,7 +268,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
         <div className="surface p-4">
           <h2 className="text-headline mb-3 flex items-center gap-2">
             <DoorOpen className="w-5 h-5 text-teal-600" />
-            Rooms
+            {tr("Rooms", "Räume")}
           </h2>
           <div className="space-y-2">
             {rooms.map((room) => {
@@ -276,7 +288,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                   }`}
                 >
                   <span className="flex items-center gap-2 font-medium text-[var(--text)]">
-                    <span className="text-lg">{room.icon}</span> {room.name}
+                    <span className="text-lg">{room.icon}</span> {localizeKnown(room.name, ROOM_PRESETS, lang)}
                   </span>
                   <span className="flex items-center gap-2">
                     {overdueCount > 0 && (
@@ -300,7 +312,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                           }}
                           className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--danger)] text-white cursor-pointer"
                         >
-                          Delete{roomTasks.length > 0 ? ` (${roomTasks.length})` : ""}
+                          {tr("Delete", "Löschen")}{roomTasks.length > 0 ? ` (${roomTasks.length})` : ""}
                         </span>
                         <span
                           role="button"
@@ -316,7 +328,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                           }}
                           className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)] cursor-pointer"
                         >
-                          Cancel
+                          {tr("Cancel", "Abbrechen")}
                         </span>
                       </span>
                     ) : (
@@ -332,7 +344,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                 </button>
               );
             })}
-            {rooms.length === 0 && <p className="text-caption py-2">No rooms yet.</p>}
+            {rooms.length === 0 && <p className="text-caption py-2">{tr("No rooms yet.", "Noch keine Räume.")}</p>}
           </div>
 
           <div className="mt-4 pt-4 border-t divider space-y-2">
@@ -355,10 +367,10 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addRoom()}
-                placeholder="New room name"
+                placeholder={tr("New room name", "Name des neuen Raums")}
                 className="field flex-1 text-sm py-2"
               />
-              <button onClick={addRoom} className="btn btn-icon" style={{ background: "#0d9488", color: "white" }}>
+              <button onClick={addRoom} aria-label={tr("Add room", "Raum hinzufügen")} className="btn btn-icon" style={{ background: "#0d9488", color: "white" }}>
                 <Plus className="w-4 h-4" />
               </button>
             </div>
@@ -370,13 +382,13 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
       <div className="lg:col-span-2 space-y-4">
         {!selectedRoom ? (
           <div className="text-center py-16 text-[var(--text-secondary)] surface">
-            Add a room to start building your cleaning plan.
+            {tr("Add a room to start building your cleaning plan.", "Lege einen Raum an, um deinen Putzplan zu starten.")}
           </div>
         ) : (
           <>
             <div className="surface p-4 space-y-3">
               <h2 className="text-headline flex items-center gap-2">
-                <span className="text-xl">{selectedRoom.icon}</span> {selectedRoom.name} — add a task
+                <span className="text-xl">{selectedRoom.icon}</span> {localizeKnown(selectedRoom.name, ROOM_PRESETS, lang)} — {tr("add a task", "Aufgabe hinzufügen")}
               </h2>
 
               <input
@@ -384,14 +396,14 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCleaningTask()}
-                placeholder="e.g. Wipe down counters"
+                placeholder={tr("e.g. Wipe down counters", "z. B. Ablagen abwischen")}
                 className="field"
               />
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-caption mb-1 flex items-center gap-1">
-                    <Repeat className="w-3 h-3" /> Frequency
+                    <Repeat className="w-3 h-3" /> {tr("Frequency", "Häufigkeit")}
                   </label>
                   <select
                     value={newTaskRecurrence}
@@ -400,20 +412,20 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                   >
                     {RECURRENCE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                        {opt.label[lang]}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="text-caption mb-1 flex items-center gap-1">
-                    <User className="w-3 h-3" /> Assignee (optional)
+                    <User className="w-3 h-3" /> {tr("Assignee (optional)", "Zuständig (optional)")}
                   </label>
                   <input
                     type="text"
                     value={newTaskAssignee}
                     onChange={(e) => setNewTaskAssignee(e.target.value)}
-                    placeholder="Who's on it?"
+                    placeholder={tr("Who's on it?", "Wer übernimmt?")}
                     className="field text-sm"
                   />
                 </div>
@@ -421,23 +433,23 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
 
               <div>
                 <label className="text-caption mb-1 flex items-center gap-1">
-                  <SprayCan className="w-3 h-3" /> Cleaning supplies needed
+                  <SprayCan className="w-3 h-3" /> {tr("Cleaning supplies needed", "Benötigte Putzmittel")}
                 </label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {SUPPLY_SUGGESTIONS.map((supply) => (
                     <button
-                      key={supply}
+                      key={supply.en}
                       type="button"
-                      onClick={() => toggleSupply(supply)}
+                      onClick={() => toggleSupply(supply.en)}
                       className="chip"
-                      data-active={newTaskSupplies.includes(supply)}
+                      data-active={newTaskSupplies.includes(supply.en)}
                       style={
-                        newTaskSupplies.includes(supply)
+                        newTaskSupplies.includes(supply.en)
                           ? { background: "#0d9488", borderColor: "#0d9488", color: "white" }
                           : undefined
                       }
                     >
-                      {supply}
+                      {supply[lang]}
                     </button>
                   ))}
                 </div>
@@ -452,18 +464,18 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                         addCustomSupply();
                       }
                     }}
-                    placeholder="Add a custom supply..."
+                    placeholder={tr("Add a custom supply...", "Eigenes Putzmittel hinzufügen …")}
                     className="field flex-1 text-sm"
                   />
                   <button onClick={addCustomSupply} type="button" className="btn btn-secondary btn-sm">
-                    Add
+                    {tr("Add", "Hinzufügen")}
                   </button>
                 </div>
                 {newTaskSupplies.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {newTaskSupplies.map((s) => (
                       <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
-                        {s}
+                        {localizeKnown(s, SUPPLY_SUGGESTIONS, lang)}
                       </span>
                     ))}
                   </div>
@@ -475,13 +487,13 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                 className="btn w-full py-2.5"
                 style={{ background: "#0d9488", color: "white" }}
               >
-                <Plus className="w-4 h-4" /> Add cleaning task
+                <Plus className="w-4 h-4" /> {tr("Add cleaning task", "Putzaufgabe hinzufügen")}
               </button>
             </div>
 
             <div className="space-y-3">
               {tasksInRoom.map((task, i) => {
-                const status = dueStatus(task.nextDue);
+                const status = dueStatus(task.nextDue, tr, locale);
                 return (
                   <div
                     key={task.id}
@@ -491,7 +503,8 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <button
                         onClick={() => markDone(task)}
-                        title="Mark as done"
+                        title={tr("Mark as done", "Als erledigt markieren")}
+                        aria-label={tr("Mark as done", "Als erledigt markieren")}
                         className="press flex-shrink-0 w-6 h-6 mt-0.5 rounded-full border-2 border-[var(--border-strong)] hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/20 flex items-center justify-center text-transparent hover:text-teal-500 transition-colors duration-300"
                       >
                         <CheckCircle2 className="w-4 h-4" />
@@ -504,7 +517,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                           </span>
                           <span className="px-2 py-0.5 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)] flex items-center gap-1">
                             <Repeat className="w-3 h-3" />
-                            {RECURRENCE_OPTIONS.find((r) => r.value === task.recurrence)?.label}
+                            {RECURRENCE_OPTIONS.find((r) => r.value === task.recurrence)?.label[lang]}
                           </span>
                           {task.assignee && (
                             <span className="px-2 py-0.5 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)] flex items-center gap-1">
@@ -516,7 +529,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                           <div className="flex flex-wrap gap-1 mt-2">
                             {task.supplies.map((s) => (
                               <span key={s} className="text-[10px] px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-800 flex items-center gap-1">
-                                <SprayCan className="w-2.5 h-2.5" /> {s}
+                                <SprayCan className="w-2.5 h-2.5" /> {localizeKnown(s, SUPPLY_SUGGESTIONS, lang)}
                               </span>
                             ))}
                           </div>
@@ -526,6 +539,8 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
                     <button
                       onClick={() => deleteCleaningTask(task.id)}
                       className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] p-2"
+                      title={tr("Delete", "Löschen")}
+                      aria-label={tr("Delete", "Löschen")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -534,7 +549,7 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
               })}
               {tasksInRoom.length === 0 && (
                 <div className="text-center py-8 text-[var(--text-secondary)] surface">
-                  No cleaning tasks in {selectedRoom.name} yet.
+                  {tr(`No cleaning tasks in ${localizeKnown(selectedRoom.name, ROOM_PRESETS, lang)} yet.`, `Noch keine Putzaufgaben für ${localizeKnown(selectedRoom.name, ROOM_PRESETS, lang)}.`)}
                 </div>
               )}
             </div>

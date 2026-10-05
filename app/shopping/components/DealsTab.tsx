@@ -1,14 +1,16 @@
 import React from 'react';
-import { Loader2, ExternalLink, Plus, Package } from "lucide-react";
+import { ExternalLink, Plus, Package } from "lucide-react";
 import Image from 'next/image';
 import { SaleOffer } from "../types";
-import { STORE_LINKS, CATEGORIES } from "../constants";
+import { STORE_LINKS, CATEGORIES, categoryLabel } from "../constants";
+import { MascotLoader } from "@/components/Mascot";
+import { useI18n } from "../../context/LanguageContext";
 
 interface DealsTabProps {
   currentStoreSales: string;
   salesOffers: SaleOffer[];
   isLoadingSales: boolean;
-  salesError: string;
+  salesError: "" | "load" | "fetch";
   selectedCategory: string;
   setSelectedCategory: (val: string) => void;
   loadDeals: (storeName: string) => void;
@@ -25,12 +27,13 @@ export default function DealsTab({
   loadDeals,
   addDealToList
 }: DealsTabProps) {
+  const { t, lang } = useI18n();
   return (
     <div className="surface p-6">
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-title">
-            Current Offers at {currentStoreSales}
+            {t(`Current Offers at ${currentStoreSales}`, `Aktuelle Angebote bei ${currentStoreSales}`)}
           </h2>
           <div className="flex gap-2">
             {Object.keys(STORE_LINKS).map(store => (
@@ -59,7 +62,7 @@ export default function DealsTab({
                 data-active={selectedCategory === cat.name}
               >
                 <Icon className="w-4 h-4" />
-                {cat.name}
+                {cat.label[lang]}
               </button>
             );
           })}
@@ -67,9 +70,9 @@ export default function DealsTab({
       </div>
 
       {isLoadingSales ? (
-        <div className="flex flex-col items-center justify-center h-60 space-y-4">
-          <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-          <p className="text-body text-[var(--text-secondary)]">Fetching latest deals...</p>
+        <div className="flex flex-col items-center justify-center h-60 space-y-2">
+          <MascotLoader size={80} label={t("Loading", "Lädt")} />
+          <p className="text-body text-[var(--text-secondary)]">{t("Fetching latest deals...", "Aktuelle Angebote werden geholt …")}</p>
         </div>
       ) : (
         <>
@@ -123,7 +126,7 @@ export default function DealsTab({
                           <div className="flex items-center gap-2 mt-1">
                             {offer.category && (
                               <span className="inline-block text-xs text-[var(--text-secondary)] bg-[var(--surface-2)] px-2 py-0.5 rounded">
-                                {offer.category}
+                                {categoryLabel(offer.category, lang)}
                               </span>
                             )}
                             {offer.link && (
@@ -132,7 +135,7 @@ export default function DealsTab({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="press text-[var(--text-tertiary)] hover:text-orange-500 transition-colors p-1"
-                                title="View on store website"
+                                title={t("View on store website", "Auf der Website des Geschäfts ansehen")}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -144,7 +147,8 @@ export default function DealsTab({
                         <button
                           onClick={() => addDealToList(offer)}
                           className="press row-action absolute top-3 right-3 p-2 bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400 rounded-full hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
-                          title="Add to shopping list"
+                          title={t("Add to shopping list", "Zur Einkaufsliste hinzufügen")}
+                          aria-label={t("Add to shopping list", "Zur Einkaufsliste hinzufügen")}
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -158,8 +162,12 @@ export default function DealsTab({
                 <div className="text-center py-10">
                   <p className="text-body text-[var(--text-secondary)] mb-4">
                     {salesOffers.length > 0
-                      ? `No offers found in "${selectedCategory}".`
-                      : (salesError || "No offers found directly.")}
+                      ? t(`No offers found in "${categoryLabel(selectedCategory, "en")}".`, `Keine Angebote in «${categoryLabel(selectedCategory, "de")}» gefunden.`)
+                      : salesError === "load"
+                      ? t("Could not load live offers.", "Die aktuellen Angebote konnten nicht geladen werden.")
+                      : salesError === "fetch"
+                      ? t("Failed to fetch offers.", "Angebote konnten nicht abgerufen werden.")
+                      : t("No offers found directly.", "Keine Angebote direkt gefunden.")}
                   </p>
                   <a
                     href={STORE_LINKS[Object.keys(STORE_LINKS).find(k => currentStoreSales.toLowerCase().includes(k.toLowerCase())) || ""] || "#"}
@@ -167,7 +175,7 @@ export default function DealsTab({
                     rel="noopener noreferrer"
                     className="btn btn-primary inline-flex"
                   >
-                    Open {currentStoreSales} Website <ExternalLink className="w-4 h-4" />
+                    {t(`Open ${currentStoreSales} Website`, `Website von ${currentStoreSales} öffnen`)} <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
               );

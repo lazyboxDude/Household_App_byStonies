@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ShoppingCart, Loader2 } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
+import { MascotLoader } from "@/components/Mascot";
 import { ShoppingItem, SaleOffer } from "./types";
 import ShoppingList from "./components/ShoppingList";
 import DealsTab from "./components/DealsTab";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/LanguageContext";
 import { supabase } from "../lib/supabase";
 import FeatureOnboarding from "../components/FeatureOnboarding";
 
@@ -14,6 +16,7 @@ const DEFAULT_SHOPS = ["Migros", "Coop", "Denner", "Aldi", "Lidl"];
 
 export default function ShoppingPage() {
   const { user, household } = useAuth();
+  const { t } = useI18n();
   const householdId = household?.id;
   const userId = user?.id;
   const isEnabled = household?.enabledFeatures.includes("shopping") ?? false;
@@ -22,7 +25,7 @@ export default function ShoppingPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [shops, setShops] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState(false);
 
   const [newItem, setNewItem] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -32,14 +35,14 @@ export default function ShoppingPage() {
   const [currentStoreSales, setCurrentStoreSales] = useState<string>("");
   const [salesOffers, setSalesOffers] = useState<SaleOffer[]>([]);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
-  const [salesError, setSalesError] = useState("");
+  const [salesError, setSalesError] = useState<"" | "load" | "fetch">("");
 
   // Category State
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   const loadData = useCallback(async () => {
     if (!householdId) return;
-    setLoadError("");
+    setLoadError(false);
 
     const [itemsRes, shopsRes] = await Promise.all([
       supabase
@@ -52,7 +55,7 @@ export default function ShoppingPage() {
 
     if (itemsRes.error || shopsRes.error) {
       console.error(itemsRes.error || shopsRes.error);
-      setLoadError("Could not load the shopping list.");
+      setLoadError(true);
       setIsLoading(false);
       return;
     }
@@ -117,10 +120,10 @@ export default function ShoppingPage() {
       if (data.offers && data.offers.length > 0) {
         setSalesOffers(data.offers);
       } else {
-        setSalesError("Could not load live offers.");
+        setSalesError("load");
       }
     } catch {
-      setSalesError("Failed to fetch offers.");
+      setSalesError("fetch");
     } finally {
       setIsLoadingSales(false);
     }
@@ -183,7 +186,7 @@ export default function ShoppingPage() {
     if (!target.completed && nextCompleted && householdId && userId) {
       let amount: number | null = target.price;
       if (amount === null) {
-        const input = window.prompt(`Enter price for "${target.text}" (e.g. 2.50):`, '');
+        const input = window.prompt(t(`Enter price for "${target.text}" (e.g. 2.50):`, `Preis für «${target.text}» eingeben (z. B. 2.50):`), '');
         if (input !== null) {
           const parsed = parseFloat(input.replace(/[^0-9.\\-]/g, ''));
           if (!isNaN(parsed)) {
@@ -211,7 +214,7 @@ export default function ShoppingPage() {
             amount: amount || 0,
             date: new Date().toISOString(),
             category,
-            note: `Added from Shopping list (${target.store || 'unknown store'})`,
+            note: t(`Added from Shopping list (${target.store || 'unknown store'})`, `Aus der Einkaufsliste hinzugefügt (${target.store || 'Geschäft unbekannt'})`),
           })
           .select()
           .single();
@@ -219,7 +222,7 @@ export default function ShoppingPage() {
 
         window.dispatchEvent(new CustomEvent('expense:undoable', { detail: expense }));
         const { showToast } = await import('../../lib/toast');
-        showToast(`Added expense ${expense.title} — $${expense.amount.toFixed(2)}`, 'success');
+        showToast(t(`Added expense ${expense.title} — $${expense.amount.toFixed(2)}`, `Ausgabe ${expense.title} hinzugefügt – $${expense.amount.toFixed(2)}`), 'success');
       } catch (err) {
         console.error('Failed to add expense from shopping item', err);
       }
@@ -271,7 +274,7 @@ export default function ShoppingPage() {
       <div className="flex items-center justify-between mb-6 animate-rise">
         <h1 className="text-display flex items-center">
           <ShoppingCart className="mr-3 w-8 h-8 text-orange-500" />
-          Shopping
+          {t("Shopping", "Einkauf")}
         </h1>
         {householdId && isEnabled && (
           <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
@@ -291,7 +294,7 @@ export default function ShoppingPage() {
               onClick={() => setActiveTab("list")}
               className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
             >
-              My List
+              {t("My List", "Meine Liste")}
             </button>
             <button
               onClick={() => {
@@ -300,7 +303,7 @@ export default function ShoppingPage() {
               }}
               className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
             >
-              Deals
+              {t("Deals", "Angebote")}
             </button>
           </div>
         )}
@@ -309,35 +312,36 @@ export default function ShoppingPage() {
       {!householdId ? (
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body text-[var(--text-secondary)] mb-4">
-            Join or create a household to start a shared shopping list.
+            {t("Join or create a household to start a shared shopping list.", "Tritt einem Haushalt bei oder erstelle einen, um eine gemeinsame Einkaufsliste zu starten.")}
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
-            Go to Login
+            {t("Go to Login", "Zur Anmeldung")}
           </Link>
         </div>
       ) : !isEnabled ? (
         <FeatureOnboarding
           feature="shopping"
           icon={ShoppingCart}
-          title="Shopping List"
-          description="A shared shopping list your whole household can add to and check off together."
+          title={t("Shopping List", "Einkaufsliste")}
+          description={t(
+            "A shared shopping list your whole household can add to and check off together.",
+            "Eine gemeinsame Einkaufsliste, die alle im Haushalt ergänzen und abhaken können."
+          )}
           bullets={[
-            "Everyone in the household sees the same list, live",
-            "Tag items with a store and price to track spending",
-            "Discover local deals and add them straight to your list",
+            t("Everyone in the household sees the same list, live", "Alle im Haushalt sehen dieselbe Liste, live"),
+            t("Tag items with a store and price to track spending", "Gib Geschäft und Preis an, um Ausgaben im Blick zu behalten"),
+            t("Discover local deals and add them straight to your list", "Entdecke Angebote und setze sie direkt auf deine Liste"),
           ]}
         />
       ) : isLoading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-        </div>
+        <MascotLoader className="py-16" label={t("Loading", "Lädt")} />
       ) : loadError ? (
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body mb-4" style={{ color: "var(--danger)" }}>
-            {loadError}
+            {t("Could not load the shopping list.", "Die Einkaufsliste konnte nicht geladen werden.")}
           </p>
           <button onClick={loadData} className="btn btn-secondary">
-            Try again
+            {t("Try again", "Nochmal versuchen")}
           </button>
         </div>
       ) : (

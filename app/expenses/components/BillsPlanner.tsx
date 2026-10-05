@@ -3,13 +3,17 @@
 import React, { useState } from "react";
 import { TrendingUp, Trash2, Pencil } from "lucide-react";
 import { showToast } from "../../../lib/toast";
-import { MON, MS } from "../constants";
+import { monthNames, monthShort } from "../constants";
+import { useI18n } from "../../context/LanguageContext";
 import { chf, fmt } from "../format";
 import { IrregularBill } from "../types";
 import { useVerteilertopf, ProjectionMonth, monthlySoll } from "../hooks/useVerteilertopf";
 
 export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteilertopf> }) {
   const { settings, bal, bills, soll, proj, minP, submitBill, deleteBill } = vt;
+  const { t: tr, lang } = useI18n();
+  const MON = monthNames(lang);
+  const MS = monthShort(lang);
   const msoll = monthlySoll(bills);
 
   const [billName, setBillName] = useState("");
@@ -31,11 +35,11 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
     e.preventDefault();
     const amt = parseFloat(billAmount.replace(",", "."));
     if (!billName.trim() || isNaN(amt) || billMonths.length === 0) {
-      showToast("Bitte Name, Betrag und mindestens einen Monat angeben", "error");
+      showToast(tr("Please enter a name, an amount and at least one month", "Bitte Name, Betrag und mindestens einen Monat angeben"), "error");
       return;
     }
     const ok = await submitBill({ name: billName.trim(), amount: amt, months: billMonths }, editBillId);
-    if (ok) showToast(editBillId ? "Rechnung aktualisiert" : "Rechnung hinzugefügt", "success");
+    if (ok) showToast(editBillId ? tr("Bill updated", "Rechnung aktualisiert") : tr("Bill added", "Rechnung hinzugefügt"), "success");
     resetBillForm();
   };
   const handleDeleteBill = async (id: string) => {
@@ -48,15 +52,15 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
     <div className="space-y-6 animate-rise">
       <div className="surface p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-headline">Rechnungen-Konto: Soll vs. Ist</h3>
-          <span className="text-caption">Dauerauftrag {chf(settings.bills)} / Monat</span>
+          <h3 className="text-headline">{tr("Bills account: target vs. actual", "Rechnungen-Konto: Soll vs. Ist")}</h3>
+          <span className="text-caption">{tr("Standing order", "Dauerauftrag")} {chf(settings.bills)} / {tr("month", "Monat")}</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="surface-2 p-3"><div className="text-caption">Ist-Stand</div><div className="font-mono font-medium">{fmt(bal.bills)}</div></div>
-          <div className="surface-2 p-3"><div className="text-caption">Soll-Stand heute</div><div className="font-mono font-medium">{fmt(soll)}</div></div>
-          <div className="surface-2 p-3"><div className="text-caption">Nötig pro Monat</div><div className="font-mono font-medium">{fmt(msoll)}</div></div>
+          <div className="surface-2 p-3"><div className="text-caption">{tr("Actual balance", "Ist-Stand")}</div><div className="font-mono font-medium">{fmt(bal.bills)}</div></div>
+          <div className="surface-2 p-3"><div className="text-caption">{tr("Target balance today", "Soll-Stand heute")}</div><div className="font-mono font-medium">{fmt(soll)}</div></div>
+          <div className="surface-2 p-3"><div className="text-caption">{tr("Needed per month", "Nötig pro Monat")}</div><div className="font-mono font-medium">{fmt(msoll)}</div></div>
           <div className="surface-2 p-3">
-            <div className="text-caption">Dauerauftrag − Soll</div>
+            <div className="text-caption">{tr("Standing order − target", "Dauerauftrag − Soll")}</div>
             <div className="font-mono font-medium" style={{ color: settings.bills - msoll >= 0 ? "var(--success)" : "var(--danger)" }}>
               {settings.bills - msoll >= 0 ? "+" : ""}{fmt(settings.bills - msoll)}
             </div>
@@ -66,34 +70,34 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
 
       <div className="surface p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-headline flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Prognose nächste 12 Monate</h3>
+          <h3 className="text-headline flex items-center gap-2"><TrendingUp className="w-4 h-4" /> {tr("Forecast for the next 12 months", "Prognose nächste 12 Monate")}</h3>
           {minP && (minP.bal < 0
-            ? <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>Engpass im {MON[minP.m - 1]}</span>
-            : <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--success-soft)", color: "var(--success)" }}>Alle Rechnungen gedeckt</span>)}
+            ? <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>{tr(`Shortfall in ${MON[minP.m - 1]}`, `Engpass im ${MON[minP.m - 1]}`)}</span>
+            : <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--success-soft)", color: "var(--success)" }}>{tr("All bills covered", "Alle Rechnungen gedeckt")}</span>)}
         </div>
         <ForecastChart proj={proj} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="surface p-4">
-          <h3 className="text-headline mb-3">Unregelmässige Rechnungen</h3>
-          {bills.length === 0 && <p className="text-caption">Noch keine Rechnungen erfasst.</p>}
+          <h3 className="text-headline mb-3">{tr("Irregular bills", "Unregelmässige Rechnungen")}</h3>
+          {bills.length === 0 && <p className="text-caption">{tr("No bills recorded yet.", "Noch keine Rechnungen erfasst.")}</p>}
           <div className="space-y-2">
             {bills.map((b) => (
               <div key={b.id} className="flex items-center justify-between border-t divider pt-2 first:border-0 first:pt-0 text-sm">
                 <div>
                   <div className="font-medium">{b.name}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">{b.months.map((m) => MS[m - 1]).join(", ")} · {chf(b.amount)}/Fälligkeit · {chf(b.amount * b.months.length)}/Jahr</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{b.months.map((m) => MS[m - 1]).join(", ")} · {chf(b.amount)}/{tr("due date", "Fälligkeit")} · {chf(b.amount * b.months.length)}/{tr("year", "Jahr")}</div>
                 </div>
                 {confirmDeleteBill === b.id ? (
                   <div className="flex gap-1">
-                    <button onClick={() => handleDeleteBill(b.id)} className="btn btn-danger btn-sm">Löschen</button>
-                    <button onClick={() => setConfirmDeleteBill(null)} className="btn btn-secondary btn-sm">Abbrechen</button>
+                    <button onClick={() => handleDeleteBill(b.id)} className="btn btn-danger btn-sm">{tr("Delete", "Löschen")}</button>
+                    <button onClick={() => setConfirmDeleteBill(null)} className="btn btn-secondary btn-sm">{tr("Cancel", "Abbrechen")}</button>
                   </div>
                 ) : (
                   <div className="flex gap-2 text-[var(--text-tertiary)]">
-                    <button onClick={() => startEditBill(b)} title="Bearbeiten" className="press"><Pencil className="w-4 h-4 hover:text-blue-500" /></button>
-                    <button onClick={() => setConfirmDeleteBill(b.id)} title="Löschen" className="press"><Trash2 className="w-4 h-4 hover:text-[var(--danger)]" /></button>
+                    <button onClick={() => startEditBill(b)} title={tr("Edit", "Bearbeiten")} aria-label={tr("Edit", "Bearbeiten")} className="press"><Pencil className="w-4 h-4 hover:text-blue-500" /></button>
+                    <button onClick={() => setConfirmDeleteBill(b.id)} title={tr("Delete", "Löschen")} aria-label={tr("Delete", "Löschen")} className="press"><Trash2 className="w-4 h-4 hover:text-[var(--danger)]" /></button>
                   </div>
                 )}
               </div>
@@ -102,14 +106,14 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
         </div>
         <div className="surface p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-headline">{editBillId ? "Rechnung bearbeiten" : "Rechnung hinzufügen"}</h3>
-            {editBillId && <button onClick={resetBillForm} className="press text-xs text-[var(--text-secondary)] underline">Abbrechen</button>}
+            <h3 className="text-headline">{editBillId ? tr("Edit bill", "Rechnung bearbeiten") : tr("Add bill", "Rechnung hinzufügen")}</h3>
+            {editBillId && <button onClick={resetBillForm} className="press text-xs text-[var(--text-secondary)] underline">{tr("Cancel", "Abbrechen")}</button>}
           </div>
           <form onSubmit={handleSubmitBill} className="space-y-3">
-            <input value={billName} onChange={(e) => setBillName(e.target.value)} placeholder="z. B. Krankenkasse" className="field" />
-            <input value={billAmount} onChange={(e) => setBillAmount(e.target.value)} inputMode="decimal" placeholder="Betrag pro Fälligkeit (CHF)" className="field font-mono" />
+            <input value={billName} onChange={(e) => setBillName(e.target.value)} placeholder={tr("e.g. Health insurance", "z. B. Krankenkasse")} className="field" />
+            <input value={billAmount} onChange={(e) => setBillAmount(e.target.value)} inputMode="decimal" placeholder={tr("Amount per due date (CHF)", "Betrag pro Fälligkeit (CHF)")} className="field font-mono" />
             <div>
-              <label className="text-caption block mb-1">Fällig im Monat (mehrere möglich)</label>
+              <label className="text-caption block mb-1">{tr("Due in month (several possible)", "Fällig im Monat (mehrere möglich)")}</label>
               <div className="grid grid-cols-6 gap-1">
                 {MS.map((m, i) => (
                   <button
@@ -128,7 +132,7 @@ export default function BillsPlanner({ vt }: { vt: ReturnType<typeof useVerteile
                 ))}
               </div>
             </div>
-            <button type="submit" className="btn btn-primary w-full py-2.5">{editBillId ? "Änderungen speichern" : "Rechnung hinzufügen"}</button>
+            <button type="submit" className="btn btn-primary w-full py-2.5">{editBillId ? tr("Save changes", "Änderungen speichern") : tr("Add bill", "Rechnung hinzufügen")}</button>
           </form>
         </div>
       </div>
@@ -143,6 +147,9 @@ function niceStep(range: number) {
 }
 
 function ForecastChart({ proj }: { proj: ProjectionMonth[] }) {
+  const { t: tr, lang } = useI18n();
+  const MON = monthNames(lang);
+  const MS = monthShort(lang);
   const W = 720, H = 220, L = 56, R = 10, T = 16, B = 34, iw = W - L - R, ih = H - T - B;
   const vals = proj.map((p) => p.bal);
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
@@ -163,7 +170,7 @@ function ForecastChart({ proj }: { proj: ProjectionMonth[] }) {
   }
   return (
     <div className="overflow-x-auto text-[var(--text-secondary)]">
-      <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[560px] w-full h-auto" role="img" aria-label="Prognose Kontostand Rechnungen">
+      <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[560px] w-full h-auto" role="img" aria-label={tr("Forecast of the bills account balance", "Prognose Kontostand Rechnungen")}>
         {gridLines}
         <line x1={L} x2={W - R} y1={y(0)} y2={y(0)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5} />
         {proj.map((p, i) => {
@@ -175,7 +182,7 @@ function ForecastChart({ proj }: { proj: ProjectionMonth[] }) {
             <g key={i}>
               <rect x={x} y={top} width={w} height={h} rx={3} fill={col} fillOpacity={isDec || p.bal < 0 ? 1 : 0.55}
                 style={{ transition: "height var(--dur-slow) var(--ease-spring), y var(--dur-slow) var(--ease-spring)" }}>
-                <title>{MON[p.m - 1]} {p.y}: {chf(p.bal)}{p.pay ? ` · Zahlungen ${chf(-p.pay)} (${p.due.map((d) => d.name).join(", ")})` : ""}</title>
+                <title>{MON[p.m - 1]} {p.y}: {chf(p.bal)}{p.pay ? ` · ${tr("Payments", "Zahlungen")} ${chf(-p.pay)} (${p.due.map((d) => d.name).join(", ")})` : ""}</title>
               </rect>
               {p.pay > 0 && <circle cx={x + w / 2} cy={H - B + 22} r={3} fill="var(--warning)" />}
               <text x={x + w / 2} y={H - B + 13} textAnchor="middle" fontSize={10} fill="currentColor" fillOpacity={isDec ? 1 : 0.6}>{MS[p.m - 1]}</text>
@@ -183,7 +190,7 @@ function ForecastChart({ proj }: { proj: ProjectionMonth[] }) {
           );
         })}
       </svg>
-      <div className="text-caption mt-1">● Monat mit fälliger Rechnung · Balken = Kontostand Ende Monat</div>
+      <div className="text-caption mt-1">{tr("● Month with a bill due · Bars = balance at end of month", "● Monat mit fälliger Rechnung · Balken = Kontostand Ende Monat")}</div>
     </div>
   );
 }
