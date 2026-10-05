@@ -10,3 +10,9 @@ A standard Next.js (App Router) + TypeScript app for couples to manage shared ho
 
 ## Notes
 - Follow this repo's actual Next.js version and conventions (check `package.json`/installed docs) rather than assuming defaults.
+
+## Documents: HTML instead of Markdown
+- When writing new documents (research, plans, notes, reports, feature docs), use self-contained `.html` files — not `.md`. Put them in `docs/` (e.g. `docs/feature-research.html`).
+- Keep them standalone: semantic HTML, inline `<style>`, no build step or external dependencies, readable on a phone, light and dark mode via `prefers-color-scheme`.
+- Exceptions that must stay Markdown because tooling reads them: `CLAUDE.md`, `AGENTS.md`, `README.md`, and `.claude/skills/*/SKILL.md`.
+- Existing `.md` files (e.g. `docs/FEATURE_RESEARCH.md`) are left as is unless asked to convert them.
