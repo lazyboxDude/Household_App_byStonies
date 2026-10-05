@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { useI18n } from "./LanguageContext";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface User {
@@ -39,11 +40,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STARTER_TASK_TITLES = [
-  "Take out the trash",
-  "Do the dishes",
-  "Vacuum the living room",
-  "Wipe down the kitchen counters",
+// Stored as plain text in the household, so they are written in the language
+// the person is using at the moment of creation.
+const STARTER_TASK_TITLES: { en: string; de: string }[] = [
+  { en: "Take out the trash", de: "Müll rausbringen" },
+  { en: "Do the dishes", de: "Geschirr abwaschen" },
+  { en: "Vacuum the living room", de: "Wohnzimmer saugen" },
+  { en: "Wipe down the kitchen counters", de: "Küchenablage abwischen" },
 ];
 
 function avatarFallback(seed: string) {
@@ -65,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [household, setHousehold] = useState<Household | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { t, lang } = useI18n();
 
   // Reload the caller's household (at most one, for now) and its member list.
   const loadHousehold = useCallback(async (userId: string) => {
@@ -157,7 +161,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error || !data.user) {
       console.error("Anonymous sign-in failed:", error);
       alert(
-        "Sign-in failed. If you're the project owner: enable Anonymous Sign-Ins (and check the Turnstile secret key, if Captcha protection is on) under Authentication in the Supabase dashboard. Otherwise try Google."
+        t(
+          "Sign-in failed. If you're the project owner: enable Anonymous Sign-Ins (and check the Turnstile secret key, if Captcha protection is on) under Authentication in the Supabase dashboard. Otherwise try Google.",
+          "Anmeldung fehlgeschlagen. Falls du die Projekt-Besitzerin oder der Projekt-Besitzer bist: Aktiviere unter Authentication im Supabase-Dashboard die anonyme Anmeldung (und prüfe den Turnstile-Secret-Key, falls der Captcha-Schutz an ist). Sonst versuch es mit Google."
+        )
       );
       return false;
     }
@@ -172,7 +179,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) {
       console.error("Google sign-in failed:", error);
-      alert("Failed to start Google sign-in. Check the Google provider configuration in Supabase.");
+      alert(
+        t(
+          "Failed to start Google sign-in. Check the Google provider configuration in Supabase.",
+          "Die Google-Anmeldung konnte nicht gestartet werden. Prüfe die Google-Provider-Einstellungen in Supabase."
+        )
+      );
     }
   };
 
@@ -190,14 +202,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error || !data) {
       console.error("Create household failed:", error);
-      alert("Could not create the household. Please try again.");
+      alert(t("Could not create the household. Please try again.", "Der Haushalt konnte nicht erstellt werden. Versuch es bitte nochmal."));
       return;
     }
 
     // A handful of starter tasks so a brand-new household doesn't open onto
     // an empty list — easy to complete or delete, just something to react to.
     const { error: starterError } = await supabase.from("tasks").insert(
-      STARTER_TASK_TITLES.map((title) => ({ household_id: data.id, title }))
+      STARTER_TASK_TITLES.map((title) => ({ household_id: data.id, title: title[lang] }))
     );
     if (starterError) console.error("Failed to seed starter tasks:", starterError);
 

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Caveat, Nunito } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import { AuthProvider } from "./context/AuthContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import "./globals.css";
 
 // Friendly rounded body text + a handwritten face for headings and numbers.
@@ -30,14 +31,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${body.variable} ${hand.variable}`}>
+    <html lang="de" className={`${body.variable} ${hand.variable}`}>
       <body className="antialiased min-h-screen flex flex-col md:flex-row">
-        <AuthProvider>
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-h-screen min-w-0">
-            <main className="flex-1 page-scroll-pad">{children}</main>
-          </div>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <Sidebar />
+            <div className="flex-1 flex flex-col min-h-screen min-w-0">
+              <main className="flex-1 page-scroll-pad">{children}</main>
+            </div>
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

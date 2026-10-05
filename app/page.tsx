@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Mascot, { MascotLoader, MascotNote } from "@/components/Mascot";
 import { dashboardGreeting } from "@/lib/mascot";
+import { useI18n } from "./context/LanguageContext";
 import { useAuth } from "./context/AuthContext";
 import { supabase } from "./lib/supabase";
 import LandingPage from "./components/LandingPage";
@@ -55,6 +56,7 @@ function startOfToday() {
 
 export default function Home() {
   const { user, household, isAuthenticated } = useAuth();
+  const { t, lang, locale } = useI18n();
   const userId = user?.id;
   const householdId = household?.id;
   const hasShopping = household?.enabledFeatures.includes("shopping") ?? false;
@@ -169,20 +171,20 @@ export default function Home() {
 
   const mainStatus: "ok" | "warn" | "bad" = mainBalance < 0 ? "bad" : mainBalance < vtMinBuffer ? "warn" : "ok";
 
-  const dateLabel = new Date().toLocaleDateString(undefined, {
+  const dateLabel = new Date().toLocaleDateString(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
 
   const kpis = [
-    { label: "Tasks pending", value: String(pendingTasks.length), icon: CheckSquare, href: "/tasks" },
-    hasCalendar && { label: "Events today", value: String(eventsTodayCount), icon: CalendarIcon, href: "/calendar" },
-    hasShopping && { label: "Shopping items", value: String(pendingShopping.length), icon: ShoppingCart, href: "/shopping" },
-    hasExpenses && { label: "Spent this month", value: `$${spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
+    { label: t("Tasks pending", "Offene Aufgaben"), value: String(pendingTasks.length), icon: CheckSquare, href: "/tasks" },
+    hasCalendar && { label: t("Events today", "Termine heute"), value: String(eventsTodayCount), icon: CalendarIcon, href: "/calendar" },
+    hasShopping && { label: t("Shopping items", "Einkaufsartikel"), value: String(pendingShopping.length), icon: ShoppingCart, href: "/shopping" },
+    hasExpenses && { label: t("Spent this month", "Ausgaben diesen Monat"), value: `$${spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
   ].filter((k): k is { label: string; value: string; icon: typeof CheckSquare; href: string } => !!k);
 
-  const greeting = dashboardGreeting({ pendingTasks: pendingTasks.length, eventsToday: eventsTodayCount });
+  const greeting = dashboardGreeting(lang, { pendingTasks: pendingTasks.length, eventsToday: eventsTodayCount });
 
   const budgetPct = totalBudget > 0 ? Math.min(100, Math.round((spentThisMonth / totalBudget) * 100)) : 0;
 
@@ -194,15 +196,15 @@ export default function Home() {
     return (
       <div className="p-6 max-w-6xl mx-auto">
         <header className="animate-rise mb-6">
-          <h1 className="text-display text-[var(--text)]">Welcome home</h1>
+          <h1 className="text-display text-[var(--text)]">{t("Welcome home", "Willkommen zu Hause")}</h1>
           <p className="text-body text-[var(--text-secondary)] mt-1">{dateLabel}</p>
         </header>
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body text-[var(--text-secondary)] mb-4">
-            Join or create a household to see your dashboard.
+            {t("Join or create a household to see your dashboard.", "Tritt einem Haushalt bei oder erstelle einen, um deine Übersicht zu sehen.")}
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
-            Continue setup
+            {t("Continue setup", "Einrichtung fortsetzen")}
           </Link>
         </div>
       </div>
@@ -211,7 +213,7 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <MascotLoader className="py-24" />
+      <MascotLoader className="py-24" label={t("Loading", "Lädt")} />
     );
   }
 
@@ -220,7 +222,7 @@ export default function Home() {
       <header className="animate-rise flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div>
           <h1 className="text-display text-[var(--text)]">
-            Welcome <span className="marker">home</span>
+            {t("Welcome", "Willkommen")} <span className="marker">{t("home", "zu Hause")}</span>
           </h1>
           <p className="text-body text-[var(--text-secondary)] mt-1">{dateLabel}</p>
         </div>
@@ -246,13 +248,13 @@ export default function Home() {
         {hasCalendar && (
           <section className="surface p-5 animate-rise" style={{ "--stagger-i": 2 } as React.CSSProperties}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-headline">Coming up</h2>
+              <h2 className="text-headline">{t("Coming up", "Als Nächstes")}</h2>
               <Link href="/calendar" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-                View calendar <ArrowRight className="w-3 h-3" />
+                {t("View calendar", "Kalender öffnen")} <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             {upcomingEvents.length === 0 ? (
-              <p className="text-caption py-4">No upcoming events. Your schedule is clear.</p>
+              <p className="text-caption py-4">{t("No upcoming events. Your schedule is clear.", "Keine Termine in Sicht. Dein Kalender ist frei.")}</p>
             ) : (
               <div className="space-y-3">
                 {upcomingEvents.map((ev) => {
@@ -264,12 +266,12 @@ export default function Home() {
                         className="w-10 h-10 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 text-xs font-semibold"
                         style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
                       >
-                        {evDate.toLocaleDateString(undefined, { day: "numeric" })}
+                        {evDate.toLocaleDateString(locale, { day: "numeric" })}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-sm truncate">{ev.title}</div>
                         <div className="flex items-center gap-2 text-caption">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{isToday ? "Today" : evDate.toLocaleDateString(undefined, { weekday: "short" })} · {ev.time}</span>
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{isToday ? t("Today", "Heute") : evDate.toLocaleDateString(locale, { weekday: "short" })} · {ev.time}</span>
                           {ev.location && <span className="flex items-center gap-1 truncate"><MapPin className="w-3 h-3" />{ev.location}</span>}
                         </div>
                       </div>
@@ -287,15 +289,15 @@ export default function Home() {
           style={{ "--stagger-i": 3 } as React.CSSProperties}
         >
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-headline">Active tasks</h2>
+            <h2 className="text-headline">{t("Active tasks", "Offene Aufgaben")}</h2>
             <Link href="/tasks" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-              View all <ArrowRight className="w-3 h-3" />
+              {t("View all", "Alle ansehen")} <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {pendingTasks.length === 0 ? (
             <div className="flex items-center gap-3 py-2">
               <Mascot mood="sleepy" size={56} />
-              <p className="text-caption">Nichts offen. Gut gemacht.</p>
+              <p className="text-caption">{t("Nothing pending. Nicely done.", "Nichts offen. Gut gemacht.")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -320,14 +322,14 @@ export default function Home() {
         {hasExpenses && (
           <section className="surface p-5 animate-rise" style={{ "--stagger-i": 4 } as React.CSSProperties}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-headline">Finanzen</h2>
+              <h2 className="text-headline">{t("Finances", "Finanzen")}</h2>
               <Link href="/expenses" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-                Finanzen öffnen <ArrowRight className="w-3 h-3" />
+                {t("Open finances", "Finanzen öffnen")} <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             {vtActive ? (
               <div>
-                <div className="text-micro normal-case">Hauptkonto buffer</div>
+                <div className="text-micro normal-case">{t("Main account buffer", "Puffer Hauptkonto")}</div>
                 <div
                   className="text-3xl font-semibold mt-1"
                   style={{
@@ -340,14 +342,18 @@ export default function Home() {
                   className="text-caption mt-1"
                   style={{ color: mainStatus === "bad" ? "var(--danger)" : mainStatus === "warn" ? "var(--warning)" : undefined }}
                 >
-                  {mainStatus === "bad" ? "Below zero" : mainStatus === "warn" ? "Below minimum buffer" : "Healthy buffer"}
+                  {mainStatus === "bad"
+                    ? t("Below zero", "Unter null")
+                    : mainStatus === "warn"
+                      ? t("Below minimum buffer", "Unter dem Mindestpuffer")
+                      : t("Healthy buffer", "Guter Puffer")}
                 </div>
               </div>
             ) : totalBudget > 0 ? (
               <div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-2xl font-semibold">${spentThisMonth.toFixed(0)}</span>
-                  <span className="text-caption">of ${totalBudget.toFixed(0)} budgeted</span>
+                  <span className="text-caption">{t(`of $${totalBudget.toFixed(0)} budgeted`, `von $${totalBudget.toFixed(0)} budgetiert`)}</span>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-[var(--surface-2)] overflow-hidden">
                   <div
@@ -359,12 +365,12 @@ export default function Home() {
                     }}
                   />
                 </div>
-                <div className="text-caption mt-1">{budgetPct}% of this month&apos;s budget used</div>
+                <div className="text-caption mt-1">{t(`${budgetPct}% of this month's budget used`, `${budgetPct} % des Monatsbudgets verbraucht`)}</div>
               </div>
             ) : (
               <div>
                 <div className="text-2xl font-semibold">${spentThisMonth.toFixed(2)}</div>
-                <p className="text-caption mt-2">spent this month · set up a budget or the Verteilertopf for a fuller picture</p>
+                <p className="text-caption mt-2">{t("spent this month · set up a budget or the Verteilertopf for a fuller picture", "diesen Monat ausgegeben · richte ein Budget oder den Verteilertopf ein, dann siehst du mehr")}</p>
               </div>
             )}
           </section>
@@ -374,13 +380,13 @@ export default function Home() {
         {hasShopping && (
           <section className="surface p-5 animate-rise" style={{ "--stagger-i": 5 } as React.CSSProperties}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-headline">Shopping list</h2>
+              <h2 className="text-headline">{t("Shopping list", "Einkaufsliste")}</h2>
               <Link href="/shopping" className="press text-caption flex items-center gap-1 hover:text-[var(--text)]">
-                View list <ArrowRight className="w-3 h-3" />
+                {t("View list", "Liste öffnen")} <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             {pendingShopping.length === 0 ? (
-              <p className="text-caption py-4">List is empty.</p>
+              <p className="text-caption py-4">{t("List is empty.", "Die Liste ist leer.")}</p>
             ) : (
               <div className="space-y-3">
                 {pendingShopping.slice(0, 4).map((it) => (
@@ -401,12 +407,12 @@ export default function Home() {
         {!hasAnyOptionalFeature && (
           <section className="surface p-5 animate-rise lg:col-span-2 text-center" style={{ "--stagger-i": 4 } as React.CSSProperties}>
             <Sparkles className="w-6 h-6 mx-auto mb-2" style={{ color: "var(--accent)" }} />
-            <h2 className="text-headline mb-1">More than tasks</h2>
+            <h2 className="text-headline mb-1">{t("More than tasks", "Mehr als Aufgaben")}</h2>
             <p className="text-body text-[var(--text-secondary)] mb-4">
-              Shopping list, Finanzen, and Calendar are available whenever your household is ready for them.
+              {t("Shopping list, finances, and calendar are available whenever your household is ready for them.", "Einkaufsliste, Finanzen und Kalender sind da, sobald dein Haushalt sie braucht.")}
             </p>
             <Link href="/settings" className="btn btn-primary inline-flex">
-              Explore features in Settings
+              {t("Explore features in Settings", "Funktionen in den Einstellungen entdecken")}
             </Link>
           </section>
         )}

@@ -26,6 +26,24 @@ export function fdate(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
+// Categories and similar labels are stored as plain text. A few well-known
+// ones are written by the app itself (in German or English, depending on the
+// language at the time) — show those in the current language; anything a
+// person typed stays exactly as they wrote it.
+const KNOWN_LABELS: { de: string; en: string }[] = [
+  { de: "Sonstiges", en: "Other" },
+  { de: "Lebensmittel", en: "Groceries" },
+  { de: "Essen", en: "Food" },
+  { de: "Auswärts essen", en: "Eating Out" },
+  { de: "Online", en: "Online" },
+  { de: "Nicht kategorisiert", en: "Uncategorized" },
+];
+
+export function localizeLabel(value: string, lang: "de" | "en"): string {
+  const match = KNOWN_LABELS.find((k) => k.de === value || k.en === value);
+  return match ? match[lang] : value;
+}
+
 export function curYM() {
   return todayIso().slice(0, 7);
 }

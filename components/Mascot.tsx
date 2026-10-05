@@ -178,9 +178,18 @@ export function MascotNote({
 }
 
 // Full-area loading state: the mascot thinks while data arrives.
-export function MascotLoader({ size = 72, className = "" }: { size?: number; className?: string }) {
+export function MascotLoader({
+  size = 72,
+  className = "",
+  label = "Loading",
+}: {
+  size?: number;
+  className?: string;
+  /** Screen-reader text; pass the translated string. */
+  label?: string;
+}) {
   return (
-    <div className={`flex justify-center ${className}`} role="status" aria-label="Lädt">
+    <div className={`flex justify-center ${className}`} role="status" aria-label={label}>
       <Mascot mood="think" size={size} />
     </div>
   );

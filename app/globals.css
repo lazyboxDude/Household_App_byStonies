@@ -498,6 +498,14 @@ textarea {
   transition: border-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out),
     background-color var(--dur-base) var(--ease-out);
 }
+/* Unlayered .field padding beats Tailwind's pl-* utilities, so inputs with a
+   leading icon need their extra left padding stated here. */
+.field.pl-9 {
+  padding-left: 2.25rem;
+}
+.field.pl-10 {
+  padding-left: 2.5rem;
+}
 .field::placeholder {
   color: var(--text-tertiary);
 }

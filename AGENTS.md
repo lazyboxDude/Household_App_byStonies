@@ -9,6 +9,7 @@ A standard Next.js (App Router) + TypeScript app for couples to manage shared ho
 - `app/api/agent/route.ts` is a protected endpoint (checks `x-agent-token` against `AGENT_TRIGGER_TOKEN`) that dispatches the CI workflow — see `README.md` for the full automation/secrets setup.
 
 ## Notes
+- The UI is bilingual (German/English). Every user-facing string goes through `const { t } = useI18n()` from `app/context/LanguageContext.tsx` as `t("English", "Deutsch")`; outside React, store `{ en, de }` pairs and pick with the current `lang`. The DE/EN switch is `components/LanguageSwitcher.tsx`. German copy follows `.claude/skills/onboarding-tone`. Text people typed (task titles, categories, room names) is shown as written.
 - Follow this repo's actual Next.js version and conventions (check `package.json`/installed docs) rather than assuming defaults.
 
 ## Documents: HTML instead of Markdown

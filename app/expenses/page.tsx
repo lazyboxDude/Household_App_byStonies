@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
+import { MascotLoader } from '@/components/Mascot';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/LanguageContext';
+import { localizeLabel } from './format';
 import { supabase } from '../lib/supabase';
 import FeatureOnboarding from '../components/FeatureOnboarding';
 import FinanceOnboarding from './components/FinanceOnboarding';
@@ -22,18 +25,19 @@ import { usePots } from './hooks/usePots';
 import { useDebts } from './hooks/useDebts';
 import { Expense, FinanceTab } from './types';
 
-const TABS: { key: FinanceTab; label: string }[] = [
-  { key: 'uebersicht', label: 'Übersicht' },
-  { key: 'lohn', label: 'Lohn verteilen' },
-  { key: 'budgets', label: 'Budgets & Ausgaben' },
-  { key: 'planer', label: 'Rechnungen-Planer' },
-  { key: 'schulden', label: 'Schulden' },
-  { key: 'sparziele', label: 'Sparziele' },
-  { key: 'einstellungen', label: 'Einstellungen' },
+const TABS: { key: FinanceTab; label: { de: string; en: string } }[] = [
+  { key: 'uebersicht', label: { de: 'Übersicht', en: 'Overview' } },
+  { key: 'lohn', label: { de: 'Lohn verteilen', en: 'Distribute income' } },
+  { key: 'budgets', label: { de: 'Budgets & Ausgaben', en: 'Budgets & expenses' } },
+  { key: 'planer', label: { de: 'Rechnungen-Planer', en: 'Bill planner' } },
+  { key: 'schulden', label: { de: 'Schulden', en: 'Debts' } },
+  { key: 'sparziele', label: { de: 'Sparziele', en: 'Savings goals' } },
+  { key: 'einstellungen', label: { de: 'Einstellungen', en: 'Settings' } },
 ];
 
 export default function ExpensesPage() {
   const { user, household } = useAuth();
+  const { t, lang } = useI18n();
   const userId = user?.id;
   const householdId = household?.id;
   const isEnabled = household?.enabledFeatures.includes("expenses") ?? false;
@@ -52,8 +56,8 @@ export default function ExpensesPage() {
   const [undoableExpense, setUndoableExpense] = useState<Expense | null>(null);
   useEffect(() => {
     if (!undoableExpense) return;
-    const t = setTimeout(() => setUndoableExpense(null), 8000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setUndoableExpense(null), 8000);
+    return () => clearTimeout(timer);
   }, [undoableExpense]);
 
   useEffect(() => {
@@ -76,13 +80,13 @@ export default function ExpensesPage() {
   if (!householdId) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-        <h1 className="text-display mb-6 animate-rise">Finanzen</h1>
+        <h1 className="text-display mb-6 animate-rise">{t("Finances", "Finanzen")}</h1>
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body text-[var(--text-secondary)] mb-4">
-            Join or create a household first. Your budget stays private to you — the Verteilertopf and pots can optionally be shared.
+            {t("Join or create a household first. Your budget stays private to you — the Verteilertopf and pots can optionally be shared.", "Tritt zuerst einem Haushalt bei oder erstelle einen. Dein Budget bleibt privat – Verteilertopf und Sparziele kannst du optional teilen.")}
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
-            Go to Login
+            {t("Go to Login", "Zur Anmeldung")}
           </Link>
         </div>
       </div>
@@ -94,12 +98,15 @@ export default function ExpensesPage() {
       <FeatureOnboarding
         feature="expenses"
         icon={Wallet}
-        title="Finanzen"
-        description="Ein Feature für den ganzen Geldfluss: Lohn verteilen, Rechnungen planen, Budgets im Blick behalten und gemeinsam sparen."
+        title={t("Finances", "Finanzen")}
+        description={t(
+          "One feature for the whole flow of money: distribute income, plan bills, keep an eye on budgets and save together.",
+          "Ein Feature für den ganzen Geldfluss: Lohn verteilen, Rechnungen planen, Budgets im Blick behalten und gemeinsam sparen."
+        )}
         bullets={[
-          "Verteilertopf: plant, wie der Lohn auf Steuern, Rechnungen und Puffer aufgeteilt wird",
-          "Budgets und Ausgaben sind standardmässig privat",
-          "Sparziele können privat bleiben oder mit dem Haushalt geteilt werden",
+          t("Verteilertopf: plans how your income is split between taxes, bills and buffer", "Verteilertopf: plant, wie der Lohn auf Steuern, Rechnungen und Puffer aufgeteilt wird"),
+          t("Budgets and expenses are private by default", "Budgets und Ausgaben sind standardmässig privat"),
+          t("Savings goals can stay private or be shared with the household", "Sparziele können privat bleiben oder mit dem Haushalt geteilt werden"),
         ]}
       />
     );
@@ -107,9 +114,7 @@ export default function ExpensesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-      </div>
+      <MascotLoader className="py-24" label={t('Loading', 'Lädt')} />
     );
   }
 
@@ -147,17 +152,17 @@ export default function ExpensesPage() {
       {undoableExpense && (
         <div className="mb-4 p-3 rounded-[var(--radius-md)] border animate-rise flex items-center justify-between" style={{ background: 'var(--warning-soft)', borderColor: 'transparent' }}>
           <div>
-            <div className="font-medium">Ausgabe erfasst: {undoableExpense.title}</div>
-            <div className="text-xs text-[var(--text-secondary)]">{undoableExpense.amount.toFixed(2)} CHF · {undoableExpense.category}</div>
+            <div className="font-medium">{t("Expense recorded", "Ausgabe erfasst")}: {undoableExpense.title}</div>
+            <div className="text-xs text-[var(--text-secondary)]">{undoableExpense.amount.toFixed(2)} CHF · {localizeLabel(undoableExpense.category, lang)}</div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => handleUndoExpense()} className="btn btn-secondary btn-sm">Rückgängig</button>
-            <button onClick={() => setUndoableExpense(null)} className="press px-2 py-1 text-sm text-[var(--text-secondary)]">Schliessen</button>
+            <button onClick={() => handleUndoExpense()} className="btn btn-secondary btn-sm">{t("Undo", "Rückgängig")}</button>
+            <button onClick={() => setUndoableExpense(null)} className="press px-2 py-1 text-sm text-[var(--text-secondary)]">{t("Close", "Schliessen")}</button>
           </div>
         </div>
       )}
-      <h1 className="text-display mb-1 animate-rise">Finanzen</h1>
-      <p className="text-caption mb-6 animate-rise">Verteilertopf, Budgets und Sparziele — an einem Ort. Budgets bleiben privat, Sparziele können geteilt werden.</p>
+      <h1 className="text-display mb-1 animate-rise">{t("Finances", "Finanzen")}</h1>
+      <p className="text-caption mb-6 animate-rise">{t("Verteilertopf, budgets and savings goals — in one place. Budgets stay private, savings goals can be shared.", "Verteilertopf, Budgets und Sparziele — an einem Ort. Budgets bleiben privat, Sparziele können geteilt werden.")}</p>
 
       <div className="flex gap-2 mb-6 border-b divider overflow-x-auto">
         {TABS.map(({ key, label }) => (
@@ -171,7 +176,7 @@ export default function ExpensesPage() {
                 : { borderColor: 'transparent', color: 'var(--text-secondary)' }
             }
           >
-            {label}
+            {label[lang]}
           </button>
         ))}
       </div>

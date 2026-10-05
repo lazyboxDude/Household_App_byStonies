@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { showToast } from "../../../lib/toast";
+import { useI18n } from "../../context/LanguageContext";
 import { Debt } from "../types";
 import { r2 } from "../format";
 
 export function useDebts(userId: string | undefined, householdId: string | undefined) {
+  const { t } = useI18n();
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,13 +79,13 @@ export function useDebts(userId: string | undefined, householdId: string | undef
     const nextRemaining = Math.max(0, r2(debt.remaining - amount));
     setDebts((prev) => prev.map((d) => (d.id === id ? { ...d, remaining: nextRemaining } : d)));
     await supabase.from("debts").update({ remaining: nextRemaining }).eq("id", id);
-    if (nextRemaining === 0) showToast(`${debt.name} ist abbezahlt!`, "success");
+    if (nextRemaining === 0) showToast(t(`${debt.name} is paid off.`, `${debt.name} ist abbezahlt.`), "success");
   };
 
   const editDebt = async (id: string, name: string, total: number, monthlyPayment: number) => {
     setDebts((prev) => prev.map((d) => (d.id === id ? { ...d, name, total, monthlyPayment } : d)));
     await supabase.from("debts").update({ name, total: r2(total), monthly_payment: r2(monthlyPayment) }).eq("id", id);
-    showToast("Schuld aktualisiert", "success");
+    showToast(t("Debt updated", "Schuld aktualisiert"), "success");
   };
 
   const deleteDebt = async (id: string) => {

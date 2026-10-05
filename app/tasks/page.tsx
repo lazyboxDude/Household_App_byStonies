@@ -8,6 +8,7 @@ import TaskListTab from "./components/TaskListTab";
 import CleaningPlanTab from "./components/CleaningPlanTab";
 import TaskOnboarding from "./components/TaskOnboarding";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../context/LanguageContext";
 import { supabase } from "../lib/supabase";
 
 function onboardingSeenKey(householdId: string) {
@@ -23,6 +24,7 @@ type Tab = "tasks" | "cleaning";
 
 export default function TasksPage() {
   const { household } = useAuth();
+  const { t } = useI18n();
   const householdId = household?.id;
 
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
@@ -98,14 +100,14 @@ export default function TasksPage() {
       <div className="p-6 max-w-6xl mx-auto">
         <h1 className="text-display flex items-center gap-3 mb-6 animate-rise">
           <CheckCircle2 className="w-8 h-8 text-green-500" />
-          Household Tasks
+          {t("Household Tasks", "Haushaltsaufgaben")}
         </h1>
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body text-[var(--text-secondary)] mb-4">
-            Join or create a household to share tasks and the cleaning plan.
+            {t("Join or create a household to share tasks and the cleaning plan.", "Tritt einem Haushalt bei oder erstelle einen, um Aufgaben und Putzplan zu teilen.")}
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
-            Go to Login
+            {t("Go to Login", "Zur Anmeldung")}
           </Link>
         </div>
       </div>
@@ -114,7 +116,7 @@ export default function TasksPage() {
 
   if (isLoading) {
     return (
-      <MascotLoader className="py-24" />
+      <MascotLoader className="py-24" label={t("Loading", "Lädt")} />
     );
   }
 
@@ -123,7 +125,7 @@ export default function TasksPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 animate-rise">
         <h1 className="text-display flex items-center gap-3">
           <CheckCircle2 className="w-8 h-8 text-green-500" />
-          Household Tasks
+          {t("Household Tasks", "Haushaltsaufgaben")}
         </h1>
 
         {/* Progress — a plain, non-competitive count, not a scoreboard */}
@@ -136,10 +138,11 @@ export default function TasksPage() {
           </div>
           <div>
             <div className="text-headline">
-              {counts.open === 0 ? "All caught up" : `${counts.open} open`}
+              {counts.open === 0 ? t("All caught up", "Alles erledigt") : t(`${counts.open} open`, `${counts.open} offen`)}
             </div>
             <p className="text-caption">
-              {counts.done} completed so far{counts.open === 0 && counts.done > 0 ? " · nicely done" : ""}
+              {t(`${counts.done} completed so far`, `${counts.done} bisher erledigt`)}
+              {counts.open === 0 && counts.done > 0 ? t(" · nicely done", " · gut gemacht") : ""}
             </p>
           </div>
         </div>
@@ -157,7 +160,7 @@ export default function TasksPage() {
               : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
           }`}
         >
-          Tasks
+          {t("Tasks", "Aufgaben")}
         </button>
         <button
           onClick={() => setActiveTab("cleaning")}
@@ -167,7 +170,7 @@ export default function TasksPage() {
               : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
           }`}
         >
-          <Sparkles className="w-4 h-4" /> Cleaning Plan
+          <Sparkles className="w-4 h-4" /> {t("Cleaning Plan", "Putzplan")}
         </button>
       </div>
 

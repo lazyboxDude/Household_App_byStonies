@@ -3,12 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Home, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import Mascot from "@/components/Mascot";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useI18n } from "../context/LanguageContext";
 import Turnstile, { TurnstileHandle } from "../components/Turnstile";
 
 export default function LoginPage() {
   const { login, loginWithGoogle, createHousehold, joinHousehold, user, household } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
 
   // "household" is reached either by explicitly finishing the name step, or
   // by landing back here signed in (e.g. the Google OAuth redirect) without
@@ -61,7 +65,7 @@ export default function LoginPage() {
       const success = await joinHousehold(inviteCode);
       setIsHouseholdLoading(false);
       if (success) router.push("/");
-      else setJoinError("Invalid invite code.");
+      else setJoinError(t("Invalid invite code.", "Dieser Einladungscode stimmt nicht."));
     } else {
       setIsHouseholdLoading(false);
     }
@@ -78,36 +82,31 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
+      className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        background:
-          "radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-soft), transparent), var(--bg)",
+        background: "radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-soft), transparent)",
       }}
     >
+      <LanguageSwitcher className="absolute top-4 right-4" />
       <div className="surface-raised animate-sheet p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: "var(--accent-soft)" }}
-          >
-            <Home className="w-8 h-8" style={{ color: "var(--accent)" }} />
-          </div>
-          <h1 className="text-title text-[var(--text)]">Welcome Home</h1>
+          <Mascot mood="wave" size={96} className="mx-auto" />
+          <h1 className="text-title text-[var(--text)]">{t("Welcome Home", "Willkommen zu Hause")}</h1>
           <p className="text-body text-[var(--text-secondary)] mt-2">
-            Manage your household together
+            {t("Manage your household together", "Euren Haushalt gemeinsam organisieren")}
           </p>
         </div>
 
         {step === "name" ? (
           <form onSubmit={handleNameSubmit} className="space-y-4">
             <div>
-              <label className="block text-caption mb-1.5">What&apos;s your name?</label>
+              <label className="block text-caption mb-1.5">{t("What's your name?", "Wie heißt du?")}</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="field"
-                placeholder="e.g. Alex"
+                placeholder={t("e.g. Alex", "z. B. Alex")}
                 autoFocus
               />
             </div>
@@ -123,7 +122,7 @@ export default function LoginPage() {
               disabled={!name.trim() || isNameLoading || (turnstileEnabled && !turnstileToken)}
               className="btn btn-primary w-full py-3"
             >
-              {isNameLoading ? "Signing in..." : <>Continue <ArrowRight className="w-4 h-4" /></>}
+              {isNameLoading ? t("Signing in...", "Anmelden …") : <>{t("Continue", "Weiter")} <ArrowRight className="w-4 h-4" /></>}
             </button>
 
             <div className="relative my-6">
@@ -131,7 +130,7 @@ export default function LoginPage() {
                 <div className="w-full border-t divider" />
               </div>
               <div className="relative flex justify-center">
-                <span className="px-2 bg-[var(--surface)] text-caption">Or continue with</span>
+                <span className="px-2 bg-[var(--surface)] text-caption">{t("Or continue with", "Oder weiter mit")}</span>
               </div>
             </div>
 
@@ -142,7 +141,7 @@ export default function LoginPage() {
               className="btn btn-secondary w-full py-3"
             >
               {isGoogleLoading ? (
-                <span className="animate-pulse">Connecting...</span>
+                <span className="animate-pulse">{t("Connecting...", "Verbinden …")}</span>
               ) : (
                 <>
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -187,7 +186,7 @@ export default function LoginPage() {
                 }}
                 className="relative z-10 press py-2 text-sm font-medium rounded-md text-[var(--text)]"
               >
-                Create New Home
+                {t("Create New Home", "Neues Zuhause")}
               </button>
               <button
                 onClick={() => {
@@ -196,26 +195,26 @@ export default function LoginPage() {
                 }}
                 className="relative z-10 press py-2 text-sm font-medium rounded-md text-[var(--text)]"
               >
-                Join Existing
+                {t("Join Existing", "Beitreten")}
               </button>
             </div>
 
             <form onSubmit={handleHouseholdSubmit} className="space-y-4">
               {mode === "create" ? (
                 <div>
-                  <label className="block text-caption mb-1.5">Household Name</label>
+                  <label className="block text-caption mb-1.5">{t("Household Name", "Name des Haushalts")}</label>
                   <input
                     type="text"
                     value={householdName}
                     onChange={(e) => setHouseholdName(e.target.value)}
                     className="field"
-                    placeholder="e.g. The Stonies"
+                    placeholder={t("e.g. The Stonies", "z. B. Familie Stonies")}
                   />
                   <p className="text-caption mt-2 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> You&apos;ll get an invite code to share
+                    <Sparkles className="w-3 h-3" /> {t("You'll get an invite code to share", "Du bekommst einen Einladungscode zum Teilen")}
                   </p>
 
-                  <label className="block text-caption mb-1.5 mt-4">How do you want to share control?</label>
+                  <label className="block text-caption mb-1.5 mt-4">{t("How do you want to share control?", "Wie wollt ihr Entscheidungen teilen?")}</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -226,9 +225,9 @@ export default function LoginPage() {
                         background: ownershipMode === "equal" ? "var(--accent-soft)" : "var(--surface-2)",
                       }}
                     >
-                      <span className="block text-sm font-medium text-[var(--text)]">Equal</span>
+                      <span className="block text-sm font-medium text-[var(--text)]">{t("Equal", "Gleichberechtigt")}</span>
                       <span className="block text-caption mt-0.5">
-                        Everyone decides together — good for couples
+                        {t("Everyone decides together — good for couples", "Alle entscheiden gemeinsam – gut für Paare")}
                       </span>
                     </button>
                     <button
@@ -240,22 +239,22 @@ export default function LoginPage() {
                         background: ownershipMode === "owner_led" ? "var(--accent-soft)" : "var(--surface-2)",
                       }}
                     >
-                      <span className="block text-sm font-medium text-[var(--text)]">Main tenant</span>
+                      <span className="block text-sm font-medium text-[var(--text)]">{t("Main tenant", "Hauptmieter:in")}</span>
                       <span className="block text-caption mt-0.5">
-                        You keep control of settings — good for shared flats
+                        {t("You keep control of settings — good for shared flats", "Du behältst die Einstellungen in der Hand – gut für WGs")}
                       </span>
                     </button>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <label className="block text-caption mb-1.5">Invite Code</label>
+                  <label className="block text-caption mb-1.5">{t("Invite Code", "Einladungscode")}</label>
                   <input
                     type="text"
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                     className="field uppercase tracking-widest"
-                    placeholder="e.g. X8Y2Z1"
+                    placeholder="X8Y2Z1"
                   />
                   {joinError && (
                     <p className="text-caption mt-2" style={{ color: "var(--danger)" }}>
@@ -271,10 +270,10 @@ export default function LoginPage() {
                 className="btn btn-primary w-full py-3"
               >
                 {isHouseholdLoading
-                  ? "Please wait..."
+                  ? t("Please wait...", "Einen Moment …")
                   : mode === "create"
-                  ? "Create Household"
-                  : "Join Household"}
+                  ? t("Create Household", "Haushalt erstellen")
+                  : t("Join Household", "Haushalt beitreten")}
               </button>
             </form>
           </div>

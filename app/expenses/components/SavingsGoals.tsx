@@ -3,29 +3,31 @@
 import React, { useState } from "react";
 import { showToast } from "../../../lib/toast";
 import { fmt } from "../format";
+import { useI18n } from "../../context/LanguageContext";
 import { usePots } from "../hooks/usePots";
 
 export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof usePots> }) {
   const { pots, createPot, addToPot, editPot } = p;
+  const { t: tr } = useI18n();
 
   const handleEditPot = async (id: string) => {
     const pot = pots.find((x) => x.id === id);
     if (!pot) return;
-    const newName = window.prompt("Namen bearbeiten", pot.name);
+    const newName = window.prompt(tr("Edit name", "Namen bearbeiten"), pot.name);
     if (newName === null) return;
-    const newTargetRaw = window.prompt("Zielbetrag bearbeiten", String(pot.target));
+    const newTargetRaw = window.prompt(tr("Edit target amount", "Zielbetrag bearbeiten"), String(pot.target));
     if (newTargetRaw === null) return;
     const newTarget = parseFloat(newTargetRaw.replace(",", "."));
-    if (isNaN(newTarget)) return showToast("Ungültiger Betrag", "error");
+    if (isNaN(newTarget)) return showToast(tr("Invalid amount", "Ungültiger Betrag"), "error");
     await editPot(id, newName, newTarget);
   };
 
   return (
     <div className="surface p-4 animate-rise">
-      <h2 className="text-headline mb-3">Sparziele</h2>
+      <h2 className="text-headline mb-3">{tr("Savings goals", "Sparziele")}</h2>
       <CreatePotForm onCreate={createPot} />
       <div className="space-y-3 mt-3">
-        {pots.length === 0 && <p className="text-caption">Noch keine Sparziele — leg eins an, um für etwas Besonderes zu sparen.</p>}
+        {pots.length === 0 && <p className="text-caption">{tr("No savings goals yet — create one to save for something special.", "Noch keine Sparziele — leg eins an, um für etwas Besonderes zu sparen.")}</p>}
         {pots.map((p) => {
           const pct = p.target > 0 ? Math.min(100, Math.round((p.saved / p.target) * 100)) : 0;
           const isShared = p.ownerUserId === null;
@@ -43,10 +45,10 @@ export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof useP
                           : { background: "var(--surface-3)", color: "var(--text-tertiary)" }
                       }
                     >
-                      {isShared ? "Gemeinsam" : "Privat"}
+                      {isShared ? tr("Shared", "Gemeinsam") : tr("Private", "Privat")}
                     </span>
                   </div>
-                  <div className="text-xs text-[var(--text-secondary)]">{fmt(p.saved)} von {fmt(p.target)} CHF</div>
+                  <div className="text-xs text-[var(--text-secondary)]">{tr(`${fmt(p.saved)} of ${fmt(p.target)} CHF`, `${fmt(p.saved)} von ${fmt(p.target)} CHF`)}</div>
                 </div>
                 <div className="text-sm font-medium">{pct}%</div>
               </div>
@@ -54,7 +56,7 @@ export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof useP
                 <div style={{ width: `${pct}%`, height: "100%", background: pct > 80 ? "#3b82f6" : "#93c5fd", transition: "width var(--dur-slow) var(--ease-spring)" }} />
               </div>
               <div className="mt-3 flex gap-2">
-                <input type="number" placeholder="Betrag" id={`add-to-${p.id}`} className="field w-32 py-1.5 text-sm" />
+                <input type="number" placeholder={tr("Amount", "Betrag")} id={`add-to-${p.id}`} className="field w-32 py-1.5 text-sm" />
                 <button
                   onClick={() => {
                     const el = document.getElementById(`add-to-${p.id}`) as HTMLInputElement | null;
@@ -67,9 +69,9 @@ export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof useP
                   className="btn btn-sm"
                   style={{ background: "var(--success)", color: "white" }}
                 >
-                  Einzahlen
+                  {tr("Deposit", "Einzahlen")}
                 </button>
-                <button onClick={() => handleEditPot(p.id)} className="btn btn-sm" style={{ background: "#2563eb", color: "white" }}>Bearbeiten</button>
+                <button onClick={() => handleEditPot(p.id)} className="btn btn-sm" style={{ background: "#2563eb", color: "white" }}>{tr("Edit", "Bearbeiten")}</button>
               </div>
             </div>
           );
@@ -80,14 +82,15 @@ export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof useP
 }
 
 function CreatePotForm({ onCreate }: { onCreate: (name: string, target: number, shared: boolean) => void }) {
+  const { t: tr } = useI18n();
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [shared, setShared] = useState(false);
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name des Sparziels" className="field" />
-        <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Zielbetrag" className="field w-36" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Name of the savings goal", "Name des Sparziels")} className="field" />
+        <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder={tr("Target amount", "Zielbetrag")} className="field w-36" />
         <button
           onClick={() => {
             const t = parseFloat(target.replace(",", "."));
@@ -99,12 +102,12 @@ function CreatePotForm({ onCreate }: { onCreate: (name: string, target: number, 
           }}
           className="btn btn-primary"
         >
-          Anlegen
+          {tr("Create", "Anlegen")}
         </button>
       </div>
       <label className="flex items-center gap-2 text-caption cursor-pointer w-fit">
         <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} />
-        Mit Haushalt teilen (gemeinsames Konto) — aus lässt es privat
+        {tr("Share with household (joint account) — leave off to keep it private", "Mit Haushalt teilen (gemeinsames Konto) — aus lässt es privat")}
       </label>
     </div>
   );

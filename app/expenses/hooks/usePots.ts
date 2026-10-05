@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { showToast } from "../../../lib/toast";
+import { useI18n } from "../../context/LanguageContext";
 import { Pot } from "../types";
 
 export function usePots(userId: string | undefined, householdId: string | undefined) {
+  const { t } = useI18n();
   const [pots, setPots] = useState<Pot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,7 +64,7 @@ export function usePots(userId: string | undefined, householdId: string | undefi
   const editPot = async (id: string, name: string, target: number) => {
     setPots((prev) => prev.map((x) => (x.id === id ? { ...x, name, target } : x)));
     await supabase.from("pots").update({ name, target }).eq("id", id);
-    showToast("Sparziel aktualisiert", "success");
+    showToast(t("Savings goal updated", "Sparziel aktualisiert"), "success");
   };
 
   return { pots, isLoading, createPot, addToPot, editPot };
