@@ -179,6 +179,10 @@
         (<code>supabase.auth.signInAnonymously</code>) fails.</span></li>
       <li><input type="checkbox" disabled><span><strong>Attack Protection</strong>: add the Turnstile secret key if
         <code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code> is set.</span></li>
+      <li class="done"><input type="checkbox" disabled checked><span><strong>Database:</strong>
+        <code>supabase/migrations/20261005120000_calendar_feed.sql</code> applied to the <code>household-app-bystonies</code>
+        project on 2026-10-05. Needed again only for a fresh database (SQL editor or <code>supabase db push</code>; the file is idempotent).
+        Without it, the calendar link in Settings shows an error and the feed route returns 503.</span></li>
     </ul>
   </div>
 
@@ -237,7 +241,11 @@
     <li><input type="checkbox" disabled><span>Offline support (service worker / cache). The PWA manifest is in place, so the app is installable but not offline-capable.</span></li>
     <li><input type="checkbox" disabled><span>Settings: rename household, remove member / leave household, regenerate invite code, manual dark-mode toggle.</span></li>
     <li><input type="checkbox" disabled><span>Optional coins/virtual-reward layer.</span></li>
-    <li><input type="checkbox" disabled><span>Replace mocks: “Find Nearby” shops and calendar suggestions.</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Removed the mock “Find Nearby” shops and calendar “Discover Nearby” suggestions (they showed hard-coded placeholder data).
+      Real nearby suggestions would need a places API key and a location prompt — not planned.</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Calendar subscription link (ICS feed): Settings → Calendar link. Works with Google, Apple and Outlook; read-only, app → calendar.</span></li>
+    <li><input type="checkbox" disabled><span>Two-way Google Calendar sync (Google Calendar API, OAuth with calendar scope, stored refresh tokens, push notifications).
+      Only worth it if events created in Google should appear in the app.</span></li>
     <li><input type="checkbox" disabled><span>General UI pass: the current look was flagged as needing improvement — revisit now that the Cleaning Plan
       and Finanzen data models are in place.</span></li>
   </ul>
@@ -264,8 +272,18 @@ interface CleaningTask {
 
   <p>Each cleaning task's <code>next_due</code> is mirrored into the shared <code>calendar_events</code> table
   (column <code>source_cleaning_task_id</code>, title prefixed with 🧹, 09:00) when the task is created and recomputed
-  whenever it is marked done. Deleting a task or room removes its events via DB cascade. The Calendar page does not
-  treat these events specially.</p>
+  whenever it is marked done. Deleting a task or room removes its events via DB cascade. The Calendar page shows these
+  events read-only (they are managed from the Tasks page).</p>
+
+  <h3>Calendar subscription link</h3>
+  <p>Each household has a random <code>calendar_feed_token</code> (migration
+  <code>supabase/migrations/20261005120000_calendar_feed.sql</code>). The public route
+  <code>/api/calendar/feed/&lt;token&gt;.ics</code> resolves the token inside the database via
+  <code>get_calendar_feed(token)</code> (callable with the anon key, returns only that household's events from the last
+  180 days onward) and renders an iCalendar feed with <code>app/lib/ics.ts</code>. Times are floating local times, so
+  they show at the same clock time in the subscriber's timezone. The link is a secret: members can replace it with
+  <code>rotate_calendar_feed_token</code> (“Reset link” in Settings). Google refreshes subscribed calendars on its own
+  schedule, typically every few hours.</p>
 </main>
 </body>
 </html>

@@ -13,7 +13,6 @@ interface ShoppingListProps {
   newStore: string;
   setNewStore: (val: string) => void;
   addItem: (e: React.FormEvent) => void;
-  simulateFindShops: () => void;
   toggleItem: (id: string) => void;
   deleteItem: (id: string) => void;
   searchItem: (item: ShoppingItem) => void;
@@ -30,7 +29,6 @@ export default function ShoppingList({
   newStore,
   setNewStore,
   addItem,
-  simulateFindShops,
   toggleItem,
   deleteItem,
   searchItem,
@@ -111,14 +109,6 @@ export default function ShoppingList({
       {/* Shops Quick View */}
       <div className="mb-6 overflow-x-auto pb-2">
         <div className="flex items-center gap-2">
-          <button
-            onClick={simulateFindShops}
-            className="chip flex-shrink-0"
-            style={{ background: "rgba(59,130,246,0.12)", color: "#3b82f6", borderColor: "transparent" }}
-          >
-            <MapPin className="w-3 h-3" />
-            {t("Find Nearby", "In der Nähe suchen")}
-          </button>
           {shops.map(shop => (
             <button
               key={shop}

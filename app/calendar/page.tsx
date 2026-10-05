@@ -1,7 +1,7 @@
 "use client";
 import Tesseract from 'tesseract.js';
 import Link from 'next/link';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   format,
@@ -14,15 +14,16 @@ import {
   subMonths,
   isSameMonth,
   isSameDay,
-  isToday,
-  getDay
+  isToday
 } from 'date-fns';
 import { de as dateFnsDe, enUS as dateFnsEn } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin } from 'lucide-react';
 import { MascotLoader } from '@/components/Mascot';
 import { useAuth } from '../context/AuthContext';
-import { useI18n, type Language } from '../context/LanguageContext';
+import { useI18n } from '../context/LanguageContext';
 import { supabase } from '../lib/supabase';
+import type { Tables } from '../lib/database.types';
+import { showToast } from '../../lib/toast';
 import FeatureOnboarding from '../components/FeatureOnboarding';
 
 interface CalendarEvent {
@@ -33,16 +34,9 @@ interface CalendarEvent {
   type: 'task' | 'shopping' | 'event';
   location?: string;
   photo?: string; // base64 data URL or a real URL
-}
-
-interface Suggestion {
-  id: string;
-  title: string;
-  category: string;
-  /** Drives the event type when a suggestion is added. */
-  kind: 'shopping' | 'event';
-  location?: string;
-  description: string;
+  // Set for events mirrored from a cleaning task (see app/tasks/calendarSync.ts).
+  // They are managed from the Tasks page, so they are read-only here.
+  sourceCleaningTaskId?: string;
 }
 
 type Bi = { en: string; de: string };
@@ -53,40 +47,27 @@ const EVENT_TYPE_LABELS: Record<'event' | 'task' | 'shopping', Bi> = {
   shopping: { en: 'Shopping', de: 'Einkauf' },
 };
 
-// Placeholder ideas shown in "Discover Nearby" until a real places API is wired up.
-const BASE_SUGGESTIONS: { id: string; kind: 'shopping' | 'event'; title: Bi; category: Bi; location: Bi; description: Bi }[] = [
-  { id: '1', kind: 'shopping', title: { en: 'Local Farmers Market', de: 'Wochenmarkt' }, category: { en: 'Shopping', de: 'Einkauf' }, location: { en: 'Town Square', de: 'Dorfplatz' }, description: { en: 'Fresh produce and local goods.', de: 'Frisches Gemüse und regionale Produkte.' } },
-  { id: '2', kind: 'event', title: { en: 'Cinema Night', de: 'Kinoabend' }, category: { en: 'Entertainment', de: 'Unterhaltung' }, location: { en: 'City Mall Cinema', de: 'Stadtkino' }, description: { en: 'Catch the latest blockbuster.', de: 'Den neuesten Blockbuster ansehen.' } },
-  { id: '3', kind: 'event', title: { en: 'Park Picnic', de: 'Picknick im Park' }, category: { en: 'Outdoor', de: 'Draussen' }, location: { en: 'Central Park', de: 'Stadtpark' }, description: { en: 'Relaxing afternoon in the sun.', de: 'Ein entspannter Nachmittag in der Sonne.' } },
-];
-const WEEKEND_SUGGESTIONS: typeof BASE_SUGGESTIONS = [
-  { id: 'w1', kind: 'event', title: { en: 'Live Music Night', de: 'Live-Musik-Abend' }, category: { en: 'Nightlife', de: 'Ausgang' }, location: { en: 'The Jazz Corner', de: 'Jazzkeller' }, description: { en: 'Local bands playing live.', de: 'Lokale Bands spielen live.' } },
-  { id: 'w2', kind: 'event', title: { en: 'Hiking Trip', de: 'Wanderung' }, category: { en: 'Outdoor', de: 'Draussen' }, location: { en: 'Sunset Trail', de: 'Panoramaweg' }, description: { en: '3-hour scenic hike.', de: 'Aussichtsreiche Wanderung, ca. 3 Stunden.' } },
-];
-const WEEKDAY_SUGGESTIONS: { id: string; kind: 'shopping' | 'event'; title: Bi; category: Bi; location?: Bi; description: Bi }[] = [
-  { id: 'd1', kind: 'event', title: { en: 'Quick Gym Session', de: 'Kurzes Training' }, category: { en: 'Health', de: 'Gesundheit' }, location: { en: 'FitZone', de: 'FitZone' }, description: { en: '45 min cardio workout.', de: '45 Minuten Cardio-Training.' } },
-  { id: 'd2', kind: 'event', title: { en: 'Try a New Recipe', de: 'Neues Rezept ausprobieren' }, category: { en: 'Cooking', de: 'Kochen' }, description: { en: 'Cook something special for dinner.', de: 'Etwas Besonderes zum Abendessen kochen.' } },
-];
-
-function getMockSuggestions(date: Date, lang: Language): Suggestion[] {
-  const dayOfWeek = getDay(date); // 0 = Sun, 6 = Sat
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const list = isWeekend ? [...BASE_SUGGESTIONS, ...WEEKEND_SUGGESTIONS] : [...BASE_SUGGESTIONS.slice(0, 2), ...WEEKDAY_SUGGESTIONS];
-  return list.map((x) => ({
-    id: x.id,
-    kind: x.kind,
-    title: x.title[lang],
-    category: x.category[lang],
-    location: x.location?.[lang],
-    description: x.description[lang],
-  }));
-}
-
 // A bare "yyyy-MM-dd" parses as UTC midnight in JS, which can shift a day
 // backwards in timezones behind UTC — force local-midnight parsing instead.
 function parseDateOnly(iso: string) {
   return new Date(`${iso}T00:00:00`);
 }
+
+function toCalendarEvent(ev: Tables<'calendar_events'>): CalendarEvent {
+  return {
+    id: ev.id,
+    title: ev.title,
+    date: parseDateOnly(ev.date),
+    // A Postgres `time` column can come back as "HH:mm:ss"; the UI only uses "HH:mm".
+    time: ev.time.slice(0, 5),
+    type: ev.type as CalendarEvent['type'],
+    location: ev.location ?? undefined,
+    photo: ev.photo_url ?? undefined,
+    sourceCleaningTaskId: ev.source_cleaning_task_id ?? undefined,
+  };
+}
+
+const byTime = (a: CalendarEvent, b: CalendarEvent) => a.time.localeCompare(b.time);
 
 export default function CalendarPage() {
   const { household } = useAuth();
@@ -103,12 +84,11 @@ export default function CalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
-  // Discovery: placeholder ideas for the selected day (no live places API yet).
-  const suggestions = useMemo(() => getMockSuggestions(selectedDate, lang), [selectedDate, lang]);
-
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDate, setNewEventDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [newEventTime, setNewEventTime] = useState('12:00');
+  const [isSaving, setIsSaving] = useState(false);
   const [newEventType, setNewEventType] = useState<'task' | 'shopping' | 'event'>('event');
   const [newEventLocation, setNewEventLocation] = useState('');
   const [newEventPhoto, setNewEventPhoto] = useState<string | null>(null);
@@ -119,22 +99,15 @@ export default function CalendarPage() {
       .from('calendar_events')
       .select('*')
       .eq('household_id', householdId)
-      .order('date', { ascending: true });
-    if (!error) {
-      setEvents(
-        (data ?? []).map((ev) => ({
-          id: ev.id,
-          title: ev.title,
-          date: parseDateOnly(ev.date),
-          time: ev.time,
-          type: ev.type as 'task' | 'shopping' | 'event',
-          location: ev.location ?? undefined,
-          photo: ev.photo_url ?? undefined,
-        }))
-      );
+      .order('date', { ascending: true })
+      .order('time', { ascending: true });
+    if (error) {
+      showToast(t('Could not load events', 'Termine konnten nicht geladen werden'), 'error');
+    } else {
+      setEvents((data ?? []).map(toCalendarEvent));
     }
     setIsLoading(false);
-  }, [householdId]);
+  }, [householdId, t]);
 
   useEffect(() => {
     // Standard fetch-on-mount: loadEvents sets isLoading(false) once done.
@@ -157,18 +130,13 @@ export default function CalendarPage() {
     };
   }, [householdId, loadEvents]);
 
-  const handleAddSuggestion = (suggestion: Suggestion) => {
-    setNewEventTitle(suggestion.title);
-    setNewEventLocation(suggestion.location || '');
-    setNewEventType(suggestion.kind);
-    setNewEventTime('18:00'); // Default evening time
-    setSelectedDate(selectedDate);
-    setEditingEvent(null);
-    setIsModalOpen(true);
-  };
-
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentDate(today);
+    setSelectedDate(today);
+  };
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -185,7 +153,7 @@ export default function CalendarPage() {
       setNewEventTime(event.time);
       setNewEventType(event.type);
       setNewEventLocation(event.location || '');
-      setSelectedDate(event.date);
+      setNewEventDate(format(event.date, 'yyyy-MM-dd'));
       setNewEventPhoto(event.photo || null);
     } else {
       setEditingEvent(null);
@@ -193,6 +161,7 @@ export default function CalendarPage() {
       setNewEventTime('12:00');
       setNewEventType('event');
       setNewEventLocation('');
+      setNewEventDate(format(selectedDate, 'yyyy-MM-dd'));
       setNewEventPhoto(null);
     }
     setIsModalOpen(true);
@@ -200,61 +169,55 @@ export default function CalendarPage() {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEventTitle || !householdId) return;
+    if (!newEventTitle.trim() || !newEventDate || !householdId || isSaving) return;
 
     const row = {
-      title: newEventTitle,
+      title: newEventTitle.trim(),
       time: newEventTime,
       type: newEventType,
-      date: format(selectedDate, 'yyyy-MM-dd'),
-      location: newEventLocation || null,
+      date: newEventDate,
+      location: newEventLocation.trim() || null,
       photo_url: newEventPhoto || null,
     };
 
-    if (editingEvent) {
-      setEvents((prev) =>
-        prev.map((ev) =>
-          ev.id === editingEvent.id
-            ? { ...ev, title: newEventTitle, time: newEventTime, type: newEventType, date: selectedDate, location: newEventLocation, photo: newEventPhoto || undefined }
-            : ev
-        )
-      );
-      await supabase.from('calendar_events').update(row).eq('id', editingEvent.id);
-    } else {
-      const { data } = await supabase
-        .from('calendar_events')
-        .insert({ household_id: householdId, ...row })
-        .select()
-        .single();
-      if (data) {
-        setEvents((prev) => [
-          ...prev,
-          {
-            id: data.id,
-            title: data.title,
-            date: parseDateOnly(data.date),
-            time: data.time,
-            type: data.type as 'task' | 'shopping' | 'event',
-            location: data.location ?? undefined,
-            photo: data.photo_url ?? undefined,
-          },
-        ]);
-      }
+    setIsSaving(true);
+    const { data, error } = editingEvent
+      ? await supabase.from('calendar_events').update(row).eq('id', editingEvent.id).select().single()
+      : await supabase.from('calendar_events').insert({ household_id: householdId, ...row }).select().single();
+    setIsSaving(false);
+
+    // Keep the modal open on failure so the input isn't lost.
+    if (error || !data) {
+      showToast(t('Could not save event. Please try again.', 'Termin konnte nicht gespeichert werden. Bitte versuche es erneut.'), 'error');
+      return;
     }
 
+    const saved = toCalendarEvent(data);
+    setEvents((prev) =>
+      editingEvent ? prev.map((ev) => (ev.id === saved.id ? saved : ev)) : [...prev, saved]
+    );
+    // Jump to the saved day so a changed date doesn't make the event "disappear".
+    setSelectedDate(saved.date);
+    setCurrentDate(saved.date);
     setIsModalOpen(false);
     setNewEventPhoto(null);
   };
 
   const handleDeleteEvent = async () => {
     if (!editingEvent) return;
+    const { error } = await supabase.from('calendar_events').delete().eq('id', editingEvent.id);
+    if (error) {
+      showToast(t('Could not delete event. Please try again.', 'Termin konnte nicht gelöscht werden. Bitte versuche es erneut.'), 'error');
+      return;
+    }
     setEvents((prev) => prev.filter((ev) => ev.id !== editingEvent.id));
     setIsModalOpen(false);
-    await supabase.from('calendar_events').delete().eq('id', editingEvent.id);
   };
 
+  const isReadOnlyEvent = !!editingEvent?.sourceCleaningTaskId;
+
   const getEventsForDay = (date: Date) => {
-    return events.filter(event => isSameDay(event.date, date));
+    return events.filter(event => isSameDay(event.date, date)).sort(byTime);
   };
 
   if (!householdId) {
@@ -283,8 +246,8 @@ export default function CalendarPage() {
         icon={CalendarIcon}
         title={t('Calendar', 'Kalender')}
         description={t(
-          'A shared household calendar for events, with a nearby-activity discovery tab.',
-          'Ein gemeinsamer Haushaltskalender mit Ideen für Unternehmungen in der Nähe.'
+          'A shared household calendar for events and cleaning tasks.',
+          'Ein gemeinsamer Haushaltskalender für Termine und Putzaufgaben.'
         )}
         bullets={[
           t('Everyone in the household sees the same events, live', 'Alle im Haushalt sehen dieselben Termine, live'),
@@ -330,6 +293,13 @@ export default function CalendarPage() {
             className="press p-2 hover:bg-[var(--surface-2)] rounded-[var(--radius-sm)] transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
+          </button>
+          <button
+            onClick={goToToday}
+            className="press px-3 py-2 text-sm font-medium rounded-[var(--radius-sm)] hover:bg-[var(--surface-2)] transition-colors"
+            style={{ color: "var(--accent)" }}
+          >
+            {t('Today', 'Heute')}
           </button>
         </div>
 
@@ -468,37 +438,6 @@ export default function CalendarPage() {
                 ))
               )}
           </div>
-
-          <div className="pt-6 border-t divider">
-            <h3 className="text-headline flex items-center gap-2 mb-4">
-              <Sparkles className="w-4 h-4 text-orange-500" />
-              {t('Discover Nearby', 'In der Nähe entdecken')}
-            </h3>
-
-            <div className="space-y-3">
-              {suggestions.map(suggestion => (
-                <div key={suggestion.id} className="surface card-interactive p-3">
-                  <div className="flex justify-between items-start mb-1">
-                    <h4 className="font-semibold text-sm text-[var(--text)]">{suggestion.title}</h4>
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] tracking-wider">{suggestion.category}</span>
-                  </div>
-                  <p className="text-xs text-[var(--text-secondary)] mb-2 line-clamp-2">{suggestion.description}</p>
-                  {suggestion.location && (
-                    <div className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] mb-2">
-                      <MapPin className="w-3 h-3" />
-                      {suggestion.location}
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleAddSuggestion(suggestion)}
-                    className="press w-full py-1.5 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 rounded-lg transition-colors flex items-center justify-center gap-1"
-                  >
-                    {t('Add', 'Hinzufügen')} <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -512,13 +451,24 @@ export default function CalendarPage() {
         >
           <div className="material-sheet animate-sheet rounded-t-[var(--radius-lg)] md:rounded-[var(--radius-lg)] shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b divider flex justify-between items-center">
-              <h3 className="text-title">{editingEvent ? t('Edit Event', 'Termin bearbeiten') : t('Add New Event', 'Neuer Termin')}</h3>
+              <h3 className="text-title">
+                {isReadOnlyEvent ? t('Cleaning Task', 'Putzaufgabe') : editingEvent ? t('Edit Event', 'Termin bearbeiten') : t('Add New Event', 'Neuer Termin')}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} aria-label={t("Close", "Schliessen")} className="press text-[var(--text-tertiary)] hover:text-[var(--text)]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveEvent} className="p-6 space-y-4">
+              {isReadOnlyEvent && (
+                <p className="text-caption text-[var(--text-secondary)]">
+                  {t(
+                    'This event comes from the cleaning plan. Change its date or remove it on the Tasks page.',
+                    'Dieser Termin stammt aus dem Putzplan. Das Datum ändern oder ihn entfernen kannst du auf der Aufgaben-Seite.'
+                  )}
+                </p>
+              )}
+              <fieldset disabled={isReadOnlyEvent} className="space-y-4 min-w-0">
               <div>
                 <label className="block text-caption mb-1.5">{t('Photo (Optional)', 'Foto (optional)')}</label>
                 <input
@@ -532,12 +482,15 @@ export default function CalendarPage() {
                       reader.onload = async (ev) => {
                         const imageData = ev.target?.result as string;
                         setNewEventPhoto(imageData);
-                        // OCR: extract text from image
-                        const { data } = await Tesseract.recognize(imageData, lang === 'de' ? 'deu+eng' : 'eng');
-                        if (data.text) {
-                          // Try to autofill event title with first line of text
-                          const firstLine = data.text.split('\n').find(line => line.trim().length > 0);
-                          if (firstLine) setNewEventTitle(firstLine.trim());
+                        // OCR: suggest a title from the first line of text, but never
+                        // overwrite something the user already typed. A failed scan
+                        // just means no suggestion — the photo is still attached.
+                        try {
+                          const { data } = await Tesseract.recognize(imageData, lang === 'de' ? 'deu+eng' : 'eng');
+                          const firstLine = data.text?.split('\n').find(line => line.trim().length > 0);
+                          if (firstLine) setNewEventTitle((current) => current.trim() ? current : firstLine.trim());
+                        } catch {
+                          // ignore OCR failures
                         }
                       };
                       reader.readAsDataURL(file);
@@ -557,6 +510,7 @@ export default function CalendarPage() {
                   onChange={(e) => setNewEventTitle(e.target.value)}
                   placeholder={t("Grocery shopping, Date night, etc.", "Einkaufen, Date Night usw.")}
                   className="field"
+                  required
                   autoFocus
                 />
               </div>
@@ -564,9 +518,13 @@ export default function CalendarPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-caption mb-1.5">{t('Date', 'Datum')}</label>
-                  <div className="field text-[var(--text-secondary)]" style={{ background: "var(--surface-3)" }}>
-                    {format(selectedDate, lang === 'de' ? 'd. MMM yyyy' : 'MMM d, yyyy', { locale: dfLocale })}
-                  </div>
+                  <input
+                    type="date"
+                    value={newEventDate}
+                    onChange={(e) => setNewEventDate(e.target.value)}
+                    className="field"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-caption mb-1.5">{t('Time', 'Uhrzeit')}</label>
@@ -575,6 +533,7 @@ export default function CalendarPage() {
                     value={newEventTime}
                     onChange={(e) => setNewEventTime(e.target.value)}
                     className="field"
+                    required
                   />
                 </div>
               </div>
@@ -614,23 +573,36 @@ export default function CalendarPage() {
                 </div>
               </div>
 
+              </fieldset>
+
               <div className="flex gap-3 mt-6">
-                {editingEvent && (
-                  <button
-                    type="button"
-                    onClick={handleDeleteEvent}
-                    className="btn btn-danger flex-1 py-3"
-                  >
-                    {t('Delete', 'Löschen')}
+                {isReadOnlyEvent ? (
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-primary flex-1 py-3">
+                    {t('Close', 'Schliessen')}
                   </button>
+                ) : (
+                  <>
+                    {editingEvent && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteEvent}
+                        className="btn btn-danger flex-1 py-3"
+                      >
+                        {t('Delete', 'Löschen')}
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="btn btn-primary py-3"
+                      style={{ flex: 2, boxShadow: "0 8px 20px -8px var(--accent-ring)" }}
+                    >
+                      {isSaving
+                        ? t('Saving…', 'Speichern…')
+                        : editingEvent ? t('Update Event', 'Termin aktualisieren') : t('Save Event', 'Termin speichern')}
+                    </button>
+                  </>
                 )}
-                <button
-                  type="submit"
-                  className="btn btn-primary py-3"
-                  style={{ flex: 2, boxShadow: "0 8px 20px -8px var(--accent-ring)" }}
-                >
-                  {editingEvent ? t('Update Event', 'Termin aktualisieren') : t('Save Event', 'Termin speichern')}
-                </button>
               </div>
             </form>
           </div>

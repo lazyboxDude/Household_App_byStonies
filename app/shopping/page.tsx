@@ -163,30 +163,6 @@ export default function ShoppingPage() {
     setNewStore("");
   };
 
-  const simulateFindShops = async () => {
-    if (!householdId) return;
-    // In a real app, this would use the Google Places API
-    const nearby = ["Local Market", "Fresh Grocer", "City Supermarket"];
-    const newShopNames = nearby.filter((s) => !shops.includes(s));
-    if (newShopNames.length === 0) {
-      alert(t("No new shops found nearby.", "Keine neuen Geschäfte in der Nähe gefunden."));
-      return;
-    }
-    const { data, error } = await supabase
-      .from("shops")
-      .upsert(
-        newShopNames.map((name) => ({ household_id: householdId, name })),
-        { onConflict: "household_id,name", ignoreDuplicates: true }
-      )
-      .select();
-    if (error) {
-      console.error("Failed to add nearby shops:", error);
-      return;
-    }
-    setShops((prev) => [...new Set([...prev, ...(data ?? []).map((s) => s.name)])].sort());
-    alert(t(`Found ${data?.length ?? 0} nearby shops.`, `${data?.length ?? 0} Geschäfte in der Nähe gefunden.`));
-  };
-
   const toggleItem = async (id: string) => {
     const target = items.find((i) => i.id === id);
     if (!target) return;
@@ -381,7 +357,6 @@ export default function ShoppingPage() {
               newStore={newStore}
               setNewStore={setNewStore}
               addItem={addItem}
-              simulateFindShops={simulateFindShops}
               toggleItem={toggleItem}
               deleteItem={deleteItem}
               searchItem={searchItem}
