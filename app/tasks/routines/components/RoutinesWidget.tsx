@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
@@ -10,13 +11,16 @@ import WeekAgenda from "./WeekAgenda";
 // Dashboard card. Stays out of the way (renders nothing) until the household has a routine.
 export default function RoutinesWidget({ householdId, style }: { householdId: string; style?: React.CSSProperties }) {
   const { user, household } = useAuth();
-  const members = household?.members ?? [];
+  const members = useMemo(() => household?.members ?? [], [household?.members]);
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
   const calendarEnabled = household?.enabledFeatures.includes("calendar") ?? false;
   const expensesEnabled = household?.enabledFeatures.includes("expenses") ?? false;
-  const { routines, occurrences, today, undoable, resolve, payBill, finance } = useRoutines(householdId, user?.id, {
-    calendarEnabled,
-    expensesEnabled,
-  });
+  const { routines, occurrences, today, undoable, resolve, payBill, swap, finance } = useRoutines(
+    householdId,
+    user?.id,
+    { calendarEnabled, expensesEnabled },
+    memberIds
+  );
 
   if (routines.length === 0) return null;
 
@@ -31,7 +35,7 @@ export default function RoutinesWidget({ householdId, style }: { householdId: st
           Routinen <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
-      <WeekAgenda items={items} memberName={memberName} onResolve={resolve} onPay={payBill} finance={finance} undoable={undoable} />
+      <WeekAgenda items={items} memberName={memberName} onResolve={resolve} onPay={payBill} onSwap={swap} members={members} userId={user?.id} finance={finance} undoable={undoable} />
     </section>
   );
 }

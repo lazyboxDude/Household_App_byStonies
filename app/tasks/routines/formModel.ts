@@ -1,7 +1,8 @@
 // Form state <-> Routine. Kept out of the component so it can be tested.
 
 import { addDays, occurrencesBetween, parseDateList, weekdayOf } from "./schedule.ts";
-import type { AmountKind, IntervalUnit, RoutineKind, RoutineMode, Schedule } from "./types.ts";
+import { equalSplit, splitTotal } from "./settle.ts";
+import type { AmountKind, Assignment, IntervalUnit, LivingMode, RoutineKind, RoutineMode, Schedule, Split } from "./types.ts";
 import type { RoutineTemplate } from "./templates.ts";
 
 export interface RoutineFormState {
@@ -29,6 +30,13 @@ export interface RoutineFormState {
   amountKind: AmountKind;
   payerId: string | null;
   expenseCategory: string;
+  // Who does it
+  assignment: Assignment;
+  rotation: string[]; // chosen members; the turn order follows the member list
+  effort: 1 | 2 | 3 | 5;
+  // Bills: how the cost is divided
+  splitMode: "none" | "equal" | "custom";
+  splitCustom: Record<string, string>; // user id -> percent as typed
 }
 
 export interface BuiltRoutine {
@@ -45,6 +53,10 @@ export interface BuiltRoutine {
   amountKind: AmountKind | null;
   payerId: string | null;
   expenseCategory: string | null;
+  assignment: Assignment;
+  rotation: string[] | null;
+  effort: 1 | 2 | 3 | 5;
+  split: Split | null;
 }
 
 // "95", "95.50", "95,50", "1'250.00" -> number; empty or unreadable -> null.
@@ -90,7 +102,26 @@ export function emptyForm(today: string): RoutineFormState {
     amountKind: "fixed",
     payerId: null,
     expenseCategory: "",
+    assignment: "open",
+    rotation: [],
+    effort: 2,
+    splitMode: "none",
+    splitCustom: {},
   };
+}
+
+// Paar vs. WG only changes the starting point: a WG rotates chores and splits bills equally,
+// a couple starts open and without a split (they often pay from the joint account).
+// It never overrides something the person already chose.
+export function livingDefaults(f: RoutineFormState, mode: LivingMode, memberIds: string[]): RoutineFormState {
+  if (mode !== "wg" || memberIds.length < 2) return f;
+  const next = { ...f };
+  if (next.assignment === "open" && next.rotation.length === 0) {
+    next.assignment = "rotation";
+    next.rotation = memberIds;
+  }
+  if (next.splitMode === "none") next.splitMode = "equal";
+  return next;
 }
 
 // Switching to "Rechnung" moves the sensible defaults along: monthly on the 1st, fixed date,
@@ -132,7 +163,7 @@ export function formFromTemplate(t: RoutineTemplate, today: string): RoutineForm
 
 export type BuildResult = { ok: true; routine: BuiltRoutine } | { ok: false; message: string };
 
-export function buildRoutine(f: RoutineFormState): BuildResult {
+export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): BuildResult {
   const title = f.title.trim();
   if (!title) return { ok: false, message: "Wie soll die Routine heissen?" };
 
@@ -171,6 +202,35 @@ export function buildRoutine(f: RoutineFormState): BuildResult {
     return { ok: false, message: f.amountKind === "estimate" ? "Wie viel ist es ungefähr?" : "Wie viel kostet es?" };
   }
 
+  // Who does it (not for bills: they have a payer)
+  let rotation: string[] | null = null;
+  if (!isBill) {
+    if (f.assignment === "fixed" && !f.assigneeId) return { ok: false, message: "Wer macht es?" };
+    if (f.assignment === "rotation") {
+      rotation = (memberIds.length > 0 ? memberIds.filter((m) => f.rotation.includes(m)) : f.rotation);
+      if (rotation.length < 2) return { ok: false, message: "Such mindestens zwei Personen aus, die sich abwechseln." };
+    }
+  }
+
+  // How a bill is divided
+  let split: Split | null = null;
+  if (isBill && f.splitMode === "equal") {
+    if (memberIds.length < 2) return { ok: false, message: "Zum Aufteilen braucht es mindestens zwei Personen im Haushalt." };
+    split = equalSplit(memberIds);
+  }
+  if (isBill && f.splitMode === "custom") {
+    const parsed: Split = {};
+    for (const [id, text] of Object.entries(f.splitCustom)) {
+      const n = parseAmount(text);
+      if (n !== null && n > 0) parsed[id] = n;
+    }
+    const total = splitTotal(parsed);
+    if (Object.keys(parsed).length < 2 || Math.abs(total - 100) > 0.01) {
+      return { ok: false, message: `Die Prozente ergeben zusammen ${total}. Es sollten 100 sein.` };
+    }
+    split = parsed;
+  }
+
   // "After done" only exists for intervals; bills and everything else follow the calendar.
   const mode: RoutineMode = f.repeat === "interval" && !isBill ? f.mode : "fixed";
   return {
@@ -186,12 +246,16 @@ export function buildRoutine(f: RoutineFormState): BuildResult {
       activeMonths:
         f.months.length > 0 && mode === "fixed" && (f.repeat === "weekday" || f.repeat === "interval") ? f.months : null,
       leadDays: f.leadDays,
-      assigneeId: isBill ? null : f.assigneeId,
+      assigneeId: !isBill && f.assignment === "fixed" ? f.assigneeId : null,
       showInCalendar: f.showInCalendar,
       amount,
       amountKind: isBill ? f.amountKind : null,
       payerId: isBill ? f.payerId : null,
       expenseCategory: isBill && f.expenseCategory.trim() ? f.expenseCategory.trim() : null,
+      assignment: isBill ? "open" : f.assignment,
+      rotation,
+      effort: isBill ? 2 : f.effort,
+      split,
     },
   };
 }

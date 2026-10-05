@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, SkipForward, Undo2, User } from "lucide-react";
+import { ArrowLeftRight, Check, SkipForward, Undo2, User } from "lucide-react";
 import { chf } from "../../../expenses/format";
 import { dueLabel, type AgendaItem } from "../agenda";
 import type { Occurrence } from "../types";
@@ -13,6 +13,9 @@ interface Props {
   memberName: (id: string | null) => string | null;
   onResolve: (occ: Occurrence, status: "done" | "skipped") => void;
   onPay: (occ: Occurrence, input: PayInput) => Promise<boolean>;
+  onSwap: (occ: Occurrence, toUserId: string) => void;
+  members: { id: string; name: string }[];
+  userId: string | undefined;
   finance: { expensesEnabled: boolean; hasVerteilertopf: boolean };
   undoable: UndoableAction | null;
   emptyText?: string;
@@ -23,8 +26,9 @@ function shortDate(iso: string) {
 }
 
 // "Diese Woche": chores, Abfuhr, reminders and bills in one calm list.
-export default function WeekAgenda({ items, memberName, onResolve, onPay, finance, undoable, emptyText }: Props) {
+export default function WeekAgenda({ items, memberName, onResolve, onPay, onSwap, members, userId, finance, undoable, emptyText }: Props) {
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [swappingId, setSwappingId] = useState<string | null>(null);
 
   return (
     <div>
@@ -75,6 +79,17 @@ export default function WeekAgenda({ items, memberName, onResolve, onPay, financ
                       )}
                     </div>
                   </div>
+                  {!isBill && members.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setSwappingId(swappingId === occurrence.id ? null : occurrence.id)}
+                      className="press row-action btn btn-ghost btn-sm"
+                      aria-label={`${routine.title} tauschen`}
+                      title="Tauschen"
+                    >
+                      <ArrowLeftRight className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onResolve(occurrence, "skipped")}
@@ -85,12 +100,33 @@ export default function WeekAgenda({ items, memberName, onResolve, onPay, financ
                     <SkipForward className="w-4 h-4" />
                   </button>
                 </div>
+                {!isBill && swappingId === occurrence.id && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] p-3" style={{ background: "var(--surface-2)" }}>
+                    <span className="text-sm">Wer übernimmt?</span>
+                    {members.filter((m) => m.id !== occurrence.assignedTo).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className="chip"
+                        onClick={() => {
+                          setSwappingId(null);
+                          onSwap(occurrence, m.id);
+                        }}
+                      >
+                        {m.name}
+                      </button>
+                    ))}
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSwappingId(null)}>Abbrechen</button>
+                  </div>
+                )}
                 {isBill && payingId === occurrence.id && (
                   <div className="mt-2">
                     <PayPanel
                       routine={routine}
                       occurrence={occurrence}
                       finance={finance}
+                      members={members}
+                      userId={userId}
                       onConfirm={async (input) => {
                         const ok = await onPay(occurrence, input);
                         if (ok) setPayingId(null);

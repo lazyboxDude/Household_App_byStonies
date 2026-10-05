@@ -501,6 +501,48 @@ export type Database = {
           },
         ]
       }
+      routine_absences: {
+        Row: {
+          created_at: string
+          from_date: string
+          household_id: string
+          id: string
+          to_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_date: string
+          household_id: string
+          id?: string
+          to_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_date?: string
+          household_id?: string
+          id?: string
+          to_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_absences_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_absences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routine_occurrences: {
         Row: {
           amount: number | null
@@ -512,7 +554,9 @@ export type Database = {
           due_date: string
           household_id: string
           id: string
+          locked: boolean
           routine_id: string
+          split: Json | null
           status: string
           vt_tx_id: string | null
         }
@@ -526,7 +570,9 @@ export type Database = {
           expense_id?: string | null
           household_id: string
           id?: string
+          locked?: boolean
           routine_id: string
+          split?: Json | null
           status?: string
           vt_tx_id?: string | null
         }
@@ -540,7 +586,9 @@ export type Database = {
           expense_id?: string | null
           household_id?: string
           id?: string
+          locked?: boolean
           routine_id?: string
+          split?: Json | null
           status?: string
           vt_tx_id?: string | null
         }
@@ -589,14 +637,104 @@ export type Database = {
           },
         ]
       }
+      routine_settings: {
+        Row: {
+          fairness_weights: Json | null
+          household_id: string
+          living_mode: string | null
+          updated_at: string
+        }
+        Insert: {
+          fairness_weights?: Json | null
+          household_id: string
+          living_mode?: string | null
+          updated_at?: string
+        }
+        Update: {
+          fairness_weights?: Json | null
+          household_id?: string
+          living_mode?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_settlements: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          from_user: string
+          household_id: string
+          id: string
+          to_user: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          from_user: string
+          household_id: string
+          id?: string
+          to_user: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          from_user?: string
+          household_id?: string
+          id?: string
+          to_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_settlements_from_user_fkey"
+            columns: ["from_user"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_settlements_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_settlements_to_user_fkey"
+            columns: ["to_user"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routines: {
         Row: {
           active_months: number[] | null
           amount: number | null
           amount_kind: string | null
           assignee_id: string | null
+          assignment: string
           created_at: string
           created_by: string | null
+          effort: number
           expense_category: string | null
           household_id: string
           icon: string
@@ -605,8 +743,10 @@ export type Database = {
           lead_days: number
           mode: string
           payer_id: string | null
+          rotation: string[] | null
           schedule: Json
           show_in_calendar: boolean
+          split: Json | null
           title: string
         }
         Insert: {
@@ -614,8 +754,10 @@ export type Database = {
           amount?: number | null
           amount_kind?: string | null
           assignee_id?: string | null
+          assignment?: string
           created_at?: string
           created_by?: string | null
+          effort?: number
           expense_category?: string | null
           household_id: string
           icon?: string
@@ -624,8 +766,10 @@ export type Database = {
           lead_days?: number
           mode?: string
           payer_id?: string | null
+          rotation?: string[] | null
           schedule: Json
           show_in_calendar?: boolean
+          split?: Json | null
           title: string
         }
         Update: {
@@ -633,8 +777,10 @@ export type Database = {
           amount?: number | null
           amount_kind?: string | null
           assignee_id?: string | null
+          assignment?: string
           created_at?: string
           created_by?: string | null
+          effort?: number
           expense_category?: string | null
           household_id?: string
           icon?: string
@@ -643,8 +789,10 @@ export type Database = {
           lead_days?: number
           mode?: string
           payer_id?: string | null
+          rotation?: string[] | null
           schedule?: Json
           show_in_calendar?: boolean
+          split?: Json | null
           title?: string
         }
         Relationships: [

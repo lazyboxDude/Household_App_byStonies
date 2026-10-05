@@ -45,3 +45,21 @@ export function describeRoutine(r: Routine): string {
   if (r.activeMonths && r.activeMonths.length > 0) parts.push(monthsLabel(r.activeMonths));
   return parts.join(" · ");
 }
+
+// Who it is for, in a few words: "Mia", "Reihum: Mia, Jonas", "Fair verteilt", "Jonas zahlt · aufgeteilt".
+export function whoLabel(r: Routine, nameOf: (id: string) => string | null): string {
+  if (r.kind === "bill") {
+    const payer = r.payerId ? nameOf(r.payerId) : null;
+    return [payer ? `${payer} zahlt` : null, r.split ? "aufgeteilt" : null].filter(Boolean).join(" · ");
+  }
+  switch (r.assignment) {
+    case "fixed":
+      return r.assigneeId ? nameOf(r.assigneeId) ?? "" : "";
+    case "rotation":
+      return `Reihum: ${(r.rotation ?? []).map((id) => nameOf(id)).filter(Boolean).join(", ")}`;
+    case "fair_share":
+      return "Fair verteilt";
+    default:
+      return "";
+  }
+}

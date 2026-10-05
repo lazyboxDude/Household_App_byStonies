@@ -6,8 +6,11 @@ import type { Json } from "../../lib/database.types";
 import { showToast } from "../../../lib/toast";
 import { chf } from "../../expenses/format";
 import { missingOccurrences } from "./ensure";
-import { nextAfterDone, todayLocalISO } from "./schedule";
-import type { AmountKind, Occurrence, OccurrenceStatus, Routine, RoutineKind, RoutineMode, Schedule } from "./types";
+import { loadsFrom } from "./fairness";
+import { planAssignments } from "./rotation";
+import { addDays, nextAfterDone, todayLocalISO } from "./schedule";
+import type { AmountKind, Assignment, Occurrence, OccurrenceStatus, Routine, RoutineKind, RoutineMode, Schedule, Split } from "./types";
+import { useRoutineTeam } from "./useRoutineTeam";
 
 const ERROR_TEXT = "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?";
 const UNDO_WINDOW_MS = 8000;
@@ -26,10 +29,15 @@ export interface NewRoutine {
   amountKind: AmountKind | null;
   payerId: string | null;
   expenseCategory: string | null;
+  assignment: Assignment;
+  rotation: string[] | null;
+  effort: 1 | 2 | 3 | 5;
+  split: Split | null;
 }
 
 // Where a paid bill is booked. All optional: paying only closes the bill.
 export interface PayInput {
+  paidBy: string; // who paid it; an expense can only be booked for yourself
   amount: number;
   bookExpense: boolean; // as an expense of the person paying
   account: "bills" | "joint" | "main" | "taxes" | null; // Verteilertopf account to debit
@@ -50,6 +58,7 @@ export function toRoutine(r: {
   id: string; household_id: string; kind: string; title: string; icon: string; schedule: Json;
   mode: string; active_months: number[] | null; lead_days: number; assignee_id: string | null; show_in_calendar: boolean;
   amount: number | null; amount_kind: string | null; payer_id: string | null; expense_category: string | null;
+  assignment: string; rotation: string[] | null; effort: number; split: Json | null;
 }): Routine {
   return {
     id: r.id,
@@ -67,6 +76,10 @@ export function toRoutine(r: {
     amountKind: r.amount_kind as AmountKind | null,
     payerId: r.payer_id,
     expenseCategory: r.expense_category,
+    assignment: r.assignment as Assignment,
+    rotation: r.rotation,
+    effort: r.effort as Routine["effort"],
+    split: r.split as unknown as Split | null,
   };
 }
 
@@ -74,6 +87,7 @@ function toOccurrence(o: {
   id: string; routine_id: string; due_date: string; status: string;
   assigned_to: string | null; done_by: string | null; done_at: string | null;
   amount: number | null; expense_id: string | null; vt_tx_id: string | null;
+  locked: boolean; split: Json | null;
 }): Occurrence {
   return {
     id: o.id,
@@ -86,25 +100,37 @@ function toOccurrence(o: {
     amount: o.amount,
     expenseId: o.expense_id,
     vtTxId: o.vt_tx_id,
+    locked: o.locked,
+    split: o.split as unknown as Split | null,
   };
 }
 
 // Loads a household's routines and their occurrences, fills the next ~8 weeks,
 // and mirrors open occurrences into the calendar when that feature is on.
-export function useRoutines(householdId: string | undefined, userId: string | undefined, features: Features) {
+export function useRoutines(householdId: string | undefined, userId: string | undefined, features: Features, memberIds: string[]) {
   const { calendarEnabled, expensesEnabled } = features;
+  const team = useRoutineTeam(householdId, memberIds);
+  // What the planner needs, kept in refs so loading does not restart when they change;
+  // the effect below reruns the plan instead.
+  const planRef = useRef({ absences: team.absences, memberIds });
+  const memberKey = memberIds.join(",");
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
+  // Done in the last 30 days (Fairness-Waage, rotation continuity) and every paid bill with a split (Ausgleich).
+  const [doneRecent, setDoneRecent] = useState<Occurrence[]>([]);
+  const [paidBills, setPaidBills] = useState<Occurrence[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [undoable, setUndoable] = useState<UndoableAction | null>(null);
   // Whether this household uses the Verteilertopf, so the pay panel can offer to debit an account.
   const [hasVerteilertopf, setHasVerteilertopf] = useState(false);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedRef = useRef(false);
   const today = todayLocalISO();
 
   const fetchAll = useCallback(async () => {
     if (!householdId) return null;
-    const [r, o] = await Promise.all([
+    const since = addDays(todayLocalISO(), -30);
+    const [r, o, d, p] = await Promise.all([
       supabase.from("routines").select("*").eq("household_id", householdId).order("created_at", { ascending: true }),
       // Everything still open (waiting chores) plus everything from today on.
       supabase
@@ -113,9 +139,17 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         .eq("household_id", householdId)
         .or(`status.eq.open,due_date.gte.${todayLocalISO()}`)
         .order("due_date", { ascending: true }),
+      supabase.from("routine_occurrences").select("*").eq("household_id", householdId).eq("status", "done").gte("done_at", `${since}T00:00:00`),
+      supabase.from("routine_occurrences").select("*").eq("household_id", householdId).eq("status", "done").not("split", "is", null),
     ]);
     if (r.error || o.error) return null;
-    return { routines: (r.data ?? []).map(toRoutine), occurrences: (o.data ?? []).map(toOccurrence) };
+    return {
+      routines: (r.data ?? []).map(toRoutine),
+      occurrences: (o.data ?? []).map(toOccurrence),
+      // Older databases without these columns/rows just give empty lists.
+      doneRecent: d.error ? [] : (d.data ?? []).map(toOccurrence),
+      paidBills: p.error ? [] : (p.data ?? []).map(toOccurrence),
+    };
   }, [householdId]);
 
   const syncCalendar = useCallback(
@@ -151,6 +185,31 @@ export function useRoutines(householdId: string | undefined, userId: string | un
     [householdId, calendarEnabled]
   );
 
+  // Decides who does what (rotation, fair share, fixed) and writes only what changed.
+  // Safe to run from several devices: the plan is deterministic, so they agree.
+  const planWho = useCallback(
+    async (rs: Routine[], occs: Occurrence[], done: Occurrence[]): Promise<Occurrence[]> => {
+      const { absences, memberIds: members } = planRef.current;
+      if (members.length === 0) return occs;
+      const day = todayLocalISO();
+      const seen = new Set(occs.map((o) => o.id));
+      const history = [...occs, ...done.filter((o) => !seen.has(o.id))];
+      const loads = loadsFrom(done, rs, members);
+      const changes = rs.flatMap((r) => planAssignments(r, history, members, absences, day, loads));
+      if (changes.length === 0) return occs;
+
+      const byPerson = new Map<string | null, string[]>();
+      for (const c of changes) byPerson.set(c.assignedTo, [...(byPerson.get(c.assignedTo) ?? []), c.occurrenceId]);
+      const results = await Promise.all(
+        [...byPerson].map(([person, ids]) => supabase.from("routine_occurrences").update({ assigned_to: person }).in("id", ids))
+      );
+      if (results.some((x) => x.error)) return occs;
+      const patch = new Map(changes.map((c) => [c.occurrenceId, c.assignedTo]));
+      return occs.map((o) => (patch.has(o.id) ? { ...o, assignedTo: patch.get(o.id) ?? null } : o));
+    },
+    []
+  );
+
   // `fill` = also create missing occurrences and calendar entries (on open and after changes).
   const refresh = useCallback(
     async (fill: boolean) => {
@@ -171,20 +230,33 @@ export function useRoutines(householdId: string | undefined, userId: string | un
           );
           data = (await fetchAll()) ?? data;
         }
+        data = { ...data, occurrences: await planWho(data.routines, data.occurrences, data.doneRecent) };
         await syncCalendar(data.routines, data.occurrences);
       }
       setRoutines(data.routines);
       setOccurrences(data.occurrences);
+      setDoneRecent(data.doneRecent);
+      setPaidBills(data.paidBills);
     },
-    [fetchAll, syncCalendar, householdId]
+    [fetchAll, syncCalendar, householdId, planWho]
   );
 
   useEffect(() => {
     if (!householdId) return;
     // Standard fetch-on-mount: sets isLoading(false) once the first load is done.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh(true).finally(() => setIsLoading(false));
+    refresh(true).finally(() => {
+      loadedRef.current = true;
+      setIsLoading(false);
+    });
   }, [householdId, refresh]);
+
+  // Absences or members changed: plan who does what again.
+  useEffect(() => {
+    planRef.current = { absences: team.absences, memberIds };
+    if (loadedRef.current) refresh(true);
+    // Keyed on content (absenceKey/memberKey), not on array identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [team.absenceKey, memberKey]);
 
   useEffect(() => {
     if (!householdId || !expensesEnabled) return;
@@ -242,6 +314,10 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         amount_kind: input.amountKind,
         payer_id: input.payerId,
         expense_category: input.expenseCategory,
+        assignment: input.assignment,
+        rotation: input.rotation,
+        effort: input.effort,
+        split: input.split as unknown as Json,
       });
       if (error) {
         showToast(ERROR_TEXT, "error");
@@ -330,6 +406,31 @@ export function useRoutines(householdId: string | undefined, userId: string | un
     [routines, occurrences, householdId, userId, refresh, offerUndo]
   );
 
+  // Hands one occurrence to someone else. It is locked so the rotation leaves it alone
+  // and simply carries on from there.
+  const swap = useCallback(
+    async (occ: Occurrence, toUserId: string) => {
+      const before = { assignedTo: occ.assignedTo, locked: occ.locked };
+      setOccurrences((prev) => prev.map((o) => (o.id === occ.id ? { ...o, assignedTo: toUserId, locked: true } : o)));
+      const { error } = await supabase.from("routine_occurrences").update({ assigned_to: toUserId, locked: true }).eq("id", occ.id);
+      if (error) {
+        showToast(ERROR_TEXT, "error");
+        refresh(false);
+        return;
+      }
+      await refresh(true);
+      const routine = routines.find((r) => r.id === occ.routineId);
+      offerUndo({
+        label: `„${routine?.title ?? "Routine"}“ getauscht`,
+        undo: async () => {
+          await supabase.from("routine_occurrences").update({ assigned_to: before.assignedTo, locked: before.locked }).eq("id", occ.id);
+          await refresh(true);
+        },
+      });
+    },
+    [routines, refresh, offerUndo]
+  );
+
   // Pays a bill: closes the occurrence and, if asked, books it as an expense and/or debits a
   // Verteilertopf account. Each step is undone again if a later one fails.
   const payBill = useCallback(
@@ -346,7 +447,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         if (txId) await supabase.from("verteilertopf_tx").delete().eq("id", txId);
       };
 
-      if (input.bookExpense && userId) {
+      if (input.bookExpense && userId && input.paidBy === userId) {
         const { data, error } = await supabase
           .from("expenses")
           .insert({
@@ -383,7 +484,15 @@ export function useRoutines(householdId: string | undefined, userId: string | un
 
       const { error } = await supabase
         .from("routine_occurrences")
-        .update({ status: "done", done_by: userId ?? null, done_at: new Date().toISOString(), amount, expense_id: expenseId, vt_tx_id: txId })
+        .update({
+          status: "done",
+          done_by: input.paidBy,
+          done_at: new Date().toISOString(),
+          amount,
+          expense_id: expenseId,
+          vt_tx_id: txId,
+          split: routine.split as unknown as Json,
+        })
         .eq("id", occ.id);
       if (error) {
         await rollback();
@@ -402,7 +511,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         undo: async () => {
           await supabase
             .from("routine_occurrences")
-            .update({ status: "open", done_by: null, done_at: null, amount: null, expense_id: null, vt_tx_id: null })
+            .update({ status: "open", done_by: null, done_at: null, amount: null, expense_id: null, vt_tx_id: null, split: null })
             .eq("id", occ.id);
           await rollback();
           if (newAmount !== null) await supabase.from("routines").update({ amount: previousAmount }).eq("id", routine.id);
@@ -415,7 +524,8 @@ export function useRoutines(householdId: string | undefined, userId: string | un
   );
 
   return {
-    routines, occurrences, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill,
+    routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap,
     finance: { expensesEnabled, hasVerteilertopf },
+    team,
   };
 }

@@ -1,33 +1,82 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Repeat, Trash2, Loader2 } from "lucide-react";
 import { chf } from "../../../expenses/format";
 import { useAuth } from "../../../context/AuthContext";
 import { buildAgenda } from "../agenda";
 import { plannerBills } from "../billPlan";
-import { describeRoutine } from "../describe";
+import { describeRoutine, whoLabel } from "../describe";
+import { fairness as computeFairness } from "../fairness";
+import { netBalances, suggestTransfers } from "../settle";
 import { useRoutines } from "../useRoutines";
+import { FairnessCard, SettleUpCard } from "./BalanceCards";
 import RoutineForm from "./RoutineForm";
+import { AbsencesCard, LivingModeCard } from "./TeamCards";
 import WeekAgenda from "./WeekAgenda";
+
+function fairnessKey(householdId: string) {
+  return `routines-fairness-${householdId}`;
+}
 
 export default function RoutinesTab({ householdId }: { householdId: string }) {
   const { user, household } = useAuth();
-  const members = household?.members ?? [];
+  const members = useMemo(() => household?.members ?? [], [household?.members]);
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
   const calendarEnabled = household?.enabledFeatures.includes("calendar") ?? false;
   const expensesEnabled = household?.enabledFeatures.includes("expenses") ?? false;
-  const { routines, occurrences, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, finance } = useRoutines(
-    householdId,
-    user?.id,
-    { calendarEnabled, expensesEnabled }
-  );
+  const { routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap, finance, team } =
+    useRoutines(householdId, user?.id, { calendarEnabled, expensesEnabled }, memberIds);
 
   const [adding, setAdding] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // The Fairness-Waage is on by default in a WG and off for couples; each person can flip it for themselves.
+  const [fairnessPref, setFairnessPref] = useState<"on" | "off" | null>(null);
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem(fairnessKey(householdId));
+      // Read-on-mount from localStorage, not a sync with external state changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFairnessPref(v === "on" || v === "off" ? v : null);
+    } catch {
+      // Storage can be unavailable; the default applies.
+    }
+  }, [householdId]);
+  const showFairness = (fairnessPref ?? (team.livingMode === "wg" ? "on" : "off")) === "on";
+  const toggleFairness = () => {
+    const next = showFairness ? "off" : "on";
+    setFairnessPref(next);
+    try {
+      localStorage.setItem(fairnessKey(householdId), next);
+    } catch {
+      // Nothing to persist to; it only lasts for this visit.
+    }
+  };
 
+  const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? "?";
   const memberName = (id: string | null) => (id ? members.find((m) => m.id === id)?.name ?? null : null);
   const agenda = buildAgenda(routines, occurrences, today);
   const yearlyBills = plannerBills(routines, today).reduce((sum, b) => sum + b.amount * b.months.length, 0);
+
+  const fairness = useMemo(
+    () => computeFairness(doneRecent, routines, memberIds, team.settings.fairnessWeights),
+    [doneRecent, routines, memberIds, team.settings.fairnessWeights]
+  );
+  const transfers = useMemo(
+    () =>
+      suggestTransfers(
+        netBalances(
+          paidBills.filter((o) => o.doneBy && o.amount != null).map((o) => ({ paidBy: o.doneBy!, amount: o.amount!, split: o.split })),
+          team.settlements.map((s) => ({ from: s.fromUser, to: s.toUser, amount: s.amount }))
+        )
+      ),
+    [paidBills, team.settlements]
+  );
+
+  const hasTeam = members.length > 1;
+  const usesWho = routines.some((r) => r.assignment === "rotation" || r.assignment === "fair_share");
+  const hasSplit = routines.some((r) => r.split) || paidBills.length > 0 || team.settlements.length > 0;
+  const hasChores = routines.some((r) => r.kind !== "bill");
 
   if (isLoading) {
     return (
@@ -47,6 +96,9 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
             memberName={memberName}
             onResolve={resolve}
             onPay={payBill}
+            onSwap={swap}
+            members={members}
+            userId={user?.id}
             finance={finance}
             undoable={undoable}
             emptyText={routines.length === 0 ? "Hier erscheint, was in den nächsten Tagen ansteht." : "Diese Woche steht nichts an."}
@@ -59,87 +111,116 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
             members={members}
             calendarEnabled={calendarEnabled}
             expensesEnabled={expensesEnabled}
+            livingMode={team.livingMode}
             onSubmit={addRoutine}
             onCancel={() => setAdding(false)}
           />
         )}
+
+        {hasSplit && hasTeam && <SettleUpCard transfers={transfers} nameOf={nameOf} onSettle={(t) => team.settle(t.from, t.to, t.amount)} />}
+        {hasTeam && hasChores && showFairness && (
+          <FairnessCard
+            fairness={fairness}
+            nameOf={nameOf}
+            weights={team.settings.fairnessWeights}
+            memberIds={memberIds}
+            onSaveWeights={(w) => team.saveSettings({ fairnessWeights: w })}
+          />
+        )}
       </div>
 
-      <section className="surface p-5 lg:col-span-2 self-start">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-headline flex items-center gap-2">
-            <Repeat className="w-5 h-5" style={{ color: "var(--accent)" }} /> Routinen
-          </h2>
-          {!adding && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)}>
-              <Plus className="w-4 h-4" /> Neu
-            </button>
-          )}
-        </div>
-
-        {routines.length === 0 ? (
-          <div>
-            <p className="text-body text-[var(--text-secondary)] mb-3">
-              Kehricht, Bad putzen, Papiersammlung: alles, was regelmässig wiederkommt, kannst du hier eintragen.
-              Dann musst du nicht mehr daran denken.
-            </p>
+      <div className="lg:col-span-2 space-y-6 self-start">
+        <section className="surface p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-headline flex items-center gap-2">
+              <Repeat className="w-5 h-5" style={{ color: "var(--accent)" }} /> Routinen
+            </h2>
             {!adding && (
-              <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
-                Erste Routine anlegen
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)}>
+                <Plus className="w-4 h-4" /> Neu
               </button>
             )}
           </div>
-        ) : (
-          <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
-            {routines.map((r) => (
-              <li key={r.id} className="group flex items-center gap-3 py-3">
-                <span className="text-xl shrink-0" aria-hidden>{r.icon}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-sm truncate">{r.title}</div>
-                  <div className="text-caption truncate">
-                    {describeRoutine(r)}
-                    {r.kind === "bill" && r.amount != null ? ` · ${r.amountKind === "estimate" ? "ca. " : ""}${chf(r.amount)}` : ""}
-                    {memberName(r.kind === "bill" ? r.payerId : r.assigneeId) ? ` · ${memberName(r.kind === "bill" ? r.payerId : r.assigneeId)}` : ""}
-                  </div>
-                </div>
-                {confirmDeleteId === r.id ? (
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--danger)] text-white"
-                      onClick={() => {
-                        setConfirmDeleteId(null);
-                        deleteRoutine(r.id);
-                      }}
-                    >
-                      Löschen
-                    </button>
-                    <button
-                      type="button"
-                      className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)]"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
-                      Abbrechen
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    aria-label={`${r.title} löschen`}
-                    className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] shrink-0"
-                    onClick={() => setConfirmDeleteId(r.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+
+          {routines.length === 0 ? (
+            <div>
+              <p className="text-body text-[var(--text-secondary)] mb-3">
+                Kehricht, Bad putzen, Papiersammlung, Strom: alles, was regelmässig wiederkommt, kannst du hier eintragen.
+                Dann musst du nicht mehr daran denken.
+              </p>
+              {!adding && (
+                <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
+                  Erste Routine anlegen
+                </button>
+              )}
+            </div>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: "var(--border)" }}>
+              {routines.map((r) => {
+                const who = whoLabel(r, (id) => memberName(id));
+                return (
+                  <li key={r.id} className="group flex items-center gap-3 py-3">
+                    <span className="text-xl shrink-0" aria-hidden>{r.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm truncate">{r.title}</div>
+                      <div className="text-caption truncate">
+                        {describeRoutine(r)}
+                        {r.kind === "bill" && r.amount != null ? ` · ${r.amountKind === "estimate" ? "ca. " : ""}${chf(r.amount)}` : ""}
+                        {who ? ` · ${who}` : ""}
+                      </div>
+                    </div>
+                    {confirmDeleteId === r.id ? (
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--danger)] text-white"
+                          onClick={() => {
+                            setConfirmDeleteId(null);
+                            deleteRoutine(r.id);
+                          }}
+                        >
+                          Löschen
+                        </button>
+                        <button
+                          type="button"
+                          className="press text-[11px] font-semibold px-2 py-1 rounded-full bg-[var(--surface-2)] text-[var(--text-secondary)]"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Abbrechen
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={`${r.title} löschen`}
+                        className="press row-action text-[var(--text-tertiary)] hover:text-[var(--danger)] shrink-0"
+                        onClick={() => setConfirmDeleteId(r.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {yearlyBills > 0 && (
+            <p className="text-caption mt-3">Deine Rechnungen hier kommen zusammen auf etwa {chf(yearlyBills)} im Jahr.</p>
+          )}
+          {hasTeam && hasChores && (
+            <button type="button" className="text-caption underline mt-3 block" onClick={toggleFairness}>
+              {showFairness ? "Fairness-Waage ausblenden" : "Fairness-Waage anzeigen"}
+            </button>
+          )}
+        </section>
+
+        {hasTeam && (
+          <LivingModeCard mode={team.livingMode} isAuto={team.settings.livingMode === null} onChange={(m) => team.saveSettings({ livingMode: m })} />
         )}
-        {yearlyBills > 0 && (
-          <p className="text-caption mt-3">Deine Rechnungen hier kommen zusammen auf etwa {chf(yearlyBills)} im Jahr.</p>
+        {hasTeam && usesWho && (
+          <AbsencesCard members={members} absences={team.absences} today={today} userId={user?.id} onAdd={team.addAbsence} onRemove={team.removeAbsence} />
         )}
-      </section>
+      </div>
     </div>
   );
 }

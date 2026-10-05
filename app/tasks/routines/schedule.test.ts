@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { addMonths, nextAfterDone, occurrencesBetween, parseDateList } from "./schedule.ts";
 import { buildAgenda } from "./agenda.ts";
 import { missingOccurrences } from "./ensure.ts";
-import { buildRoutine, emptyForm, formFromTemplate, parseAmount, previewDates, withKind } from "./formModel.ts";
+import { buildRoutine, emptyForm, formFromTemplate, livingDefaults, parseAmount, previewDates, withKind } from "./formModel.ts";
 import { ROUTINE_TEMPLATES } from "./templates.ts";
 import { describeRoutine } from "./describe.ts";
 import { plannerBills, routineToPlannerBill } from "./billPlan.ts";
@@ -139,11 +139,12 @@ function routine(p: Partial<Routine>): Routine {
     schedule: { type: "interval", every: 1, unit: "week", anchor: "2026-11-01" },
     mode: "after_done", activeMonths: null, leadDays: 0, assigneeId: null, showInCalendar: true,
     amount: null, amountKind: null, payerId: null, expenseCategory: null,
+    assignment: "open", rotation: null, effort: 2, split: null,
     ...p,
   };
 }
 function occ(p: Partial<Occurrence>): Occurrence {
-  return { id: "o", routineId: "r1", dueDate: "2026-11-10", status: "open", assignedTo: null, doneBy: null, doneAt: null, amount: null, expenseId: null, vtTxId: null, ...p };
+  return { id: "o", routineId: "r1", dueDate: "2026-11-10", status: "open", assignedTo: null, doneBy: null, doneAt: null, amount: null, expenseId: null, vtTxId: null, locked: false, split: null, ...p };
 }
 
 test("agenda: groups today, soon and waiting chores; ignores done and far-away ones", () => {
@@ -353,4 +354,52 @@ test("form: bill templates need only an amount to become valid", () => {
     assert.ok(built.ok, t.key);
     if (built.ok) assert.ok(previewDates(built.routine, "2026-10-05").length > 0, t.key);
   }
+});
+
+// --- phase 3 form ---
+
+test("form: fixed needs a person, rotation needs two", () => {
+  const base = { ...emptyForm("2026-10-05"), title: "Kehricht" };
+  assert.equal(buildRoutine({ ...base, assignment: "fixed" }).ok, false);
+  const fixed = buildRoutine({ ...base, assignment: "fixed", assigneeId: "a" });
+  assert.ok(fixed.ok);
+  if (fixed.ok) assert.deepEqual([fixed.routine.assignment, fixed.routine.assigneeId, fixed.routine.rotation], ["fixed", "a", null]);
+  assert.equal(buildRoutine({ ...base, assignment: "rotation", rotation: ["a"] }, ["a", "b"]).ok, false);
+  const rot = buildRoutine({ ...base, assignment: "rotation", rotation: ["c", "a"] }, ["a", "b", "c"]);
+  assert.ok(rot.ok);
+  if (rot.ok) assert.deepEqual(rot.routine.rotation, ["a", "c"]); // turn order follows the member list
+});
+
+test("form: split is equal or must add up to 100", () => {
+  const base = withKind({ ...emptyForm("2026-10-05"), title: "Internet", amountText: "60" }, "bill");
+  const equal = buildRoutine({ ...base, splitMode: "equal" }, ["a", "b"]);
+  assert.ok(equal.ok);
+  if (equal.ok) assert.deepEqual(equal.routine.split, { a: 50, b: 50 });
+  assert.equal(buildRoutine({ ...base, splitMode: "equal" }, ["a"]).ok, false);
+  assert.equal(buildRoutine({ ...base, splitMode: "custom", splitCustom: { a: "60", b: "30" } }, ["a", "b"]).ok, false);
+  const custom = buildRoutine({ ...base, splitMode: "custom", splitCustom: { a: "60", b: "40" } }, ["a", "b"]);
+  assert.ok(custom.ok);
+  if (custom.ok) assert.deepEqual(custom.routine.split, { a: 60, b: 40 });
+  const none = buildRoutine({ ...base, splitMode: "none" }, ["a", "b"]);
+  assert.ok(none.ok);
+  if (none.ok) assert.equal(none.routine.split, null);
+});
+
+test("form: chores carry no split, bills no rotation", () => {
+  const chore = buildRoutine({ ...emptyForm("2026-10-05"), title: "Bad", splitMode: "equal" }, ["a", "b"]);
+  assert.ok(chore.ok);
+  if (chore.ok) assert.equal(chore.routine.split, null);
+  const bill = buildRoutine({ ...withKind({ ...emptyForm("2026-10-05"), title: "x", amountText: "5" }, "bill"), assignment: "rotation", rotation: ["a", "b"] }, ["a", "b"]);
+  assert.ok(bill.ok);
+  if (bill.ok) assert.deepEqual([bill.routine.assignment, bill.routine.rotation], ["open", null]);
+});
+
+test("livingDefaults: a WG rotates and splits equally, a couple stays as it is", () => {
+  const f = emptyForm("2026-10-05");
+  const wg = livingDefaults(f, "wg", ["a", "b", "c"]);
+  assert.deepEqual([wg.assignment, wg.rotation, wg.splitMode], ["rotation", ["a", "b", "c"], "equal"]);
+  assert.deepEqual(livingDefaults(f, "couple", ["a", "b"]), f);
+  // never overrides a choice
+  const chosen = { ...f, assignment: "fixed" as const, assigneeId: "a", splitMode: "custom" as const };
+  assert.deepEqual([livingDefaults(chosen, "wg", ["a", "b"]).assignment, livingDefaults(chosen, "wg", ["a", "b"]).splitMode], ["fixed", "custom"]);
 });

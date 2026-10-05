@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { parseDateList } from "../schedule";
-import { buildRoutine, emptyForm, formFromTemplate, nextWeekdayDate, previewDates, withKind, type BuiltRoutine, type RoutineFormState } from "../formModel";
+import { buildRoutine, emptyForm, formFromTemplate, livingDefaults, nextWeekdayDate, previewDates, withKind, type BuiltRoutine, type RoutineFormState } from "../formModel";
 import { ROUTINE_TEMPLATES } from "../templates";
-import type { AmountKind, IntervalUnit, RoutineKind } from "../types";
+import type { AmountKind, Assignment, IntervalUnit, LivingMode, RoutineKind } from "../types";
 
 const WEEKDAYS = [
   { n: 1, label: "Mo" }, { n: 2, label: "Di" }, { n: 3, label: "Mi" }, { n: 4, label: "Do" },
@@ -20,6 +20,23 @@ const KIND_HINTS: Record<RoutineKind, string> = {
   reminder: "Nur ein Hinweis, zum Beispiel die Kehricht-Abfuhr.",
   bill: "Du siehst, was wann fällig ist, und hakst sie als bezahlt ab.",
 };
+const ASSIGNMENTS: { value: Assignment; label: string; hint: string }[] = [
+  { value: "open", label: "Wer Zeit hat", hint: "Niemand ist fest zuständig. Wer es macht, hakt es ab." },
+  { value: "fixed", label: "Immer dieselbe Person", hint: "Eine Person kümmert sich darum." },
+  { value: "rotation", label: "Reihum", hint: "Ihr wechselt euch ab. Wer weg ist, wird übersprungen." },
+  { value: "fair_share", label: "Fair verteilt", hint: "Es trifft, wer zuletzt am wenigsten gemacht hat." },
+];
+const EFFORTS: { value: 1 | 2 | 3 | 5; label: string }[] = [
+  { value: 1, label: "Schnell erledigt" },
+  { value: 2, label: "Normal" },
+  { value: 3, label: "Aufwendig" },
+  { value: 5, label: "Richtig viel Arbeit" },
+];
+const SPLIT_MODES = [
+  { value: "none", label: "Nicht aufteilen", hint: "Zum Beispiel, wenn es vom gemeinsamen Konto geht." },
+  { value: "equal", label: "Gleichmässig", hint: "Alle zahlen gleich viel." },
+  { value: "custom", label: "Eigene Prozente", hint: "Zum Beispiel 60 und 40." },
+] as const;
 const AMOUNT_KINDS: { value: AmountKind; label: string; hint: string }[] = [
   { value: "fixed", label: "Immer gleich", hint: "Zum Beispiel die Miete." },
   { value: "estimate", label: "Ungefähr", hint: "Zum Beispiel der Strom-Abschlag. Du korrigierst den Betrag, wenn du bezahlst." },
@@ -42,12 +59,14 @@ interface Props {
   members: { id: string; name: string }[];
   calendarEnabled: boolean;
   expensesEnabled: boolean;
+  livingMode: LivingMode;
   onSubmit: (routine: BuiltRoutine) => Promise<boolean>;
   onCancel: () => void;
 }
 
-export default function RoutineForm({ today, members, calendarEnabled, expensesEnabled, onSubmit, onCancel }: Props) {
-  const [form, setForm] = useState<RoutineFormState>(() => emptyForm(today));
+export default function RoutineForm({ today, members, calendarEnabled, expensesEnabled, livingMode, onSubmit, onCancel }: Props) {
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
+  const [form, setForm] = useState<RoutineFormState>(() => livingDefaults(emptyForm(today), livingMode, memberIds));
   const [anchorTouched, setAnchorTouched] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,7 +82,7 @@ export default function RoutineForm({ today, members, calendarEnabled, expensesE
       return next;
     });
 
-  const built = useMemo(() => buildRoutine(form), [form]);
+  const built = useMemo(() => buildRoutine(form, memberIds), [form, memberIds]);
   const preview = built.ok ? previewDates(built.routine, today) : [];
   const datesInfo = form.repeat === "dates" ? parseDateList(form.datesText) : null;
 
@@ -91,7 +110,7 @@ export default function RoutineForm({ today, members, calendarEnabled, expensesE
               type="button"
               className="chip"
               onClick={() => {
-                setForm(formFromTemplate(t, today));
+                setForm(livingDefaults(formFromTemplate(t, today), livingMode, memberIds));
                 setAnchorTouched(false);
                 setMessage(null);
               }}
@@ -109,7 +128,7 @@ export default function RoutineForm({ today, members, calendarEnabled, expensesE
             type="button"
             className="chip justify-center py-2.5"
             data-active={form.kind === k}
-            onClick={() => setForm((prev) => withKind(prev, k))}
+            onClick={() => setForm((prev) => livingDefaults(withKind(prev, k), livingMode, memberIds))}
           >
             {KIND_LABELS[k]}
           </button>
@@ -350,19 +369,101 @@ export default function RoutineForm({ today, members, calendarEnabled, expensesE
             <option value={7}>Eine Woche vorher</option>
           </select>
         </div>
-        <div>
-          <label className="text-caption mb-1 block" htmlFor="routine-assignee">{form.kind === "bill" ? "Wer zahlt?" : "Wer macht es?"}</label>
-          <select
-            id="routine-assignee"
-            className="field"
-            value={(form.kind === "bill" ? form.payerId : form.assigneeId) ?? ""}
-            onChange={(e) => set(form.kind === "bill" ? "payerId" : "assigneeId", e.target.value || null)}
-          >
-            <option value="">{form.kind === "bill" ? "Mal der, mal die" : "Wer gerade Zeit hat"}</option>
-            {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </div>
+        {form.kind === "bill" ? (
+          <div>
+            <label className="text-caption mb-1 block" htmlFor="routine-assignee">Wer zahlt?</label>
+            <select id="routine-assignee" className="field" value={form.payerId ?? ""} onChange={(e) => set("payerId", e.target.value || null)}>
+              <option value="">Mal der, mal die</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label className="text-caption mb-1 block" htmlFor="routine-effort">Wie aufwendig ist es?</label>
+            <select id="routine-effort" className="field" value={form.effort} onChange={(e) => set("effort", Number(e.target.value) as RoutineFormState["effort"])}>
+              {EFFORTS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+            </select>
+          </div>
+        )}
       </div>
+
+      {form.kind !== "bill" && members.length > 1 && (
+        <div className="space-y-3">
+          <div className="text-caption">Wer macht es?</div>
+          <div className="grid grid-cols-2 gap-2">
+            {ASSIGNMENTS.map((a) => (
+              <button
+                key={a.value}
+                type="button"
+                className="chip justify-center py-2.5 whitespace-normal text-center"
+                data-active={form.assignment === a.value}
+                onClick={() => set("assignment", a.value)}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-caption -mt-1">{ASSIGNMENTS.find((a) => a.value === form.assignment)?.hint}</p>
+          {form.assignment === "fixed" && (
+            <select aria-label="Wer" className="field" value={form.assigneeId ?? ""} onChange={(e) => set("assigneeId", e.target.value || null)}>
+              <option value="">Bitte auswählen</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          )}
+          {form.assignment === "rotation" && (
+            <div className="flex flex-wrap gap-2">
+              {members.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className="chip"
+                  data-active={form.rotation.includes(m.id)}
+                  onClick={() => set("rotation", form.rotation.includes(m.id) ? form.rotation.filter((x) => x !== m.id) : [...form.rotation, m.id])}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {form.kind === "bill" && members.length > 1 && (
+        <div className="space-y-3">
+          <div className="text-caption">Aufteilen</div>
+          <div className="grid grid-cols-3 gap-2">
+            {SPLIT_MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                className="chip justify-center py-2.5 whitespace-normal text-center"
+                data-active={form.splitMode === m.value}
+                onClick={() => set("splitMode", m.value)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-caption -mt-1">{SPLIT_MODES.find((m) => m.value === form.splitMode)?.hint}</p>
+          {form.splitMode === "custom" && (
+            <div className="space-y-2">
+              {members.map((m) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <span className="text-sm w-28 truncate">{m.name}</span>
+                  <input
+                    className="field w-24 font-mono"
+                    inputMode="decimal"
+                    aria-label={`Prozent ${m.name}`}
+                    value={form.splitCustom[m.id] ?? ""}
+                    onChange={(e) => set("splitCustom", { ...form.splitCustom, [m.id]: e.target.value })}
+                  />
+                  <span className="text-sm text-[var(--text-secondary)]">%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {calendarEnabled && (
         <label className="flex items-center gap-2 text-sm cursor-pointer">
