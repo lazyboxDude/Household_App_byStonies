@@ -1,0 +1,340 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { parseDateList } from "../schedule";
+import { buildRoutine, emptyForm, formFromTemplate, nextWeekdayDate, previewDates, type BuiltRoutine, type RoutineFormState } from "../formModel";
+import { ROUTINE_TEMPLATES } from "../templates";
+import type { IntervalUnit } from "../types";
+
+const WEEKDAYS = [
+  { n: 1, label: "Mo" }, { n: 2, label: "Di" }, { n: 3, label: "Mi" }, { n: 4, label: "Do" },
+  { n: 5, label: "Fr" }, { n: 6, label: "Sa" }, { n: 0, label: "So" },
+];
+const WEEKDAY_NAMES = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+const MONTH_LABELS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+const ICONS = ["🔁", "🗑️", "♻️", "📦", "🌿", "🛁", "🧹", "🪴", "🧺", "🍳", "🐈", "🚗"];
+const UNIT_LABELS: Record<IntervalUnit, string> = { day: "Tage", week: "Wochen", month: "Monate", year: "Jahre" };
+const REPEAT_LABELS = {
+  interval: "In einem festen Abstand",
+  weekday: "An bestimmten Wochentagen",
+  monthday: "An einem Tag im Monat",
+  nth_weekday: "An einem Wochentag im Monat",
+  dates: "An festen Daten",
+} as const;
+
+function formatDate(iso: string) {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString("de-CH", { weekday: "short", day: "numeric", month: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+interface Props {
+  today: string;
+  members: { id: string; name: string }[];
+  calendarEnabled: boolean;
+  onSubmit: (routine: BuiltRoutine) => Promise<boolean>;
+  onCancel: () => void;
+}
+
+export default function RoutineForm({ today, members, calendarEnabled, onSubmit, onCancel }: Props) {
+  const [form, setForm] = useState<RoutineFormState>(() => emptyForm(today));
+  const [anchorTouched, setAnchorTouched] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const set = <K extends keyof RoutineFormState>(key: K, value: RoutineFormState[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const toggleIn = (key: "weekdays" | "months", n: number) =>
+    setForm((prev) => {
+      const list = prev[key].includes(n) ? prev[key].filter((x) => x !== n) : [...prev[key], n];
+      const next = { ...prev, [key]: list };
+      if (key === "weekdays" && !anchorTouched) next.anchorDate = nextWeekdayDate(list, today);
+      return next;
+    });
+
+  const built = useMemo(() => buildRoutine(form), [form]);
+  const preview = built.ok ? previewDates(built.routine, today) : [];
+  const datesInfo = form.repeat === "dates" ? parseDateList(form.datesText) : null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!built.ok) {
+      setMessage(built.message);
+      return;
+    }
+    setMessage(null);
+    setSaving(true);
+    const ok = await onSubmit(built.routine);
+    setSaving(false);
+    if (ok) onCancel();
+  };
+
+  return (
+    <form onSubmit={submit} className="surface p-5 space-y-5 animate-rise">
+      <div>
+        <div className="text-caption mb-2">Mit einer Vorlage starten</div>
+        <div className="flex flex-wrap gap-2">
+          {ROUTINE_TEMPLATES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className="chip"
+              onClick={() => {
+                setForm(formFromTemplate(t, today));
+                setAnchorTouched(false);
+                setMessage(null);
+              }}
+            >
+              <span aria-hidden>{t.icon}</span> {t.title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {(["chore", "reminder"] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            className="chip justify-center py-2.5"
+            data-active={form.kind === k}
+            onClick={() => set("kind", k)}
+          >
+            {k === "chore" ? "Aufgabe" : "Erinnerung"}
+          </button>
+        ))}
+      </div>
+      <p className="text-caption -mt-3">
+        {form.kind === "chore"
+          ? "Jemand erledigt sie, zum Beispiel Bad putzen."
+          : "Nur ein Hinweis, zum Beispiel die Kehricht-Abfuhr."}
+      </p>
+
+      <div>
+        <label className="text-caption mb-1 block" htmlFor="routine-title">Wie heisst es?</label>
+        <input
+          id="routine-title"
+          className="field"
+          value={form.title}
+          onChange={(e) => set("title", e.target.value)}
+          placeholder="Zum Beispiel: Kehricht rausstellen"
+        />
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {ICONS.map((icon) => (
+            <button
+              key={icon}
+              type="button"
+              aria-label={`Symbol ${icon}`}
+              onClick={() => set("icon", icon)}
+              className="press w-9 h-9 rounded-[var(--radius-sm)] text-lg border"
+              style={{
+                borderColor: form.icon === icon ? "var(--accent)" : "var(--border)",
+                background: form.icon === icon ? "var(--accent-soft)" : "var(--surface-2)",
+              }}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="text-caption mb-1 block" htmlFor="routine-repeat">Wann kommt es wieder?</label>
+          <select
+            id="routine-repeat"
+            className="field"
+            value={form.repeat}
+            onChange={(e) => set("repeat", e.target.value as RoutineFormState["repeat"])}
+          >
+            {Object.entries(REPEAT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        {form.repeat === "interval" && (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Alle</span>
+              <input
+                type="number"
+                min={1}
+                className="field w-20"
+                aria-label="Anzahl"
+                value={form.every}
+                onChange={(e) => set("every", Number(e.target.value))}
+              />
+              <select className="field w-32" aria-label="Einheit" value={form.unit} onChange={(e) => set("unit", e.target.value as IntervalUnit)}>
+                {Object.entries(UNIT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className="chip justify-center py-2.5" data-active={form.mode === "after_done"} onClick={() => set("mode", "after_done")}>
+                Ab dem Erledigen zählen
+              </button>
+              <button type="button" className="chip justify-center py-2.5" data-active={form.mode === "fixed"} onClick={() => set("mode", "fixed")}>
+                Fester Rhythmus
+              </button>
+            </div>
+            <p className="text-caption">
+              {form.mode === "after_done"
+                ? "Putzt du später, startet die nächste Runde erst dann."
+                : "Der Termin bleibt im Kalender, auch wenn du mal später dran bist."}
+            </p>
+            <div>
+              <label className="text-caption mb-1 block" htmlFor="routine-start">Erstes Mal</label>
+              <input id="routine-start" type="date" className="field" value={form.startDate} onChange={(e) => set("startDate", e.target.value)} />
+            </div>
+          </>
+        )}
+
+        {form.repeat === "weekday" && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAYS.map((d) => (
+                <button key={d.n} type="button" className="chip" data-active={form.weekdays.includes(d.n)} onClick={() => toggleIn("weekdays", d.n)}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">Jede</span>
+              <select className="field w-40" aria-label="Wochenrhythmus" value={form.everyNWeeks} onChange={(e) => set("everyNWeeks", Number(e.target.value))}>
+                <option value={1}>Woche</option>
+                <option value={2}>2. Woche</option>
+                <option value={3}>3. Woche</option>
+                <option value={4}>4. Woche</option>
+              </select>
+            </div>
+            {form.everyNWeeks > 1 && (
+              <div>
+                <label className="text-caption mb-1 block" htmlFor="routine-anchor">Wann ist das nächste Mal?</label>
+                <input
+                  id="routine-anchor"
+                  type="date"
+                  className="field"
+                  value={form.anchorDate}
+                  onChange={(e) => { setAnchorTouched(true); set("anchorDate", e.target.value); }}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {form.repeat === "monthday" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm">Am</span>
+            <select
+              className="field w-40"
+              aria-label="Tag im Monat"
+              value={String(form.monthDay)}
+              onChange={(e) => set("monthDay", e.target.value === "last" ? "last" : Number(e.target.value))}
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <option key={d} value={d}>{d}.</option>
+              ))}
+              <option value="last">letzten Tag</option>
+            </select>
+            <span className="text-sm">des Monats</span>
+          </div>
+        )}
+
+        {form.repeat === "nth_weekday" && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <select className="field w-32" aria-label="Welcher" value={form.nth} onChange={(e) => set("nth", Number(e.target.value) as RoutineFormState["nth"])}>
+              <option value={1}>Erster</option>
+              <option value={2}>Zweiter</option>
+              <option value={3}>Dritter</option>
+              <option value={4}>Vierter</option>
+              <option value={-1}>Letzter</option>
+            </select>
+            <select className="field w-40" aria-label="Wochentag" value={form.nthWeekday} onChange={(e) => set("nthWeekday", Number(e.target.value))}>
+              {[1, 2, 3, 4, 5, 6, 0].map((n) => <option key={n} value={n}>{WEEKDAY_NAMES[n]}</option>)}
+            </select>
+            <span className="text-sm">im Monat</span>
+          </div>
+        )}
+
+        {form.repeat === "dates" && (
+          <div>
+            <label className="text-caption mb-1 block" htmlFor="routine-dates">
+              Ein Datum pro Zeile. Du findest sie im Entsorgungskalender deiner Gemeinde.
+            </label>
+            <textarea
+              id="routine-dates"
+              className="field min-h-28"
+              value={form.datesText}
+              onChange={(e) => set("datesText", e.target.value)}
+              placeholder={"12.11.2026\n10.12.2026"}
+            />
+            {datesInfo && (datesInfo.dates.length > 0 || datesInfo.invalid.length > 0) && (
+              <p className="text-caption mt-1">
+                {datesInfo.dates.length} Datum{datesInfo.dates.length === 1 ? "" : "en"} erkannt
+                {datesInfo.invalid.length > 0 ? `. „${datesInfo.invalid[0]}“ kann ich nicht lesen.` : "."}
+              </p>
+            )}
+          </div>
+        )}
+
+        {(form.repeat === "monthday" || form.repeat === "nth_weekday" || (form.repeat === "weekday") || (form.repeat === "interval" && form.mode === "fixed")) && (
+          <div>
+            <div className="text-caption mb-1">Nur in diesen Monaten (sonst das ganze Jahr)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {MONTH_LABELS.map((label, i) => (
+                <button key={label} type="button" className="chip" data-active={form.months.includes(i + 1)} onClick={() => toggleIn("months", i + 1)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-caption mb-1 block" htmlFor="routine-lead">Vorher Bescheid sagen</label>
+          <select id="routine-lead" className="field" value={form.leadDays} onChange={(e) => set("leadDays", Number(e.target.value))}>
+            <option value={0}>Erst am Tag selbst</option>
+            <option value={1}>Einen Tag vorher</option>
+            <option value={2}>Zwei Tage vorher</option>
+            <option value={3}>Drei Tage vorher</option>
+            <option value={7}>Eine Woche vorher</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-caption mb-1 block" htmlFor="routine-assignee">Wer macht es?</label>
+          <select id="routine-assignee" className="field" value={form.assigneeId ?? ""} onChange={(e) => set("assigneeId", e.target.value || null)}>
+            <option value="">Wer gerade Zeit hat</option>
+            {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {calendarEnabled && (
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" checked={form.showInCalendar} onChange={(e) => set("showInCalendar", e.target.checked)} />
+          Im Kalender anzeigen
+        </label>
+      )}
+
+      {preview.length > 0 && built.ok && (
+        <p className="text-caption">
+          {built.routine.mode === "after_done" ? "Los geht es am " : "Die nächsten Termine: "}
+          {preview.map(formatDate).join(" · ")}
+        </p>
+      )}
+      {built.ok && built.routine.mode === "fixed" && preview.length === 0 && (
+        <p className="text-caption">In den nächsten drei Jahren gibt es dazu keinen Termin. Magst du die Monate oder Daten nochmal anschauen?</p>
+      )}
+
+      {message && <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{message}</p>}
+
+      <div className="flex gap-2 justify-end">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>Abbrechen</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>Speichern</button>
+      </div>
+    </form>
+  );
+}

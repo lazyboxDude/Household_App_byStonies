@@ -61,6 +61,7 @@ export type Database = {
           location: string | null
           photo_url: string | null
           source_cleaning_task_id: string | null
+          source_occurrence_id: string | null
           time: string
           title: string
           type: string
@@ -73,6 +74,7 @@ export type Database = {
           location?: string | null
           photo_url?: string | null
           source_cleaning_task_id?: string | null
+          source_occurrence_id?: string | null
           time?: string
           title: string
           type?: string
@@ -85,6 +87,7 @@ export type Database = {
           location?: string | null
           photo_url?: string | null
           source_cleaning_task_id?: string | null
+          source_occurrence_id?: string | null
           time?: string
           title?: string
           type?: string
@@ -102,6 +105,13 @@ export type Database = {
             columns: ["source_cleaning_task_id"]
             isOneToOne: false
             referencedRelation: "cleaning_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_source_occurrence_id_fkey"
+            columns: ["source_occurrence_id"]
+            isOneToOne: true
+            referencedRelation: "routine_occurrences"
             referencedColumns: ["id"]
           },
         ]
@@ -484,6 +494,141 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rooms_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_occurrences: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          done_at: string | null
+          done_by: string | null
+          due_date: string
+          household_id: string
+          id: string
+          routine_id: string
+          status: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_date: string
+          household_id: string
+          id?: string
+          routine_id: string
+          status?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_date?: string
+          household_id?: string
+          id?: string
+          routine_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_occurrences_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routines: {
+        Row: {
+          active_months: number[] | null
+          assignee_id: string | null
+          created_at: string
+          created_by: string | null
+          household_id: string
+          icon: string
+          id: string
+          kind: string
+          lead_days: number
+          mode: string
+          schedule: Json
+          show_in_calendar: boolean
+          title: string
+        }
+        Insert: {
+          active_months?: number[] | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          household_id: string
+          icon?: string
+          id?: string
+          kind: string
+          lead_days?: number
+          mode?: string
+          schedule: Json
+          show_in_calendar?: boolean
+          title: string
+        }
+        Update: {
+          active_months?: number[] | null
+          assignee_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          household_id?: string
+          icon?: string
+          id?: string
+          kind?: string
+          lead_days?: number
+          mode?: string
+          schedule?: Json
+          show_in_calendar?: boolean
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routines_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
