@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feature Research: Homsy, Sweepy, Bring!</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #59636e;
+    --border: #d1d9e0;
+    --surface: #f6f8fa;
+    --accent: #0969da;
+    --warn-bg: #fff8c5;
+    --warn-border: #d4a72c;
+    --done: #1a7f37;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --border: #3d444d;
+      --surface: #161b22;
+      --accent: #4493f8;
+      --warn-bg: #2d2400;
+      --warn-border: #9e6a03;
+      --done: #3fb950;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 52rem; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+  h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 .5rem; }
+  h2 { font-size: 1.4rem; margin: 2.5rem 0 .75rem; padding-bottom: .3rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; }
+  p { margin: .5rem 0 1rem; }
+  .lead { color: var(--muted); }
+  ul { padding-left: 1.4rem; margin: .5rem 0 1rem; }
+  li { margin: .25rem 0; }
+  ul.todo { list-style: none; padding-left: 0; }
+  ul.todo ul.todo { padding-left: 1.6rem; margin: .25rem 0; }
+  ul.todo li { display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+  ul.todo li > span { flex: 1 1 0; min-width: 0; }
+  ul.todo li > ul { flex-basis: 100%; }
+  ul.todo input { margin: 0; flex: none; transform: translateY(2px); accent-color: var(--done); }
+  li.done > span { color: var(--muted); }
+  code {
+    font: .875em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .1em .35em;
+    overflow-wrap: anywhere;
+  }
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .9rem 1rem;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre code { background: none; border: 0; padding: 0; overflow-wrap: normal; }
+  .table-wrap { overflow-x: auto; margin: .75rem 0 1rem; }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: .95rem; }
+  th, td { border: 1px solid var(--border); padding: .45rem .7rem; text-align: left; vertical-align: top; }
+  th { background: var(--surface); }
+  tbody tr:nth-child(even) { background: var(--surface); }
+  .tag { white-space: nowrap; font-weight: 600; color: var(--accent); }
+  .callout {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: 6px;
+    padding: .25rem 1rem .5rem;
+    margin: 1rem 0;
+  }
+  .callout h3 { margin-top: .75rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Feature Research: Homsy, Sweepy, Bring!</h1>
+  <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
+  below so we know what's next after the current work (Cleaning Plan in Tasks).</p>
+
+  <h2>Homsy <small>(household/family organizer)</small></h2>
+  <ul>
+    <li>Chores scheduled daily/weekly/monthly, auto-rotating between household members.</li>
+    <li>Tasks assigned to a specific person, who gets notified and sees it on their own list.</li>
+    <li>Completion streaks per person to keep contribution visible and fair.</li>
+    <li>One app covering chores + grocery list + meal planner + shared calendar + expense tracker.</li>
+    <li>Works offline, syncs when back online; each family member has their own login.</li>
+  </ul>
+
+  <h2>Sweepy <small>(cleaning schedule)</small></h2>
+  <ul>
+    <li>Setup flow: add each <strong>room</strong> in the house, then add <strong>tasks</strong> per room, each with its
+      own <strong>frequency</strong> and a starting “cleanliness state”.</li>
+    <li>Room-level cleanliness indicator (not just a flat task list) — you see which rooms are
+      neglected at a glance.</li>
+    <li>Auto-generates a <strong>daily schedule</strong> per person from all room tasks combined.</li>
+    <li>Prioritizes tasks that are most overdue / most urgent.</li>
+    <li>Gamification: coins for completed tasks, spendable on a virtual home; group leaderboard.</li>
+  </ul>
+
+  <h2>Bring! <small>(shopping list)</small></h2>
+  <ul>
+    <li>Real-time shared list sync + push notifications when someone checks off / adds an item.</li>
+    <li>Automatic categorization of items into aisles, with user-customizable categories.</li>
+    <li>Recipe “templates” that add a whole ingredient list to the shopping list in one tap.</li>
+    <li>Voice control via Siri/Alexa.</li>
+    <li>Loyalty cards stored in-app; light/dark mode and tile/list view toggle.</li>
+  </ul>
+
+  <h2>What we're taking from each</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Idea</th><th>Source</th><th>Where it lands in our app</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Tasks: Cleaning Plan (<strong>being built now</strong>)</td></tr>
+        <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Tasks: Cleaning Plan (<strong>being built now</strong>)</td></tr>
+        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Tasks: Cleaning Plan (<strong>being built now</strong>)</td></tr>
+        <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Tasks ↔ Calendar link (<strong>being built now</strong>)</td></tr>
+        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Backlog</td></tr>
+        <tr><td>Task rotation between household members</td><td>Homsy</td><td>Backlog</td></tr>
+        <tr><td>Completion streaks per person</td><td>Homsy + Sweepy</td><td>Backlog</td></tr>
+        <tr><td>Recipe templates → shopping list</td><td>Bring!</td><td>Backlog</td></tr>
+        <tr><td>Auto-categorized shopping items (custom aisles)</td><td>Bring!</td><td>Backlog</td></tr>
+        <tr><td>Push notifications on shared-list changes</td><td>Bring!</td><td>Backlog (needs real backend, not just localStorage)</td></tr>
+        <tr><td>Coins/virtual reward shop</td><td>Sweepy</td><td>Backlog, optional</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>TODO — roadmap for later sessions</h2>
+
+  <div class="callout">
+    <h3>⚠️ Manual setup required <small>(Supabase dashboard — cannot be done from code)</small></h3>
+    <ul class="todo">
+      <li><input type="checkbox" disabled><span><strong>Authentication → Providers → Google</strong>: add a real Google OAuth Client
+        ID/Secret (from the Google Cloud Console). Without this, “Continue with
+        Google” in <code>AuthContext.tsx</code> fails.</span></li>
+      <li><input type="checkbox" disabled><span><strong>Authentication → Sign In / Providers</strong>: enable <strong>Anonymous Sign-Ins</strong>.
+        Without this, the “just your name” quick login
+        (<code>supabase.auth.signInAnonymously</code>) fails.</span></li>
+    </ul>
+  </div>
+
+  <h3>Now</h3>
+  <ul class="todo">
+    <li><input type="checkbox" disabled><span>Tasks page: general household tasks (one-off + daily), e.g. “buy a toolbox”,
+      “set up smart home” — keep the existing gamified list.</span></li>
+    <li><input type="checkbox" disabled><span>Tasks page: <strong>Cleaning Plan</strong> sub-feature</span>
+      <ul class="todo">
+        <li><input type="checkbox" disabled><span>Define rooms</span></li>
+        <li><input type="checkbox" disabled><span>Add tasks per room</span></li>
+        <li><input type="checkbox" disabled><span>Attach cleaning supplies to a task</span></li>
+        <li><input type="checkbox" disabled><span>Set recurrence per task (daily/weekly/biweekly/monthly/once)</span></li>
+        <li><input type="checkbox" disabled><span>Link cleaning tasks to the Calendar (auto-create/update the next due date as an event)</span></li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>Next</h3>
+  <ul class="todo">
+    <li><input type="checkbox" disabled><span>Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview.</span></li>
+    <li><input type="checkbox" disabled><span>Task rotation: assign a recurring task to rotate automatically between household members.</span></li>
+    <li><input type="checkbox" disabled><span>Completion streaks per person + simple leaderboard (a real one, not the current mock data).</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Real backend: households now live in Supabase Postgres with RLS
+      (<code>app/lib/supabase.ts</code>); auth is Supabase Auth (Google OAuth + anonymous).
+      Tasks/Cleaning Plan/Rooms have tables ready (<code>tasks</code>, <code>rooms</code>,
+      <code>cleaning_tasks</code>) but still need the pages wired from <code>localStorage</code> to
+      real reads/writes — that's the next slice.</span></li>
+  </ul>
+
+  <h3>Later / nice-to-have</h3>
+  <ul class="todo">
+    <li><input type="checkbox" disabled><span>Shopping: recipe “templates” that add all ingredients at once.</span></li>
+    <li><input type="checkbox" disabled><span>Shopping: user-customizable categories/aisles instead of the fixed list in
+      <code>app/shopping/constants.ts</code>.</span></li>
+    <li><input type="checkbox" disabled><span>Shopping: loyalty card wallet.</span></li>
+    <li><input type="checkbox" disabled><span>Push notifications for shared-list and shared-task changes (needs a backend, not just
+      client-side localStorage).</span></li>
+    <li><input type="checkbox" disabled><span>Optional coins/virtual-reward layer on top of the existing XP/level system.</span></li>
+    <li><input type="checkbox" disabled><span>General UI pass: the current look was flagged as needing improvement — revisit once the
+      Cleaning Plan data model above is in place, so the redesign has real content to design for.</span></li>
+  </ul>
+
+  <h2>Data model sketch (Cleaning Plan)</h2>
+  <pre><code>type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "once";
+
+interface Room {
+  id: string;
+  name: string;
+  icon: string; // lucide icon key
+}
+
+interface CleaningTask {
+  id: string;
+  roomId: string;
+  title: string;
+  supplies: string[];   // e.g. ["All-purpose cleaner", "Microfiber cloth"]
+  recurrence: Recurrence;
+  assignee?: string;
+  lastDone?: string;    // ISO date
+  nextDue: string;      // ISO date, derived from lastDone + recurrence
+}</code></pre>
+
+  <p>Each <code>CleaningTask</code>'s <code>nextDue</code> is mirrored into the shared <code>calendar_events</code> localStorage
+  key (id <code>cleaning-&lt;taskId&gt;</code>) so it shows up on the Calendar page automatically, and is
+  recomputed/moved forward whenever the task is marked done.</p>
+</main>
+</body>
+</html>
