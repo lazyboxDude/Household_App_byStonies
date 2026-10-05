@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Plus, Trash2, User, ListTodo, Loader2, Lock, Users } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, User, Lock, Users } from "lucide-react";
+import Mascot, { MascotLoader } from "@/components/Mascot";
 import { Task } from "../types";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -99,9 +100,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
-      </div>
+      <MascotLoader size={64} className="py-12" />
     );
   }
 
@@ -210,9 +209,10 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
         ))}
 
         {tasks.length === 0 && (
-          <div className="text-center py-12 text-[var(--text-secondary)]">
-            <ListTodo className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
-            <p>No tasks yet. Add one to get started.</p>
+          <div className="flex flex-col items-center text-center py-10 text-[var(--text-secondary)]">
+            <Mascot mood="sleepy" size={88} />
+            <p className="font-hand text-2xl font-semibold mt-2">Noch keine Aufgaben.</p>
+            <p className="text-caption">Schreib die erste auf, ich schau zu.</p>
           </div>
         )}
       </div>

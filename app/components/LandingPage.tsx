@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Home, CheckSquare, ShoppingCart, DollarSign, Calendar, ArrowRight } from "lucide-react";
+import { CheckSquare, ShoppingCart, DollarSign, Calendar, ArrowRight } from "lucide-react";
+import Mascot from "@/components/Mascot";
 
 const FEATURES = [
   {
@@ -31,18 +32,14 @@ export default function LandingPage() {
     <div
       className="min-h-screen flex flex-col items-center px-4"
       style={{
-        background:
-          "radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-soft), transparent), var(--bg)",
+        background: "radial-gradient(ellipse 80% 60% at 50% -10%, var(--accent-soft), transparent)",
       }}
     >
       <div className="w-full max-w-4xl text-center pt-20 pb-10 animate-rise">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"
-          style={{ background: "var(--accent-soft)" }}
-        >
-          <Home className="w-8 h-8" style={{ color: "var(--accent)" }} />
-        </div>
-        <h1 className="text-display text-[var(--text)]">Our Home Base</h1>
+        <Mascot mood="wave" size={132} className="mx-auto mb-2" />
+        <h1 className="text-display text-[var(--text)]">
+          Our <span className="marker">Home Base</span>
+        </h1>
         <p className="text-body text-[var(--text-secondary)] mt-3 max-w-md mx-auto">
           The shared home for your household — tasks, shopping, finances, and calendar, all in one place.
         </p>
@@ -58,7 +55,7 @@ export default function LandingPage() {
         {FEATURES.map((f) => {
           const Icon = f.icon;
           return (
-            <div key={f.title} className="surface p-5 text-left">
+            <div key={f.title} className="note p-5 text-left">
               <div
                 className="w-9 h-9 rounded-full flex items-center justify-center mb-3"
                 style={{ background: "var(--accent-soft)" }}

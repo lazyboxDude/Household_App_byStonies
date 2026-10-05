@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Home, CheckSquare, DollarSign, ShoppingCart, Settings, LogOut, Calendar } from "lucide-react";
 import { useAuth, OptionalFeature } from "@/app/context/AuthContext";
 import { useEffect, useRef, useState } from "react";
+import Mascot from "@/components/Mascot";
 
 const NAV_ITEMS: { name: string; href: string; icon: typeof Home; feature?: OptionalFeature }[] = [
   { name: "Dashboard", href: "/", icon: Home },
@@ -82,7 +83,8 @@ const Sidebar = () => {
     >
       <div className="flex md:flex-col h-16 md:h-full px-4 md:px-3 md:py-6">
         {/* Desktop brand */}
-        <div className="hidden md:flex items-center px-2 mb-6 shrink-0">
+        <div className="hidden md:flex items-center gap-2 px-2 mb-6 shrink-0">
+          <Mascot size={40} />
           <span className="text-title text-[var(--text)]">Our Home Base</span>
         </div>
 

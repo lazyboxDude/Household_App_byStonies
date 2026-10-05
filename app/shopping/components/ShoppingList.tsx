@@ -1,5 +1,6 @@
 import { Plus, Trash2, MapPin, Search, DollarSign, ExternalLink, Percent } from "lucide-react";
 import { ShoppingItem } from "../types";
+import Mascot from "@/components/Mascot";
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -130,8 +131,9 @@ export default function ShoppingList({
       {/* Shopping List */}
       <div className="surface overflow-hidden">
         {items.length === 0 ? (
-          <div className="p-8 text-center text-[var(--text-secondary)]">
-            <p>Your shopping list is empty!</p>
+          <div className="flex flex-col items-center p-8 text-center text-[var(--text-secondary)]">
+            <Mascot mood="sleepy" size={80} />
+            <p className="font-hand text-2xl font-semibold mt-2">Die Liste ist leer.</p>
           </div>
         ) : (
           <ul className="divide-y" style={{ borderColor: "var(--border)" }}>

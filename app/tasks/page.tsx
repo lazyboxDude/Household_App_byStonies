@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ListChecks, Sparkles, Loader2 } from "lucide-react";
+import { CheckCircle2, ListChecks, Sparkles } from "lucide-react";
+import { MascotLoader } from "@/components/Mascot";
 import TaskListTab from "./components/TaskListTab";
 import CleaningPlanTab from "./components/CleaningPlanTab";
 import TaskOnboarding from "./components/TaskOnboarding";
@@ -113,9 +114,7 @@ export default function TasksPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-      </div>
+      <MascotLoader className="py-24" />
     );
   }
 

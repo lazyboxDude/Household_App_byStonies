@@ -11,9 +11,10 @@ import {
   Clock,
   MapPin,
   User,
-  Loader2,
   Sparkles,
 } from "lucide-react";
+import Mascot, { MascotLoader, MascotNote } from "@/components/Mascot";
+import { dashboardGreeting } from "@/lib/mascot";
 import { useAuth } from "./context/AuthContext";
 import { supabase } from "./lib/supabase";
 import LandingPage from "./components/LandingPage";
@@ -181,6 +182,8 @@ export default function Home() {
     hasExpenses && { label: "Spent this month", value: `$${spentThisMonth.toFixed(0)}`, icon: DollarSign, href: "/expenses" },
   ].filter((k): k is { label: string; value: string; icon: typeof CheckSquare; href: string } => !!k);
 
+  const greeting = dashboardGreeting({ pendingTasks: pendingTasks.length, eventsToday: eventsTodayCount });
+
   const budgetPct = totalBudget > 0 ? Math.min(100, Math.round((spentThisMonth / totalBudget) * 100)) : 0;
 
   if (!isAuthenticated) {
@@ -208,17 +211,20 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-      </div>
+      <MascotLoader className="py-24" />
     );
   }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <header className="animate-rise">
-        <h1 className="text-display text-[var(--text)]">Welcome home</h1>
-        <p className="text-body text-[var(--text-secondary)] mt-1">{dateLabel}</p>
+      <header className="animate-rise flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div>
+          <h1 className="text-display text-[var(--text)]">
+            Welcome <span className="marker">home</span>
+          </h1>
+          <p className="text-body text-[var(--text-secondary)] mt-1">{dateLabel}</p>
+        </div>
+        <MascotNote mood={greeting.mood}>{greeting.text}</MascotNote>
       </header>
 
       {/* KPI row */}
@@ -226,9 +232,9 @@ export default function Home() {
         {kpis.map((k) => {
           const Icon = k.icon;
           return (
-            <Link key={k.label} href={k.href} className="press surface p-4 block">
-              <Icon className="w-4 h-4 mb-3 text-[var(--text-tertiary)]" />
-              <div className="text-2xl font-semibold text-[var(--text)]">{k.value}</div>
+            <Link key={k.label} href={k.href} className="press note p-4 block">
+              <Icon className="w-4 h-4 mb-2 text-[var(--text-secondary)]" />
+              <div className="font-hand text-4xl font-bold leading-none text-[var(--text)]">{k.value}</div>
               <div className="text-micro normal-case mt-1">{k.label}</div>
             </Link>
           );
@@ -287,7 +293,10 @@ export default function Home() {
             </Link>
           </div>
           {pendingTasks.length === 0 ? (
-            <p className="text-caption py-4">Nothing pending. Nicely done.</p>
+            <div className="flex items-center gap-3 py-2">
+              <Mascot mood="sleepy" size={56} />
+              <p className="text-caption">Nichts offen. Gut gemacht.</p>
+            </div>
           ) : (
             <div className="space-y-3">
               {pendingTasks.slice(0, 4).map((t) => (
