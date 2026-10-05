@@ -65,5 +65,17 @@ export function usePots(userId: string | undefined, householdId: string | undefi
     showToast("Sparziel aktualisiert", "success");
   };
 
-  return { pots, isLoading, createPot, addToPot, editPot };
+  const deletePot = async (id: string) => {
+    setPots((prev) => prev.filter((p) => p.id !== id));
+    // .select() returns the deleted rows, so an RLS-blocked delete (0 rows, no error) is detectable.
+    const { data, error } = await supabase.from("pots").delete().eq("id", id).select("id");
+    if (error || !data || data.length === 0) {
+      showToast("Sparziel konnte nicht gelöscht werden", "error");
+      await loadPots();
+      return;
+    }
+    showToast("Sparziel gelöscht", "success");
+  };
+
+  return { pots, isLoading, createPot, addToPot, editPot, deletePot };
 }

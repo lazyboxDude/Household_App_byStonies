@@ -6,7 +6,13 @@ import { fmt } from "../format";
 import { usePots } from "../hooks/usePots";
 
 export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof usePots> }) {
-  const { pots, createPot, addToPot, editPot } = p;
+  const { pots, createPot, addToPot, editPot, deletePot } = p;
+
+  const handleDeletePot = async (id: string, name: string, saved: number) => {
+    const hint = saved > 0 ? ` Die bereits gesparten ${fmt(saved)} CHF werden nicht zurückgebucht.` : "";
+    if (!window.confirm(`"${name}" wirklich löschen?${hint}`)) return;
+    await deletePot(id);
+  };
 
   const handleEditPot = async (id: string) => {
     const pot = pots.find((x) => x.id === id);
@@ -70,6 +76,7 @@ export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof useP
                   Einzahlen
                 </button>
                 <button onClick={() => handleEditPot(p.id)} className="btn btn-sm" style={{ background: "#2563eb", color: "white" }}>Bearbeiten</button>
+                <button onClick={() => handleDeletePot(p.id, p.name, p.saved)} className="btn btn-sm btn-danger">Löschen</button>
               </div>
             </div>
           );

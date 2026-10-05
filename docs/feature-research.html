@@ -217,7 +217,8 @@
 
   <h3>Finanzen — known gaps</h3>
   <ul class="todo">
-    <li><input type="checkbox" disabled><span>Savings goals: no delete, no withdrawal, no deposit history.</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Savings goals: delete (with confirm; failed or RLS-blocked deletes roll back).</span></li>
+    <li><input type="checkbox" disabled><span>Savings goals: no withdrawal, no deposit history.</span></li>
     <li><input type="checkbox" disabled><span>Money onboarding only turns fixed costs into budgets; income and goals are not carried into the Verteilertopf config.</span></li>
     <li><input type="checkbox" disabled><span>Distributions cannot be reversed; no manual bookings on accounts.</span></li>
     <li><input type="checkbox" disabled><span>Edit dialogs use <code>window.prompt</code>; optimistic updates (pots, debts, budgets, expenses, bills) have no error rollback.</span></li>
