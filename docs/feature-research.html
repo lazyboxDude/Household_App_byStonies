@@ -102,7 +102,7 @@
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
   below so we know what's next. Status below was checked against the code on 2026-10-05.
   The section <a href="#routinen">Idea: Routinen</a> covers recurring chores and bills (Abfuhr, Stromrechnung, …):
-  <strong>phase 1 is built</strong> (needs the migration applied, see below), phases 2–4 are still proposals.</p>
+  <strong>phase 1 is built and its migration is applied</strong>, phases 2–4 are still proposals.</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -143,7 +143,7 @@
         <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Done — Tasks: Cleaning Plan</td></tr>
         <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Done — Tasks: Cleaning Plan</td></tr>
         <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan and Routinen (not yet for bills)</td></tr>
-        <tr><td>Recurring household chores that are fixed in the calendar (Abfuhr, Papiersammlung)</td><td>(our own synthesis)</td><td>Done (phase 1) — Tasks: <a href="#routinen">Routinen</a>; migration still has to be applied</td></tr>
+        <tr><td>Recurring household chores that are fixed in the calendar (Abfuhr, Papiersammlung)</td><td>(our own synthesis)</td><td>Done (phase 1) — Tasks: <a href="#routinen">Routinen</a></td></tr>
         <tr><td>Recurring bills with payer, split and “paid” status (Strom, Internet, Serafe)</td><td>(our own synthesis)</td><td>Proposal — <a href="#routinen">Routinen</a>; today only <code>verteilertopf_bills</code> (name, amount, months)</td></tr>
         <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Done — one-way sync via <code>calendarSync.ts</code></td></tr>
         <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Partial — overdue badge per room only</td></tr>
@@ -224,7 +224,7 @@
   <ul class="todo">
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 1</strong> — schedule engine, chores and reminders, “Diese Woche”, calendar sync, starter templates.</span>
       <ul class="todo">
-        <li><input type="checkbox" disabled><span>Apply <code>supabase/migrations/20261005120000_routines.sql</code> to the Supabase project, then regenerate <code>app/lib/database.types.ts</code> (the new tables were added to it by hand).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Migration <code>supabase/migrations/20261005125910_routines.sql</code> is applied to the Supabase project (2026-10-05). <code>app/lib/database.types.ts</code> was extended by hand and matches the generated types for these tables; it still lacks the unrelated <code>calendar_feed</code> additions (<code>households.calendar_feed_token</code>, <code>get_calendar_feed</code>, <code>rotate_calendar_feed_token</code>) — regenerate it once to pick them up.</span></li>
         <li><input type="checkbox" disabled><span>Phases 2–4 (bills, rotation/fairness, import and push) — see <a href="#routinen">Idea: Routinen</a>.</span></li>
       </ul>
     </li>
