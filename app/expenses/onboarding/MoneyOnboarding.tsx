@@ -61,7 +61,7 @@ export default function MoneyOnboarding({
   onDone,
 }: {
   data: ReturnType<typeof useMoneyOnboarding>;
-  onDone: () => void;
+  onDone: (openNextStep: boolean) => void | Promise<void>;
 }) {
   const { goals, income, incomeVariable, fixedCosts, mood, step: savedStep, save } = data;
   const { lang } = useI18n();
@@ -76,12 +76,14 @@ export default function MoneyOnboarding({
     save({ step: clamped });
   };
 
-  const handleFinish = async () => {
+  // The parent carries the entered numbers over into the app first; only then
+  // is the onboarding marked as completed. Marking it first would swap this
+  // screen out immediately and lose the carry-over if the tab closes midway.
+  const handleFinish = async (openNextStep: boolean) => {
     setIsFinishing(true);
+    await onDone(openNextStep);
     await save({ completed: true });
-    setIsFinishing(false);
     showToast(T.toastDone, "success");
-    onDone();
   };
 
   return (
@@ -377,7 +379,8 @@ function ResultStep({
   const T = copyFor(lang);
   const result = calcAvailable(income, fixedCosts, incomeVariable);
   const { amount, sentence } = resultHeadline(result, lang);
-  const negative = result.kind === "range" ? result.max < 0 : result.amount < 0;
+  const hasIncome = income.some((e) => (incomeVariable ? e.min > 0 || e.max > 0 : e.amount > 0));
+  const negative = hasIncome && (result.kind === "range" ? result.max < 0 : result.amount < 0);
 
   // Mood only softens the lead-in line — never a judgment, never shown as a score.
   const leadIn = mood === "gestresst" || mood === "unsicher" ? T.result.stepByStep : null;
@@ -392,13 +395,19 @@ function ResultStep({
       </div>
       {leadIn && <p className="text-caption mb-1">{leadIn}</p>}
       <h1 className="text-title mb-2">{T.result.title}</h1>
-      <div className="text-4xl font-semibold my-3">{amount}</div>
-      <p className="text-body text-[var(--text-secondary)] max-w-sm mx-auto">{sentence}</p>
+      {hasIncome ? (
+        <>
+          <div className="text-4xl font-semibold my-3">{amount}</div>
+          <p className="text-body text-[var(--text-secondary)] max-w-sm mx-auto">{sentence}</p>
+        </>
+      ) : (
+        <p className="text-body text-[var(--text-secondary)] max-w-sm mx-auto mt-3">{T.result.noIncome}</p>
+      )}
     </div>
   );
 }
 
-function NextStepStep({ goals, onFinish, isFinishing }: { goals: GoalId[]; onFinish: () => void; isFinishing: boolean }) {
+function NextStepStep({ goals, onFinish, isFinishing }: { goals: GoalId[]; onFinish: (openNextStep: boolean) => void; isFinishing: boolean }) {
   const { lang } = useI18n();
   const T = copyFor(lang);
   return (
@@ -406,10 +415,10 @@ function NextStepStep({ goals, onFinish, isFinishing }: { goals: GoalId[]; onFin
       <h2 className="text-headline mb-1">{T.nextStep.title}</h2>
       <p className="text-body text-[var(--text-secondary)] mb-6 max-w-sm mx-auto">{nextStepFor(goals, lang)}</p>
       <div className="flex items-center justify-center gap-3 mb-6">
-        <button onClick={onFinish} disabled={isFinishing} className="btn btn-primary px-6 py-2.5">
+        <button onClick={() => onFinish(true)} disabled={isFinishing} className="btn btn-primary px-6 py-2.5">
           {isFinishing ? "..." : T.nextStep.doIt}
         </button>
-        <button onClick={onFinish} disabled={isFinishing} className="btn btn-ghost px-6 py-2.5">
+        <button onClick={() => onFinish(false)} disabled={isFinishing} className="btn btn-ghost px-6 py-2.5">
           {T.nextStep.later}
         </button>
       </div>

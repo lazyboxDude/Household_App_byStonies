@@ -12,6 +12,7 @@ import FeatureOnboarding from '../components/FeatureOnboarding';
 import FinanceOnboarding from './components/FinanceOnboarding';
 import MoneyOnboarding from './onboarding/MoneyOnboarding';
 import { useMoneyOnboarding } from './onboarding/useMoneyOnboarding';
+import type { GoalId } from './onboarding/types';
 import FinanceOverview from './components/FinanceOverview';
 import IncomeDistribution from './components/IncomeDistribution';
 import BudgetsExpenses from './components/BudgetsExpenses';
@@ -131,13 +132,17 @@ export default function ExpensesPage() {
     return (
       <MoneyOnboarding
         data={moneyOnboarding}
-        onDone={async () => {
+        onDone={async (openNextStep) => {
+          const existing = new Set(budgetsHook.budgets.map((b) => b.category.trim().toLowerCase()));
           for (const cost of moneyOnboarding.fixedCosts) {
-            if (cost.amount > 0 && cost.label.trim()) {
-              await budgetsHook.addBudget(cost.label.trim(), cost.amount);
+            const label = cost.label.trim();
+            if (cost.amount > 0 && label && !existing.has(label.toLowerCase())) {
+              existing.add(label.toLowerCase());
+              await budgetsHook.addBudget(label, cost.amount);
             }
           }
-          if (!vt.onboardingCompleted) vt.completeOnboarding();
+          if (!vt.onboardingCompleted) await vt.completeOnboarding();
+          if (openNextStep) setTab(nextStepTab(moneyOnboarding.goals[0]));
         }}
       />
     );
@@ -199,6 +204,14 @@ export default function ExpensesPage() {
       {tab === 'einstellungen' && <FinanceSettings vt={vt} />}
     </div>
   );
+}
+
+// "Machen wir" on the last onboarding step lands on the tab where that goal's
+// recommended next step actually happens.
+function nextStepTab(goal: GoalId | undefined): FinanceTab {
+  if (goal === 'schulden') return 'schulden';
+  if (goal === 'ueberblick') return 'budgets';
+  return 'sparziele';
 }
 
 function currentMonth() {

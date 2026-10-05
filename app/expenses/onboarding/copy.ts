@@ -145,6 +145,7 @@ const COPY = {
     result: {
       title: "Dein erstes Ergebnis",
       stepByStep: "Schritt für Schritt:",
+      noIncome: "Ohne Einnahmen können wir noch nichts ausrechnen. Das ist okay — du kannst sie jederzeit nachtragen.",
     },
     nextStep: {
       title: "Dein nächster kleiner Schritt",
@@ -199,6 +200,7 @@ const COPY = {
     result: {
       title: "Your first result",
       stepByStep: "Step by step:",
+      noIncome: "Without income we can't work anything out yet. That's okay — you can add it any time.",
     },
     nextStep: {
       title: "Your next small step",
