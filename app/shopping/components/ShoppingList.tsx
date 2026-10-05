@@ -1,5 +1,6 @@
 import { Plus, Trash2, MapPin, Search, DollarSign, ExternalLink, Percent } from "lucide-react";
 import { ShoppingItem } from "../types";
+import Mascot from "../../../components/Mascot";
 
 interface ShoppingListProps {
   items: ShoppingItem[];
@@ -131,6 +132,7 @@ export default function ShoppingList({
       <div className="surface overflow-hidden">
         {items.length === 0 ? (
           <div className="p-8 text-center text-[var(--text-secondary)]">
+            <Mascot pose="shopping" className="h-36 mb-3" />
             <p>Your shopping list is empty!</p>
           </div>
         ) : (

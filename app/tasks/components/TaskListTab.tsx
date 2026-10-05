@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckCircle2, Plus, Trash2, User, ListTodo, Loader2, Lock, Users } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, User, Loader2, Lock, Users } from "lucide-react";
 import { Task } from "../types";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
+import Mascot from "../../../components/Mascot";
 import SwipeToDelete, { type SwipeToDeleteHandle } from "../../components/SwipeToDelete";
 
 export default function TaskListTab({ householdId }: { householdId: string }) {
@@ -211,7 +212,7 @@ export default function TaskListTab({ householdId }: { householdId: string }) {
 
         {tasks.length === 0 && (
           <div className="text-center py-12 text-[var(--text-secondary)]">
-            <ListTodo className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
+            <Mascot pose="sleeping" className="h-36 mb-3" />
             <p>No tasks yet. Add one to get started.</p>
           </div>
         )}

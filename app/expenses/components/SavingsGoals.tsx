@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Mascot from "../../../components/Mascot";
 import { showToast } from "../../../lib/toast";
 import { fmt } from "../format";
 import { usePots } from "../hooks/usePots";
@@ -25,7 +26,12 @@ export default function SavingsGoals({ pots: p }: { pots: ReturnType<typeof useP
       <h2 className="text-headline mb-3">Sparziele</h2>
       <CreatePotForm onCreate={createPot} />
       <div className="space-y-3 mt-3">
-        {pots.length === 0 && <p className="text-caption">Noch keine Sparziele — leg eins an, um für etwas Besonderes zu sparen.</p>}
+        {pots.length === 0 && (
+          <div className="text-center py-4">
+            <Mascot pose="piggy" className="h-36" />
+            <p className="text-caption mt-3">Noch keine Sparziele — leg eins an, um für etwas Besonderes zu sparen.</p>
+          </div>
+        )}
         {pots.map((p) => {
           const pct = p.target > 0 ? Math.min(100, Math.round((p.saved / p.target) * 100)) : 0;
           const isShared = p.ownerUserId === null;

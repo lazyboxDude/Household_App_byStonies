@@ -432,6 +432,55 @@ body {
   animation: sheet-up var(--dur-slow) var(--ease-spring) both;
 }
 
+/* Mascot decorations (components/Mascot.tsx) */
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) rotate(0deg);
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(46px) rotate(220deg);
+  }
+}
+@keyframes z-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 6px) scale(0.8);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(8px, -14px) scale(1.1);
+  }
+}
+.mascot-confetti {
+  position: absolute;
+  width: 7px;
+  height: 11px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall 2.6s var(--ease-out) infinite;
+}
+.mascot-z {
+  position: absolute;
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--text-tertiary);
+  opacity: 0;
+  animation: z-float 3s ease-in-out infinite;
+}
+.mascot-z-2 {
+  font-size: 0.95rem;
+  animation-delay: 1.4s;
+}
+
 /* Stagger helper: apply alongside .animate-rise, set --stagger-i per item. */
 .animate-rise[style] {
   animation-delay: calc(var(--stagger-i, 0) * 40ms);
@@ -461,6 +510,10 @@ body {
   .btn:active,
   .chip:active {
     transform: none !important;
+  }
+  .mascot-confetti,
+  .mascot-z {
+    display: none;
   }
 }
 

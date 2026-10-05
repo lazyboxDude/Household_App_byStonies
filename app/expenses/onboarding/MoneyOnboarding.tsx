@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
 import { Check, Sparkles } from "lucide-react";
+import Mascot from "../../../components/Mascot";
 import { showToast } from "../../../lib/toast";
 import { chf, r2, uid } from "../format";
 import { calcAvailable } from "./calc";
@@ -135,14 +135,9 @@ export default function MoneyOnboarding({
 function WelcomeStep() {
   return (
     <div className="text-center">
-      <Image
-        src="/mascot/snail-welcome.webp"
-        alt=""
-        width={377}
-        height={488}
-        priority
-        className="mx-auto mb-4 h-52 w-auto drop-shadow-lg"
-      />
+      <div className="mb-4">
+        <Mascot pose="welcome" className="h-52" priority />
+      </div>
       <h1 className="text-title mb-2">{T.welcome.title}</h1>
       <p className="text-body text-[var(--text-secondary)]">{T.welcome.body}</p>
     </div>
@@ -389,6 +384,9 @@ function ResultStep({
 function NextStepStep({ goals, onFinish, isFinishing }: { goals: GoalId[]; onFinish: () => void; isFinishing: boolean }) {
   return (
     <div className="text-center">
+      <div className="mb-4">
+        <Mascot pose="celebrate" className="h-44" />
+      </div>
       <h2 className="text-headline mb-1">{T.nextStep.title}</h2>
       <p className="text-body text-[var(--text-secondary)] mb-6 max-w-sm mx-auto">{nextStepFor(goals)}</p>
       <div className="flex items-center justify-center gap-3 mb-6">
