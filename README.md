@@ -116,6 +116,8 @@ Cloudflare dashboard for the site key):
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_publishable_key_here
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key_here
+# Set to true once the Google provider is enabled in Supabase
+NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED=false
 ```
 
 ### 3. Vercel Deployment
