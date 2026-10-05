@@ -14,10 +14,9 @@ import {
   subMonths,
   isSameMonth,
   isSameDay,
-  isToday,
-  getDay
+  isToday
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Sparkles, ArrowRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, X, MapPin, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { Tables } from '../lib/database.types';
@@ -35,14 +34,6 @@ interface CalendarEvent {
   // Set for events mirrored from a cleaning task (see app/tasks/calendarSync.ts).
   // They are managed from the Tasks page, so they are read-only here.
   sourceCleaningTaskId?: string;
-}
-
-interface Suggestion {
-  id: string;
-  title: string;
-  category: string;
-  location?: string;
-  description: string;
 }
 
 // A bare "yyyy-MM-dd" parses as UTC midnight in JS, which can shift a day
@@ -78,10 +69,6 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-
-  // Discovery State
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   // Form state
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -128,60 +115,6 @@ export default function CalendarPage() {
       supabase.removeChannel(channel);
     };
   }, [householdId, loadEvents]);
-
-  // Mock Suggestions Generator (Fallback)
-  const getMockSuggestions = (date: Date): Suggestion[] => {
-    const dayOfWeek = getDay(date); // 0 = Sun, 6 = Sat
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    const baseSuggestions: Suggestion[] = [
-      { id: '1', title: 'Local Farmers Market', category: 'Shopping', location: 'Town Square', description: 'Fresh produce and local goods.' },
-      { id: '2', title: 'Cinema Night', category: 'Entertainment', location: 'City Mall Cinema', description: 'Catch the latest blockbuster.' },
-      { id: '3', title: 'Park Picnic', category: 'Outdoor', location: 'Central Park', description: 'Relaxing afternoon in the sun.' },
-    ];
-
-    if (isWeekend) {
-      return [
-        ...baseSuggestions,
-        { id: 'w1', title: 'Live Music Night', category: 'Nightlife', location: 'The Jazz Corner', description: 'Local bands playing live.' },
-        { id: 'w2', title: 'Hiking Trip', category: 'Outdoor', location: 'Sunset Trail', description: '3-hour scenic hike.' },
-      ];
-    } else {
-      return [
-        ...baseSuggestions.slice(0, 2),
-        { id: 'd1', title: 'Quick Gym Session', category: 'Health', location: 'FitZone', description: '45 min cardio workout.' },
-        { id: 'd2', title: 'Try a New Recipe', category: 'Cooking', description: 'Cook something special for dinner.' },
-      ];
-    }
-  };
-
-  // Load Suggestions when tab changes or date changes
-  useEffect(() => {
-    const loadSuggestions = async () => {
-      setIsLoadingSuggestions(true);
-      if (!navigator.geolocation) {
-        setSuggestions(getMockSuggestions(selectedDate));
-        setIsLoadingSuggestions(false);
-        return;
-      }
-      // Only use mock suggestions for now
-      setSuggestions(getMockSuggestions(selectedDate));
-      setIsLoadingSuggestions(false);
-    };
-
-    loadSuggestions();
-  }, [selectedDate]); // Reload when date changes
-
-  const handleAddSuggestion = (suggestion: Suggestion) => {
-    setNewEventTitle(suggestion.title);
-    setNewEventLocation(suggestion.location || '');
-    setNewEventType(suggestion.category === 'Shopping' ? 'shopping' : 'event');
-    setNewEventTime('18:00'); // Default evening time
-    setNewEventDate(format(selectedDate, 'yyyy-MM-dd'));
-    setNewEventPhoto(null);
-    setEditingEvent(null);
-    setIsModalOpen(true);
-  };
 
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -299,7 +232,7 @@ export default function CalendarPage() {
         feature="calendar"
         icon={CalendarIcon}
         title="Calendar"
-        description="A shared household calendar for events, with a nearby-activity discovery tab."
+        description="A shared household calendar for events and cleaning tasks."
         bullets={[
           "Everyone in the household sees the same events, live",
           "Cleaning-plan tasks can sync their due dates here automatically",
@@ -487,43 +420,6 @@ export default function CalendarPage() {
                   </div>
                 ))
               )}
-          </div>
-
-          <div className="pt-6 border-t divider">
-            <h3 className="text-headline flex items-center gap-2 mb-4">
-              <Sparkles className="w-4 h-4 text-orange-500" />
-              Discover Nearby
-            </h3>
-
-            {isLoadingSuggestions ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {suggestions.map(suggestion => (
-                  <div key={suggestion.id} className="surface card-interactive p-3">
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-semibold text-sm text-[var(--text)]">{suggestion.title}</h4>
-                      <span className="text-[10px] uppercase font-bold text-[var(--text-tertiary)] tracking-wider">{suggestion.category}</span>
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] mb-2 line-clamp-2">{suggestion.description}</p>
-                    {suggestion.location && (
-                      <div className="flex items-center gap-1 text-xs text-[var(--text-tertiary)] mb-2">
-                        <MapPin className="w-3 h-3" />
-                        {suggestion.location}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => handleAddSuggestion(suggestion)}
-                      className="press w-full py-1.5 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-900/20 hover:bg-orange-100 dark:hover:bg-orange-900/40 rounded-lg transition-colors flex items-center justify-center gap-1"
-                    >
-                      Add <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
