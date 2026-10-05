@@ -6,7 +6,7 @@ import { AccountId, DistSettings, IrregularBill, DistTransaction } from "../type
 import { curYM, r2, uid } from "../format";
 import { plannerBills } from "../../tasks/routines/billPlan";
 import { todayLocalISO } from "../../tasks/routines/schedule";
-import { toRoutine } from "../../tasks/routines/useRoutines";
+import { toRoutine } from "../../tasks/routines/rowMappers";
 import type { Routine } from "../../tasks/routines/types";
 
 export const ACCOUNT_IDS: AccountId[] = ["main", "taxes", "bills", "joint"];

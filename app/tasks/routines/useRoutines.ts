@@ -6,10 +6,13 @@ import type { Json } from "../../lib/database.types";
 import { showToast } from "../../../lib/toast";
 import { chf } from "../../expenses/format";
 import { missingOccurrences } from "./ensure";
+import { mergedDates, type ImportItem } from "./calendarImport";
+import { planCleaningMigration, type CleaningRecurrence } from "./cleaningMigration";
 import { loadsFrom } from "./fairness";
 import { planAssignments } from "./rotation";
 import { addDays, nextAfterDone, todayLocalISO } from "./schedule";
-import type { AmountKind, Assignment, Occurrence, OccurrenceStatus, Routine, RoutineKind, RoutineMode, Schedule, Split } from "./types";
+import type { AmountKind, Assignment, Occurrence, Routine, RoutineKind, RoutineMode, Schedule, Split } from "./types";
+import { toOccurrence, toRoutine } from "./rowMappers";
 import { useRoutineTeam } from "./useRoutineTeam";
 
 const ERROR_TEXT = "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?";
@@ -54,57 +57,6 @@ export interface UndoableAction {
   undo: () => Promise<void>;
 }
 
-export function toRoutine(r: {
-  id: string; household_id: string; kind: string; title: string; icon: string; schedule: Json;
-  mode: string; active_months: number[] | null; lead_days: number; assignee_id: string | null; show_in_calendar: boolean;
-  amount: number | null; amount_kind: string | null; payer_id: string | null; expense_category: string | null;
-  assignment: string; rotation: string[] | null; effort: number; split: Json | null;
-}): Routine {
-  return {
-    id: r.id,
-    householdId: r.household_id,
-    kind: r.kind as RoutineKind,
-    title: r.title,
-    icon: r.icon,
-    schedule: r.schedule as unknown as Schedule,
-    mode: r.mode as RoutineMode,
-    activeMonths: r.active_months,
-    leadDays: r.lead_days,
-    assigneeId: r.assignee_id,
-    showInCalendar: r.show_in_calendar,
-    amount: r.amount,
-    amountKind: r.amount_kind as AmountKind | null,
-    payerId: r.payer_id,
-    expenseCategory: r.expense_category,
-    assignment: r.assignment as Assignment,
-    rotation: r.rotation,
-    effort: r.effort as Routine["effort"],
-    split: r.split as unknown as Split | null,
-  };
-}
-
-function toOccurrence(o: {
-  id: string; routine_id: string; due_date: string; status: string;
-  assigned_to: string | null; done_by: string | null; done_at: string | null;
-  amount: number | null; expense_id: string | null; vt_tx_id: string | null;
-  locked: boolean; split: Json | null;
-}): Occurrence {
-  return {
-    id: o.id,
-    routineId: o.routine_id,
-    dueDate: o.due_date,
-    status: o.status as OccurrenceStatus,
-    assignedTo: o.assigned_to,
-    doneBy: o.done_by,
-    doneAt: o.done_at,
-    amount: o.amount,
-    expenseId: o.expense_id,
-    vtTxId: o.vt_tx_id,
-    locked: o.locked,
-    split: o.split as unknown as Split | null,
-  };
-}
-
 // Loads a household's routines and their occurrences, fills the next ~8 weeks,
 // and mirrors open occurrences into the calendar when that feature is on.
 export function useRoutines(householdId: string | undefined, userId: string | undefined, features: Features, memberIds: string[]) {
@@ -119,6 +71,8 @@ export function useRoutines(householdId: string | undefined, userId: string | un
   // Done in the last 30 days (Fairness-Waage, rotation continuity) and every paid bill with a split (Ausgleich).
   const [doneRecent, setDoneRecent] = useState<Occurrence[]>([]);
   const [paidBills, setPaidBills] = useState<Occurrence[]>([]);
+  // Cleaning Plan tasks that have not been taken over yet (0 also when the column does not exist yet).
+  const [cleaningOpen, setCleaningOpen] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [undoable, setUndoable] = useState<UndoableAction | null>(null);
   // Whether this household uses the Verteilertopf, so the pay panel can offer to debit an account.
@@ -257,6 +211,21 @@ export function useRoutines(householdId: string | undefined, userId: string | un
     // Keyed on content (absenceKey/memberKey), not on array identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team.absenceKey, memberKey]);
+
+  const loadCleaningOpen = useCallback(async () => {
+    if (!householdId) return;
+    const { count, error } = await supabase
+      .from("cleaning_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", householdId)
+      .is("migrated_routine_id", null);
+    setCleaningOpen(error ? 0 : count ?? 0);
+  }, [householdId]);
+
+  useEffect(() => {
+    // Standard fetch-on-mount.
+    loadCleaningOpen();
+  }, [loadCleaningOpen]);
 
   useEffect(() => {
     if (!householdId || !expensesEnabled) return;
@@ -406,6 +375,112 @@ export function useRoutines(householdId: string | undefined, userId: string | un
     [routines, occurrences, householdId, userId, refresh, offerUndo]
   );
 
+  // Entsorgungskalender: creates a date-list reminder per waste type, or adds the new dates
+  // to the reminder that already has this name (the yearly re-import).
+  const importCalendar = useCallback(
+    async (items: ImportItem[]): Promise<{ created: number; updated: number } | null> => {
+      if (!householdId) return null;
+      let created = 0;
+      let updated = 0;
+      for (const item of items) {
+        if (item.action === "create") {
+          const { error } = await supabase.from("routines").insert({
+            household_id: householdId,
+            kind: "reminder",
+            title: item.title,
+            icon: item.icon,
+            schedule: { type: "dates", dates: item.dates } as unknown as Json,
+            mode: "fixed",
+            lead_days: 1,
+            assignment: "open",
+            effort: 2,
+            show_in_calendar: true,
+          });
+          if (error) {
+            showToast(ERROR_TEXT, "error");
+            continue;
+          }
+          created++;
+        } else if (item.action === "update" && item.routineId) {
+          const { error } = await supabase
+            .from("routines")
+            .update({ schedule: { type: "dates", dates: mergedDates(item) } as unknown as Json })
+            .eq("id", item.routineId);
+          if (error) {
+            showToast(ERROR_TEXT, "error");
+            continue;
+          }
+          updated++;
+        }
+      }
+      await refresh(true);
+      return { created, updated };
+    },
+    [householdId, refresh]
+  );
+
+  // Takes the Cleaning Plan over: every task becomes a routine and is hidden in the Cleaning Plan
+  // (its row stays; deleting the routine brings the task back). Overdue tasks stay overdue.
+  const importCleaningPlan = useCallback(
+    async (members: { id: string; name: string }[]): Promise<number> => {
+      if (!householdId) return 0;
+      const [{ data: tasks, error: tErr }, { data: rooms }] = await Promise.all([
+        supabase.from("cleaning_tasks").select("*").eq("household_id", householdId).is("migrated_routine_id", null).order("created_at", { ascending: true }),
+        supabase.from("rooms").select("*").eq("household_id", householdId),
+      ]);
+      if (tErr || !tasks) {
+        showToast(ERROR_TEXT, "error");
+        return 0;
+      }
+      const roomById = new Map((rooms ?? []).map((r) => [r.id, { name: r.name, icon: r.icon }]));
+      let moved = 0;
+      for (const t of tasks) {
+        const plan = planCleaningMigration(
+          { id: t.id, roomId: t.room_id, title: t.title, supplies: t.supplies, recurrence: t.recurrence as CleaningRecurrence, assignee: t.assignee, nextDue: t.next_due },
+          roomById.get(t.room_id),
+          members
+        );
+        const { data: routine, error } = await supabase
+          .from("routines")
+          .insert({
+            household_id: householdId,
+            kind: "chore",
+            title: plan.title,
+            icon: plan.icon,
+            schedule: plan.schedule as unknown as Json,
+            mode: plan.mode,
+            lead_days: 0,
+            assignment: plan.assignment,
+            assignee_id: plan.assigneeId,
+            effort: 2,
+            show_in_calendar: true,
+            room_id: plan.roomId,
+            supplies: plan.supplies,
+          })
+          .select("id")
+          .single();
+        if (error || !routine) continue;
+        const { error: occError } = await supabase
+          .from("routine_occurrences")
+          .insert({ household_id: householdId, routine_id: routine.id, due_date: plan.firstDue, assigned_to: plan.assigneeId });
+        const { error: linkError } = occError
+          ? { error: occError }
+          : await supabase.from("cleaning_tasks").update({ migrated_routine_id: routine.id }).eq("id", t.id);
+        if (linkError) {
+          await supabase.from("routines").delete().eq("id", routine.id); // occurrences go with it
+          continue;
+        }
+        // The Cleaning Plan's own calendar entry would now duplicate the routine's.
+        await supabase.from("calendar_events").delete().eq("source_cleaning_task_id", t.id);
+        moved++;
+      }
+      await Promise.all([refresh(true), loadCleaningOpen()]);
+      if (moved < tasks.length) showToast("Ein paar Aufgaben konnte ich nicht übernehmen. Sie bleiben im Putzplan.", "info");
+      return moved;
+    },
+    [householdId, refresh, loadCleaningOpen]
+  );
+
   // Hands one occurrence to someone else. It is locked so the rotation leaves it alone
   // and simply carries on from there.
   const swap = useCallback(
@@ -524,7 +599,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
   );
 
   return {
-    routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap,
+    routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap, importCalendar, importCleaningPlan, cleaningOpen,
     finance: { expensesEnabled, hasVerteilertopf },
     team,
   };

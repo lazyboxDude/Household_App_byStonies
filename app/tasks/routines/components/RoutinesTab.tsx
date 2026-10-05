@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Repeat, Trash2, Loader2 } from "lucide-react";
+import { FileUp, Plus, Repeat, Sparkles, Trash2, Loader2 } from "lucide-react";
+import { showToast } from "../../../../lib/toast";
 import { chf } from "../../../expenses/format";
 import { useAuth } from "../../../context/AuthContext";
 import { buildAgenda } from "../agenda";
@@ -11,6 +12,8 @@ import { fairness as computeFairness } from "../fairness";
 import { netBalances, suggestTransfers } from "../settle";
 import { useRoutines } from "../useRoutines";
 import { FairnessCard, SettleUpCard } from "./BalanceCards";
+import ImportPanel from "./ImportPanel";
+import PushCard from "./PushCard";
 import RoutineForm from "./RoutineForm";
 import { AbsencesCard, LivingModeCard } from "./TeamCards";
 import WeekAgenda from "./WeekAgenda";
@@ -25,10 +28,12 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
   const memberIds = useMemo(() => members.map((m) => m.id), [members]);
   const calendarEnabled = household?.enabledFeatures.includes("calendar") ?? false;
   const expensesEnabled = household?.enabledFeatures.includes("expenses") ?? false;
-  const { routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap, finance, team } =
+  const { routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap, importCalendar, importCleaningPlan, cleaningOpen, finance, team } =
     useRoutines(householdId, user?.id, { calendarEnabled, expensesEnabled }, memberIds);
 
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [confirmCleaning, setConfirmCleaning] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   // The Fairness-Waage is on by default in a WG and off for couples; each person can flip it for themselves.
   const [fairnessPref, setFairnessPref] = useState<"on" | "off" | null>(null);
@@ -117,6 +122,36 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
           />
         )}
 
+        {importing && <ImportPanel routines={routines} today={today} onImport={importCalendar} onCancel={() => setImporting(false)} />}
+
+        {cleaningOpen > 0 && (
+          <section className="surface p-5">
+            <h2 className="text-headline flex items-center gap-2 mb-1"><Sparkles className="w-5 h-5" style={{ color: "var(--accent)" }} /> Putzplan hier weiterführen?</h2>
+            <p className="text-caption mb-3">
+              Du hast {cleaningOpen} {cleaningOpen === 1 ? "Aufgabe" : "Aufgaben"} im Putzplan. Hier bekommen sie Zuständigkeit, Tausch und Fairness-Waage.
+              Im Putzplan sind sie danach ausgeblendet. Löschst du eine Routine, erscheint die Aufgabe dort wieder.
+            </p>
+            {confirmCleaning ? (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={async () => {
+                    setConfirmCleaning(false);
+                    const n = await importCleaningPlan(members);
+                    if (n > 0) showToast(`${n} ${n === 1 ? "Aufgabe" : "Aufgaben"} übernommen`, "success");
+                  }}
+                >
+                  Ja, übernehmen
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmCleaning(false)}>Abbrechen</button>
+              </div>
+            ) : (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirmCleaning(true)}>Putzplan übernehmen</button>
+            )}
+          </section>
+        )}
+
         {hasSplit && hasTeam && <SettleUpCard transfers={transfers} nameOf={nameOf} onSettle={(t) => team.settle(t.from, t.to, t.amount)} />}
         {hasTeam && hasChores && showFairness && (
           <FairnessCard
@@ -136,9 +171,14 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
               <Repeat className="w-5 h-5" style={{ color: "var(--accent)" }} /> Routinen
             </h2>
             {!adding && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)}>
-                <Plus className="w-4 h-4" /> Neu
-              </button>
+              <div className="flex gap-2">
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setImporting(true)}>
+                  <FileUp className="w-4 h-4" /> Kalender
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)}>
+                  <Plus className="w-4 h-4" /> Neu
+                </button>
+              </div>
             )}
           </div>
 
@@ -167,6 +207,7 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
                         {describeRoutine(r)}
                         {r.kind === "bill" && r.amount != null ? ` · ${r.amountKind === "estimate" ? "ca. " : ""}${chf(r.amount)}` : ""}
                         {who ? ` · ${who}` : ""}
+                        {r.supplies.length > 0 ? ` · Material: ${r.supplies.join(", ")}` : ""}
                       </div>
                     </div>
                     {confirmDeleteId === r.id ? (
@@ -213,6 +254,8 @@ export default function RoutinesTab({ householdId }: { householdId: string }) {
             </button>
           )}
         </section>
+
+        <PushCard />
 
         {hasTeam && (
           <LivingModeCard mode={team.livingMode} isAuto={team.settings.livingMode === null} onChange={(m) => team.saveSettings({ livingMode: m })} />

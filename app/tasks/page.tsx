@@ -189,7 +189,7 @@ export default function TasksPage() {
         </div>
       ) : activeTab === "cleaning" ? (
         <div className="animate-rise">
-          <CleaningPlanTab householdId={householdId} />
+          <CleaningPlanTab householdId={householdId} onOpenRoutines={() => setActiveTab("routines")} />
         </div>
       ) : (
         <div className="animate-rise">

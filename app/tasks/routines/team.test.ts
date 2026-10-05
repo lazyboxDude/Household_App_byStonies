@@ -15,7 +15,7 @@ function routine(p: Partial<Routine>): Routine {
     id: "r", householdId: "h", kind: "reminder", title: "Kehricht", icon: "🗑️",
     schedule: { type: "weekday", weekdays: [4] }, mode: "fixed", activeMonths: null, leadDays: 1,
     assigneeId: null, showInCalendar: true, amount: null, amountKind: null, payerId: null, expenseCategory: null,
-    assignment: "rotation", rotation: [A, B, C], effort: 2, split: null,
+    assignment: "rotation", rotation: [A, B, C], effort: 2, split: null, roomId: null, supplies: [],
     ...p,
   };
 }

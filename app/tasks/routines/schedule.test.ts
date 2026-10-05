@@ -139,7 +139,7 @@ function routine(p: Partial<Routine>): Routine {
     schedule: { type: "interval", every: 1, unit: "week", anchor: "2026-11-01" },
     mode: "after_done", activeMonths: null, leadDays: 0, assigneeId: null, showInCalendar: true,
     amount: null, amountKind: null, payerId: null, expenseCategory: null,
-    assignment: "open", rotation: null, effort: 2, split: null,
+    assignment: "open", rotation: null, effort: 2, split: null, roomId: null, supplies: [],
     ...p,
   };
 }

@@ -102,7 +102,7 @@
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
   below so we know what's next. Status below was checked against the code on 2026-10-05.
   The section <a href="#routinen">Idea: Routinen</a> covers recurring chores and bills (Abfuhr, Stromrechnung, …):
-  <strong>phases 1–3 are built and their migrations are applied</strong>, phase 4 is a proposal.</p>
+  <strong>phases 1–3 are built and applied; phase 4 is built</strong> (its migration and push setup are still open, see the TODO list).</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -153,7 +153,7 @@
         <tr><td>Recipe templates → shopping list</td><td>Bring!</td><td>Backlog</td></tr>
         <tr><td>Auto-categorized shopping items (custom aisles)</td><td>Bring!</td><td>Backlog</td></tr>
         <tr><td>Real-time shared list sync</td><td>Bring!</td><td>Done — Supabase Realtime on shopping and calendar</td></tr>
-        <tr><td>Push notifications on shared-list changes</td><td>Bring!</td><td>Backlog (no service worker yet)</td></tr>
+        <tr><td>Push notifications on shared-list changes</td><td>Bring!</td><td>Partial — evening-before reminders for Routinen (phase 4, needs setup); shared-list and shared-task changes are not pushed</td></tr>
         <tr><td>Coins/virtual reward shop</td><td>Sweepy</td><td>Backlog, optional</td></tr>
       </tbody>
     </table>
@@ -186,7 +186,7 @@
   <h2>TODO — roadmap for later sessions</h2>
 
   <div class="callout">
-    <h3>⚠️ Manual setup required <small>(Supabase dashboard — cannot be done from code)</small></h3>
+    <h3>⚠️ Manual setup required <small>(Supabase and Vercel dashboards — cannot be done from code)</small></h3>
     <p>The code side is implemented; whether the dashboard is configured cannot be verified from the repo.</p>
     <ul class="todo">
       <li><input type="checkbox" disabled><span><strong>Authentication → Providers → Google</strong>: add a real Google OAuth Client
@@ -197,6 +197,10 @@
         (<code>supabase.auth.signInAnonymously</code>) fails.</span></li>
       <li><input type="checkbox" disabled><span><strong>Attack Protection</strong>: add the Turnstile secret key if
         <code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code> is set.</span></li>
+      <li><input type="checkbox" disabled><span><strong>Push reminders (Vercel → Project → Settings → Environment Variables)</strong>: generate a key pair once with
+        <code>npx web-push generate-vapid-keys</code>, then set <code>NEXT_PUBLIC_VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code>, <code>VAPID_SUBJECT</code> (<code>mailto:…</code>),
+        <code>SUPABASE_SERVICE_ROLE_KEY</code> (Supabase → Settings → API) and <code>CRON_SECRET</code> (any long random string). The last four are server-only secrets, never with a
+        <code>NEXT_PUBLIC_</code> prefix. Then redeploy: <code>vercel.json</code> runs <code>/api/push/send</code> daily at 16:00 UTC. Until the public key is set, the “Erinnerungen aufs Handy” card stays hidden.</span></li>
     </ul>
   </div>
 
@@ -226,7 +230,16 @@
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 1</strong> — schedule engine, chores and reminders, “Diese Woche”, calendar sync, starter templates.</span>
       <ul class="todo">
         <li class="done"><input type="checkbox" disabled checked><span>Migration <code>supabase/migrations/20261005125910_routines.sql</code> is applied to the Supabase project (2026-10-05). <code>app/lib/database.types.ts</code> was extended by hand and matches the generated types for these tables; it still lacks the unrelated <code>calendar_feed</code> additions (<code>households.calendar_feed_token</code>, <code>get_calendar_feed</code>, <code>rotate_calendar_feed_token</code>) — regenerate it once to pick them up.</span></li>
-        <li><input type="checkbox" disabled><span>Phase 4 (Entsorgungskalender import, push, Cleaning Plan migration) — see <a href="#routinen">Idea: Routinen</a>.</span></li>
+      </ul>
+    </li>
+    <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 4</strong> — Entsorgungskalender import (.ics / CSV), taking over the Cleaning Plan, push reminders.</span>
+      <ul class="todo">
+        <li><input type="checkbox" disabled><span>Apply <code>supabase/migrations/20261007090000_routines_phase4.sql</code> (additive: <code>room_id</code>/<code>supplies</code> on <code>routines</code>, <code>migrated_routine_id</code> on <code>cleaning_tasks</code>, <code>notified_at</code> on <code>routine_occurrences</code>, table <code>push_subscriptions</code>), then regenerate <code>app/lib/database.types.ts</code>.</span></li>
+        <li><input type="checkbox" disabled><span>Set the push environment variables (see “Manual setup required”) and open the app once from each phone to switch reminders on. Real delivery is <strong>untested</strong>: the sender, the planning and the <code>web-push</code> call (201/410/404/500 handling) are tested against fakes, but no real browser push service was reachable.</span></li>
+        <li><input type="checkbox" disabled><span>Push goes out once a day (16:00 UTC, i.e. 17:00/18:00 in Switzerland; the sender uses the <code>Europe/Zurich</code> date), one message per person with everything that applies. Hobby-plan cron allows exactly this frequency. iPhones only receive push for an app added to the Home Screen.</span></li>
+        <li><input type="checkbox" disabled><span>ICS import reads single events and the common repeat rules (daily, weekly with weekday, monthly by day or n-th weekday, yearly) with COUNT/UNTIL/EXDATE; anything else is reported, not guessed. Time zones of date-times are ignored (the written date counts).</span></li>
+        <li><input type="checkbox" disabled><span>The Cleaning Plan takeover copies each task into a routine (title “Room: Task”, room icon, supplies, after-done interval, overdue stays overdue; “once” becomes a single date), hides the task in the Cleaning Plan and removes its old calendar entry. A free-text assignee only carries over when it matches a member’s name. Deleting the routine brings the task back. There is no separate room overview yet; <code>room_id</code> is stored for it.</span></li>
+        <li><input type="checkbox" disabled><span>Routines still cannot be edited (delete and re-create); only the yearly calendar re-import updates dates in place.</span></li>
       </ul>
     </li>
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 2</strong> — bills with amount, payer, “Bezahlt” (optionally as expense and as a Verteilertopf booking), planner link, Jahresabrechnung reminder.</span>
@@ -277,9 +290,9 @@
     <li><input type="checkbox" disabled><span>Shopping: user-customizable categories/aisles instead of the fixed list in
       <code>app/shopping/constants.ts</code>.</span></li>
     <li><input type="checkbox" disabled><span>Shopping: loyalty card wallet.</span></li>
-    <li><input type="checkbox" disabled><span>Push notifications for shared-list and shared-task changes (needs a service worker plus a backend sender;
-      neither exists yet).</span></li>
-    <li><input type="checkbox" disabled><span>Offline support (service worker / cache). The PWA manifest is in place, so the app is installable but not offline-capable.</span></li>
+    <li><input type="checkbox" disabled><span>Push notifications for shared-list and shared-task changes. The sender and service worker exist now (Routinen reminders, <code>public/sw.js</code>, <code>/api/push/send</code>),
+      but they only announce routines once a day; instant pushes on changes would need database webhooks or a function triggered by inserts.</span></li>
+    <li><input type="checkbox" disabled><span>Offline support (service worker / cache). The PWA manifest is in place, so the app is installable but not offline-capable; the existing service worker only handles push and caches nothing.</span></li>
     <li><input type="checkbox" disabled><span>Settings: rename household, remove member / leave household, regenerate invite code, manual dark-mode toggle.</span></li>
     <li><input type="checkbox" disabled><span>Optional coins/virtual-reward layer.</span></li>
     <li><input type="checkbox" disabled><span>Replace mocks: “Find Nearby” shops and calendar suggestions.</span></li>
@@ -392,12 +405,12 @@ Do 08.  🗑️ Kehricht rausstellen        → Mia (Rotation)
 Fr 09.  ⚡ Strom-Abschlag  CHF 95      → Jonas zahlt · 50/50
 Sa 10.  🛁 Bad putzen                  → offen  [Ich mach's]
 So 11.  ♻️ Papiersammlung (morgen früh)</code></pre></li>
-    <li><strong>Evening-before reminder</strong> <span class="tag">built as in-app highlight</span> (<code>lead_days</code>) — “Morgen Kehricht — Tonne rausstellen”. In-app banner first;
-      real push once the service worker exists (see Later).</li>
+    <li><strong>Evening-before reminder</strong> <span class="tag">built: in-app highlight and push</span> (<code>lead_days</code>) — “Morgen · Kehricht rausstellen”. Push needs the one-time setup above;
+      one message per person per day, on the day the heads-up window starts, to the assigned person (or everyone if nobody is assigned; bills go to the payer).</li>
     <li><strong>Swap &amp; absence</strong> <span class="tag">built</span> — one tap “tauschen” hands an occurrence to someone else; absence ranges skip a person in rotations.</li>
     <li><strong>Fairness-Waage</strong> <span class="tag">built</span> — share of effort (<code>effort</code> 1–5 per routine) over the last 30 days against a target split
       (50/50, or 40/60 for part-time). No points, no leaderboard by default.</li>
-    <li><strong>Entsorgungskalender import</strong> <span class="tag">phase 4; manual date list built</span> — paste or upload the municipality's ICS/CSV once a year and get all Abfuhr dates as a date-list routine.</li>
+    <li><strong>Entsorgungskalender import</strong> <span class="tag">built</span> — paste or upload the municipality's ICS/CSV once a year; every waste type becomes a date-list reminder with a guessed icon, and importing again only adds the new dates to the reminder with the same name.</li>
     <li><strong>Starter pack</strong> <span class="tag">built as form templates, not in onboarding yet</span> — in onboarding, tick the typical routines (Kehricht, Karton, Strom, Internet, Miete, Serafe, Krankenkasse, Putzplan).
       The money onboarding's fixed costs can be offered as bill routines instead of only budgets.</li>
     <li><strong>Calendar</strong> <span class="tag">built</span> — every open occurrence is mirrored into <code>calendar_events</code> through a new unique
@@ -466,7 +479,7 @@ interface Occurrence {
     <li><strong>Rechnungen-Planer</strong> <span class="tag">built as merge</span> — <code>billPlan.ts</code> reduces each bill routine to “amount, due months” from its real due dates over the next 12 months
       and <code>useVerteilertopf</code> adds them to the manual list for Soll-Stand, monthly need and the forecast. They show in a read-only “Aus Routinen” card. The yearly total is exact; the per-month
       amount is an average for bills due more than once a month.</li>
-    <li><strong>Cleaning Plan</strong> — stays as the room view. Later its tasks become routines with a <code>roomId</code>; until then both coexist.</li>
+    <li><strong>Cleaning Plan</strong> <span class="tag">taken over on request</span> — “Putzplan übernehmen” turns its tasks into routines with a <code>room_id</code>; the old tab keeps working for tasks not taken over and shows where the others went.</li>
     <li><strong>Members</strong> — routines use profile ids (<code>assignee_id</code>, <code>rotation[]</code>, <code>payer_id</code>, split keys), so rotation, fairness and splits work on real members.
       The older Tasks list and Cleaning Plan keep their free-text assignee.</li>
     <li><strong>Planning who does what</strong> — <code>rotation.ts</code> is pure and deterministic: it only plans occurrences that are open, ahead and not swapped by hand, continues from the last person who
@@ -485,7 +498,7 @@ interface Occurrence {
         <tr><td class="tag">1 — Rhythm <span style="font-weight:400">(built)</span></td><td>Schedule engine + tests, <code>routines</code>/<code>occurrences</code> tables, kinds chore + reminder, fixed and after-done, “Diese Woche”, calendar sync, starter pack with Abfuhr</td><td>Abfuhr and recurring chores work for any household</td></tr>
         <tr><td class="tag">2 — Bills <span style="font-weight:400">(built)</span></td><td>Bill kind: amount, payer, “bezahlt” → expense, link to Rechnungen-Planer, Jahresabrechnung reminder</td><td>Stromrechnung is tracked from due date to paid</td></tr>
         <tr><td class="tag">3 — Fairness <span style="font-weight:400">(built)</span></td><td>Rotation, swap, absence, split with settle-up, Fairness-Waage, Paar/WG presets</td><td>Fits couples and WGs differently</td></tr>
-        <tr><td class="tag">4 — Polish</td><td>Entsorgungskalender import, push reminders, Cleaning Plan migration</td><td>Feature complete</td></tr>
+        <tr><td class="tag">4 — Polish <span style="font-weight:400">(built)</span></td><td>Entsorgungskalender import, push reminders, Cleaning Plan migration</td><td>Feature complete</td></tr>
       </tbody>
     </table>
   </div>

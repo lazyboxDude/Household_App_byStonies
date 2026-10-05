@@ -123,6 +123,7 @@ export type Database = {
           household_id: string
           id: string
           last_done: string | null
+          migrated_routine_id: string | null
           next_due: string
           recurrence: string
           room_id: string
@@ -135,6 +136,7 @@ export type Database = {
           household_id: string
           id?: string
           last_done?: string | null
+          migrated_routine_id?: string | null
           next_due?: string
           recurrence: string
           room_id: string
@@ -147,6 +149,7 @@ export type Database = {
           household_id?: string
           id?: string
           last_done?: string | null
+          migrated_routine_id?: string | null
           next_due?: string
           recurrence?: string
           room_id?: string
@@ -159,6 +162,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_tasks_migrated_routine_id_fkey"
+            columns: ["migrated_routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
             referencedColumns: ["id"]
           },
           {
@@ -469,6 +479,44 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -555,6 +603,7 @@ export type Database = {
           household_id: string
           id: string
           locked: boolean
+          notified_at: string | null
           routine_id: string
           split: Json | null
           status: string
@@ -571,6 +620,7 @@ export type Database = {
           household_id: string
           id?: string
           locked?: boolean
+          notified_at?: string | null
           routine_id: string
           split?: Json | null
           status?: string
@@ -587,6 +637,7 @@ export type Database = {
           household_id?: string
           id?: string
           locked?: boolean
+          notified_at?: string | null
           routine_id?: string
           split?: Json | null
           status?: string
@@ -743,10 +794,12 @@ export type Database = {
           lead_days: number
           mode: string
           payer_id: string | null
+          room_id: string | null
           rotation: string[] | null
           schedule: Json
           show_in_calendar: boolean
           split: Json | null
+          supplies: string[]
           title: string
         }
         Insert: {
@@ -766,10 +819,12 @@ export type Database = {
           lead_days?: number
           mode?: string
           payer_id?: string | null
+          room_id?: string | null
           rotation?: string[] | null
           schedule: Json
           show_in_calendar?: boolean
           split?: Json | null
+          supplies?: string[]
           title: string
         }
         Update: {
@@ -789,10 +844,12 @@ export type Database = {
           lead_days?: number
           mode?: string
           payer_id?: string | null
+          room_id?: string | null
           rotation?: string[] | null
           schedule?: Json
           show_in_calendar?: boolean
           split?: Json | null
+          supplies?: string[]
           title?: string
         }
         Relationships: [
@@ -808,6 +865,13 @@ export type Database = {
             columns: ["payer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
             referencedColumns: ["id"]
           },
           {

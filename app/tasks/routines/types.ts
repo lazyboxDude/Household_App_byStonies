@@ -52,6 +52,9 @@ export interface Routine {
   effort: 1 | 2 | 3 | 5; // how heavy it feels; the Fairness-Waage adds these up
   // Bills: how the cost is divided between members. null = nothing to settle.
   split: Split | null;
+  // Taken over from the Cleaning Plan
+  roomId: string | null;
+  supplies: string[];
 }
 
 export type OccurrenceStatus = "open" | "done" | "skipped";
