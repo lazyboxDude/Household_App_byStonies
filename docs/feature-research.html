@@ -88,7 +88,7 @@
 <main>
   <h1>Feature Research: Homsy, Sweepy, Bring!</h1>
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
-  below so we know what's next after the current work (Cleaning Plan in Tasks).</p>
+  below so we know what's next. Status below was checked against the code on 2026-10-05.</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -123,28 +123,53 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Idea</th><th>Source</th><th>Where it lands in our app</th></tr>
+        <tr><th>Idea</th><th>Source</th><th>Status</th></tr>
       </thead>
       <tbody>
-        <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Tasks: Cleaning Plan (<strong>being built now</strong>)</td></tr>
-        <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Tasks: Cleaning Plan (<strong>being built now</strong>)</td></tr>
-        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Tasks: Cleaning Plan (<strong>being built now</strong>)</td></tr>
-        <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Tasks ↔ Calendar link (<strong>being built now</strong>)</td></tr>
-        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Backlog</td></tr>
+        <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Done — Tasks: Cleaning Plan</td></tr>
+        <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Done — Tasks: Cleaning Plan</td></tr>
+        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan (not yet for general tasks)</td></tr>
+        <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Done — one-way sync via <code>calendarSync.ts</code></td></tr>
+        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Partial — overdue badge per room only</td></tr>
         <tr><td>Task rotation between household members</td><td>Homsy</td><td>Backlog</td></tr>
-        <tr><td>Completion streaks per person</td><td>Homsy + Sweepy</td><td>Backlog</td></tr>
+        <tr><td>Completion streaks per person</td><td>Homsy + Sweepy</td><td>Backlog — XP/leaderboard UI was removed</td></tr>
         <tr><td>Recipe templates → shopping list</td><td>Bring!</td><td>Backlog</td></tr>
         <tr><td>Auto-categorized shopping items (custom aisles)</td><td>Bring!</td><td>Backlog</td></tr>
-        <tr><td>Push notifications on shared-list changes</td><td>Bring!</td><td>Backlog (needs real backend, not just localStorage)</td></tr>
+        <tr><td>Real-time shared list sync</td><td>Bring!</td><td>Done — Supabase Realtime on shopping and calendar</td></tr>
+        <tr><td>Push notifications on shared-list changes</td><td>Bring!</td><td>Backlog (no service worker yet)</td></tr>
         <tr><td>Coins/virtual reward shop</td><td>Sweepy</td><td>Backlog, optional</td></tr>
       </tbody>
     </table>
   </div>
 
+  <h2>Implemented beyond the original research</h2>
+  <ul>
+    <li><strong>Household system:</strong> create/join via invite code (RPCs <code>create_household</code> / <code>join_household</code>),
+      ownership mode “equal” or “owner_led”, per-household feature toggles (shopping, expenses, calendar) in Settings.</li>
+    <li><strong>Auth:</strong> Google OAuth and anonymous “just your name” login in code, Cloudflare Turnstile captcha on anonymous login.</li>
+    <li><strong>Shared/private tasks:</strong> “Only me” toggle, only the creator can switch visibility.</li>
+    <li><strong>Shopping → Finanzen:</strong> checking off an item creates an expense (price prompt, store-to-category mapping, undo).</li>
+    <li><strong>Finanzen module</strong> (<code>app/expenses</code>, all in Supabase with Realtime):
+      <ul>
+        <li>Money onboarding (7 steps: goals, income, fixed costs, gut feeling, available amount, next step) with saved progress.</li>
+        <li>Verteilertopf: income distribution to accounts, preview, double-distribution warning, standing orders, minimum buffer, balance reconciliation, 12-month projection.</li>
+        <li>Rechnungen-Planer for irregular bills with month view and bottleneck forecast.</li>
+        <li>Budgets &amp; expenses (private per user) with progress bars and CSV import/export.</li>
+        <li>Debts (private or shared) with payments and “paid off” badge.</li>
+        <li>Savings goals (private or shared) with deposits.</li>
+        <li>Finance widget on the dashboard.</li>
+      </ul>
+    </li>
+    <li><strong>App shell:</strong> landing page for signed-out visitors, system-controlled dark mode, PWA manifest with generated icons,
+      swipe-to-delete, toasts, per-feature onboarding banners.</li>
+    <li><strong>Deals tab:</strong> UI done (store chips, category filter, add to list), but <code>/api/sales</code> returns the same hard-coded mock offers for every store.</li>
+  </ul>
+
   <h2>TODO — roadmap for later sessions</h2>
 
   <div class="callout">
     <h3>⚠️ Manual setup required <small>(Supabase dashboard — cannot be done from code)</small></h3>
+    <p>The code side is implemented; whether the dashboard is configured cannot be verified from the repo.</p>
     <ul class="todo">
       <li><input type="checkbox" disabled><span><strong>Authentication → Providers → Google</strong>: add a real Google OAuth Client
         ID/Secret (from the Google Cloud Console). Without this, “Continue with
@@ -152,34 +177,53 @@
       <li><input type="checkbox" disabled><span><strong>Authentication → Sign In / Providers</strong>: enable <strong>Anonymous Sign-Ins</strong>.
         Without this, the “just your name” quick login
         (<code>supabase.auth.signInAnonymously</code>) fails.</span></li>
+      <li><input type="checkbox" disabled><span><strong>Attack Protection</strong>: add the Turnstile secret key if
+        <code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code> is set.</span></li>
     </ul>
   </div>
 
   <h3>Now</h3>
   <ul class="todo">
-    <li><input type="checkbox" disabled><span>Tasks page: general household tasks (one-off + daily), e.g. “buy a toolbox”,
-      “set up smart home” — keep the existing gamified list.</span></li>
-    <li><input type="checkbox" disabled><span>Tasks page: <strong>Cleaning Plan</strong> sub-feature</span>
+    <li class="done"><input type="checkbox" disabled checked><span>Tasks page: general household tasks (one-off), shared or private.</span>
       <ul class="todo">
-        <li><input type="checkbox" disabled><span>Define rooms</span></li>
-        <li><input type="checkbox" disabled><span>Add tasks per room</span></li>
-        <li><input type="checkbox" disabled><span>Attach cleaning supplies to a task</span></li>
-        <li><input type="checkbox" disabled><span>Set recurrence per task (daily/weekly/biweekly/monthly/once)</span></li>
-        <li><input type="checkbox" disabled><span>Link cleaning tasks to the Calendar (auto-create/update the next due date as an event)</span></li>
+        <li><input type="checkbox" disabled><span>Daily/recurring general tasks — <code>tasks</code> has no recurrence field yet (recurrence exists only in the Cleaning Plan).</span></li>
+        <li><input type="checkbox" disabled><span><code>TaskOnboarding.tsx</code> promises “starter tasks below” but creates none (starter tasks are only seeded on household creation).</span></li>
+      </ul>
+    </li>
+    <li class="done"><input type="checkbox" disabled checked><span>Tasks page: <strong>Cleaning Plan</strong> sub-feature</span>
+      <ul class="todo">
+        <li class="done"><input type="checkbox" disabled checked><span>Define rooms</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Add tasks per room</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Attach cleaning supplies to a task</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Set recurrence per task (daily/weekly/biweekly/monthly/once)</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Link cleaning tasks to the Calendar (event upserted on create and on mark-done)</span></li>
+        <li><input type="checkbox" disabled><span>“monthly” is a fixed 30 days, not a calendar month.</span></li>
       </ul>
     </li>
   </ul>
 
   <h3>Next</h3>
   <ul class="todo">
-    <li><input type="checkbox" disabled><span>Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview.</span></li>
-    <li><input type="checkbox" disabled><span>Task rotation: assign a recurring task to rotate automatically between household members.</span></li>
-    <li><input type="checkbox" disabled><span>Completion streaks per person + simple leaderboard (a real one, not the current mock data).</span></li>
-    <li class="done"><input type="checkbox" disabled checked><span>Real backend: households now live in Supabase Postgres with RLS
-      (<code>app/lib/supabase.ts</code>); auth is Supabase Auth (Google OAuth + anonymous).
-      Tasks/Cleaning Plan/Rooms have tables ready (<code>tasks</code>, <code>rooms</code>,
-      <code>cleaning_tasks</code>) but still need the pages wired from <code>localStorage</code> to
-      real reads/writes — that's the next slice.</span></li>
+    <li><input type="checkbox" disabled><span>Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview. Today: red overdue counter per room only.</span></li>
+    <li><input type="checkbox" disabled><span>Task rotation: assign a recurring task to rotate automatically between household members. <code>assignee</code> is currently a free-text string, not linked to <code>household_members</code>.</span></li>
+    <li><input type="checkbox" disabled><span>Completion streaks per person + simple leaderboard. The earlier points/levels UI was removed;
+      <code>member_stats</code> and <code>tasks.points</code> remain unused in the schema.</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Real backend: households, tasks, cleaning plan, calendar, shopping and finance all live in
+      Supabase Postgres with RLS (<code>app/lib/supabase.ts</code>); auth is Supabase Auth (Google OAuth + anonymous).
+      localStorage is only used for the “onboarding seen” flag.</span></li>
+    <li><input type="checkbox" disabled><span>Add Supabase migrations to the repo — only generated types exist, so RLS and Realtime publications cannot be reviewed.</span></li>
+    <li><input type="checkbox" disabled><span>Real data for the Deals tab (currently mock; <code>cheerio</code> is already a dependency).</span></li>
+  </ul>
+
+  <h3>Finanzen — known gaps</h3>
+  <ul class="todo">
+    <li><input type="checkbox" disabled><span>Savings goals: no delete, no withdrawal, no deposit history.</span></li>
+    <li><input type="checkbox" disabled><span>Money onboarding only turns fixed costs into budgets; income and goals are not carried into the Verteilertopf config.</span></li>
+    <li><input type="checkbox" disabled><span>Distributions cannot be reversed; no manual bookings on accounts.</span></li>
+    <li><input type="checkbox" disabled><span>Edit dialogs use <code>window.prompt</code>; optimistic updates (pots, debts, budgets, expenses, bills) have no error rollback.</span></li>
+    <li><input type="checkbox" disabled><span>Debt payments are not stored as history, only <code>remaining</code> changes.</span></li>
+    <li><input type="checkbox" disabled><span>Shopping check-off toast shows “$” instead of CHF.</span></li>
+    <li><input type="checkbox" disabled><span>Tests: only <code>calc.test.ts</code> exists, and CI runs build and lint only (<code>lint || true</code>), not <code>npm test</code>.</span></li>
   </ul>
 
   <h3>Later / nice-to-have</h3>
@@ -188,11 +232,14 @@
     <li><input type="checkbox" disabled><span>Shopping: user-customizable categories/aisles instead of the fixed list in
       <code>app/shopping/constants.ts</code>.</span></li>
     <li><input type="checkbox" disabled><span>Shopping: loyalty card wallet.</span></li>
-    <li><input type="checkbox" disabled><span>Push notifications for shared-list and shared-task changes (needs a backend, not just
-      client-side localStorage).</span></li>
-    <li><input type="checkbox" disabled><span>Optional coins/virtual-reward layer on top of the existing XP/level system.</span></li>
-    <li><input type="checkbox" disabled><span>General UI pass: the current look was flagged as needing improvement — revisit once the
-      Cleaning Plan data model above is in place, so the redesign has real content to design for.</span></li>
+    <li><input type="checkbox" disabled><span>Push notifications for shared-list and shared-task changes (needs a service worker plus a backend sender;
+      neither exists yet).</span></li>
+    <li><input type="checkbox" disabled><span>Offline support (service worker / cache). The PWA manifest is in place, so the app is installable but not offline-capable.</span></li>
+    <li><input type="checkbox" disabled><span>Settings: rename household, remove member / leave household, regenerate invite code, manual dark-mode toggle.</span></li>
+    <li><input type="checkbox" disabled><span>Optional coins/virtual-reward layer.</span></li>
+    <li><input type="checkbox" disabled><span>Replace mocks: “Find Nearby” shops and calendar suggestions.</span></li>
+    <li><input type="checkbox" disabled><span>General UI pass: the current look was flagged as needing improvement — revisit now that the Cleaning Plan
+      and Finanzen data models are in place.</span></li>
   </ul>
 
   <h2>Data model sketch (Cleaning Plan)</h2>
@@ -215,9 +262,10 @@ interface CleaningTask {
   nextDue: string;      // ISO date, derived from lastDone + recurrence
 }</code></pre>
 
-  <p>Each <code>CleaningTask</code>'s <code>nextDue</code> is mirrored into the shared <code>calendar_events</code> localStorage
-  key (id <code>cleaning-&lt;taskId&gt;</code>) so it shows up on the Calendar page automatically, and is
-  recomputed/moved forward whenever the task is marked done.</p>
+  <p>Each cleaning task's <code>next_due</code> is mirrored into the shared <code>calendar_events</code> table
+  (column <code>source_cleaning_task_id</code>, title prefixed with 🧹, 09:00) when the task is created and recomputed
+  whenever it is marked done. Deleting a task or room removes its events via DB cascade. The Calendar page does not
+  treat these events specially.</p>
 </main>
 </body>
 </html>
