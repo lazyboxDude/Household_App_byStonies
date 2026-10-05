@@ -179,8 +179,9 @@
         (<code>supabase.auth.signInAnonymously</code>) fails.</span></li>
       <li><input type="checkbox" disabled><span><strong>Attack Protection</strong>: add the Turnstile secret key if
         <code>NEXT_PUBLIC_TURNSTILE_SITE_KEY</code> is set.</span></li>
-      <li><input type="checkbox" disabled><span><strong>Database → apply</strong>
-        <code>supabase/migrations/20261005120000_calendar_feed.sql</code> (SQL editor or <code>supabase db push</code>).
+      <li class="done"><input type="checkbox" disabled checked><span><strong>Database:</strong>
+        <code>supabase/migrations/20261005120000_calendar_feed.sql</code> applied to the <code>household-app-bystonies</code>
+        project on 2026-10-05. Needed again only for a fresh database (SQL editor or <code>supabase db push</code>; the file is idempotent).
         Without it, the calendar link in Settings shows an error and the feed route returns 503.</span></li>
     </ul>
   </div>
