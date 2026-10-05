@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Check, HeartHandshake, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Check, Sparkles } from "lucide-react";
 import { showToast } from "../../../lib/toast";
 import { chf, r2, uid } from "../format";
 import { calcAvailable } from "./calc";
@@ -134,9 +135,14 @@ export default function MoneyOnboarding({
 function WelcomeStep() {
   return (
     <div className="text-center">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "var(--accent-soft)" }}>
-        <HeartHandshake className="w-8 h-8" style={{ color: "var(--accent)" }} />
-      </div>
+      <Image
+        src="/mascot/snail-welcome.webp"
+        alt=""
+        width={377}
+        height={488}
+        priority
+        className="mx-auto mb-4 h-52 w-auto drop-shadow-lg"
+      />
       <h1 className="text-title mb-2">{T.welcome.title}</h1>
       <p className="text-body text-[var(--text-secondary)]">{T.welcome.body}</p>
     </div>
