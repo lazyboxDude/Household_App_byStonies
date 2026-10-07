@@ -1,18 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { MascotLoader } from "@/components/Mascot";
-import { ShoppingItem, SaleOffer } from "./types";
+import { ShoppingItem } from "./types";
 import ShoppingList from "./components/ShoppingList";
-import DealsTab from "./components/DealsTab";
+import PricesTab from "./components/PricesTab";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/LanguageContext";
 import { supabase } from "../lib/supabase";
 import FeatureOnboarding from "../components/FeatureOnboarding";
+import { classify, formatPrice, itemKey, lastPurchase, summarize, usualPrice, type PriceLogEntry } from "./priceHistory";
 
 const DEFAULT_SHOPS = ["Migros", "Coop", "Denner", "Aldi", "Lidl"];
+/** How many past purchases we load to judge prices. */
+const PRICE_LOG_LIMIT = 500;
+/** How long "Removed — Undo" stays on screen. */
+const UNDO_MS = 6000;
 
 export default function ShoppingPage() {
   const { user, household } = useAuth();
@@ -21,9 +26,10 @@ export default function ShoppingPage() {
   const userId = user?.id;
   const isEnabled = household?.enabledFeatures.includes("shopping") ?? false;
 
-  const [activeTab, setActiveTab] = useState<"list" | "deals">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "prices">("list");
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [shops, setShops] = useState<string[]>([]);
+  const [priceLog, setPriceLog] = useState<PriceLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
@@ -31,14 +37,13 @@ export default function ShoppingPage() {
   const [newPrice, setNewPrice] = useState("");
   const [newStore, setNewStore] = useState("");
 
-  // Sales Data State
-  const [currentStoreSales, setCurrentStoreSales] = useState<string>("");
-  const [salesOffers, setSalesOffers] = useState<SaleOffer[]>([]);
-  const [isLoadingSales, setIsLoadingSales] = useState(false);
-  const [salesError, setSalesError] = useState<"" | "load" | "fetch">("");
-
-  // Category State
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  // The item that was just checked off without a price and is waiting for one.
+  const [askPriceId, setAskPriceId] = useState<string | null>(null);
+  // The last removed item(s), so a slip can be undone.
+  const [removed, setRemoved] = useState<ShoppingItem[] | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Which price-log row belongs to which checked-off item, so un-checking can take it back.
+  const logIdByItem = useRef(new Map<string, string>());
 
   const loadData = useCallback(async () => {
     if (!householdId) return;
@@ -79,10 +84,27 @@ export default function ShoppingPage() {
     setIsLoading(false);
   }, [householdId]);
 
+  // The price memory is an extra: if it cannot load, the list still works.
+  const loadPriceLog = useCallback(async () => {
+    if (!householdId) return;
+    const { data, error } = await supabase
+      .from("shopping_price_log")
+      .select("id, item_key, item_name, store, price, bought_at")
+      .eq("household_id", householdId)
+      .order("bought_at", { ascending: false })
+      .limit(PRICE_LOG_LIMIT);
+    if (error) {
+      console.warn("Could not load the price log:", error);
+      return;
+    }
+    setPriceLog((data ?? []).map((row) => ({ ...row, price: Number(row.price) })));
+  }, [householdId]);
+
   useEffect(() => {
     setIsLoading(true);
     loadData();
-  }, [loadData]);
+    loadPriceLog();
+  }, [loadData, loadPriceLog]);
 
   // Live sync: reload whenever any household member adds/edits/removes an
   // item or shop (including our own writes, which is harmless).
@@ -106,28 +128,34 @@ export default function ShoppingPage() {
     };
   }, [householdId, loadData]);
 
-  // Fetch deals
-  const loadDeals = async (storeName: string = "Migros") => {
-    setIsLoadingSales(true);
-    setSalesError("");
-    setSalesOffers([]);
-    setCurrentStoreSales(storeName);
+  // Its own channel: if the price log is unavailable, live sync of the list must not suffer.
+  useEffect(() => {
+    if (!householdId) return;
+    const channel = supabase
+      .channel(`shopping-prices-${householdId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shopping_price_log", filter: `household_id=eq.${householdId}` },
+        loadPriceLog
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [householdId, loadPriceLog]);
 
-    try {
-      const res = await fetch(`/api/sales?store=${storeName}`);
-      const data = await res.json();
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    };
+  }, []);
 
-      if (data.offers && data.offers.length > 0) {
-        setSalesOffers(data.offers);
-      } else {
-        setSalesError("load");
-      }
-    } catch {
-      setSalesError("fetch");
-    } finally {
-      setIsLoadingSales(false);
-    }
-  };
+  const trends = useMemo(() => summarize([...priceLog]), [priceLog]);
+  const usualFor = useCallback(
+    (text: string, store: string | null) => usualPrice(priceLog, itemKey(text), store),
+    [priceLog]
+  );
+  const lastStoreFor = useCallback((text: string) => lastPurchase(priceLog, itemKey(text))?.store ?? null, [priceLog]);
 
   const addItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,110 +191,179 @@ export default function ShoppingPage() {
     setNewStore("");
   };
 
+  // A purchase: remember the price, tell if it changed, and log the expense —
+  // private to whichever member actually checked it off.
+  const recordPurchase = async (item: ShoppingItem, price: number) => {
+    if (!householdId || !userId) return;
+    const key = itemKey(item.text);
+    const usualBefore = usualPrice(priceLog, key, item.store);
+
+    const { data: logRow, error: logError } = await supabase
+      .from("shopping_price_log")
+      .insert({
+        household_id: householdId,
+        item_key: key,
+        item_name: item.text,
+        store: item.store,
+        price,
+      })
+      .select("id, item_key, item_name, store, price, bought_at")
+      .single();
+    if (logError) {
+      console.warn("Could not save the price:", logError);
+    } else if (logRow) {
+      logIdByItem.current.set(item.id, logRow.id);
+      setPriceLog((prev) => [{ ...logRow, price: Number(logRow.price) }, ...prev]);
+    }
+
+    try {
+      const { mapStoreToCategory } = await import("../../lib/storeMapping");
+      const { showToast } = await import("../../lib/toast");
+
+      const { data: expense, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          household_id: householdId,
+          user_id: userId,
+          title: item.text,
+          amount: price,
+          date: new Date().toISOString(),
+          category: mapStoreToCategory(item.store),
+          note: t(
+            `Added from Shopping list (${item.store || "unknown store"})`,
+            `Aus der Einkaufsliste hinzugefügt (${item.store || "Geschäft unbekannt"})`
+          ),
+        })
+        .select()
+        .single();
+      if (expenseError) throw expenseError;
+
+      window.dispatchEvent(new CustomEvent("expense:undoable", { detail: expense }));
+      showToast(
+        t(
+          `Added expense ${expense.title} — CHF ${formatPrice(expense.amount)}`,
+          `Ausgabe ${expense.title} hinzugefügt – CHF ${formatPrice(expense.amount)}`
+        ),
+        "success"
+      );
+
+      // News, not an alarm: just say what it was before.
+      const direction = classify(price, usualBefore);
+      if (usualBefore !== null && (direction === "up" || direction === "down")) {
+        showToast(
+          t(
+            `${item.text}: CHF ${formatPrice(price)}, usually ${formatPrice(usualBefore)}`,
+            `${item.text}: CHF ${formatPrice(price)}, sonst ${formatPrice(usualBefore)}`
+          ),
+          "info",
+          6000
+        );
+      }
+    } catch (err) {
+      console.error("Failed to add expense from shopping item", err);
+    }
+  };
+
   const toggleItem = async (id: string) => {
     const target = items.find((i) => i.id === id);
     if (!target) return;
     const nextCompleted = !target.completed;
 
-    const { data, error } = await supabase
-      .from("shopping_items")
-      .update({ completed: nextCompleted })
-      .eq("id", id)
-      .select()
-      .single();
+    // Respond first, sync after: the checkmark must not wait for the network.
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, completed: nextCompleted } : i)));
+    if (askPriceId === id) setAskPriceId(null);
 
+    const { error } = await supabase.from("shopping_items").update({ completed: nextCompleted }).eq("id", id);
     if (error) {
       console.error("Failed to toggle item:", error);
+      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, completed: target.completed } : i)));
       return;
     }
-    setItems((prev) => prev.map((i) => (i.id === id ? (data as ShoppingItem) : i)));
 
-    // If the item was just marked completed, log it as an expense — private
-    // to whichever member actually checked it off.
-    if (!target.completed && nextCompleted && householdId && userId) {
-      let amount: number | null = target.price;
-      if (amount === null) {
-        const input = window.prompt(t(`Enter price for "${target.text}" (e.g. 2.50):`, `Preis für «${target.text}» eingeben (z. B. 2.50):`), '');
-        if (input !== null) {
-          const parsed = parseFloat(input.replace(/[^0-9.\\-]/g, ''));
-          if (!isNaN(parsed)) {
-            amount = parsed;
-            await supabase.from("shopping_items").update({ price: parsed }).eq("id", id);
-            setItems((prev) => prev.map((i) => (i.id === id ? { ...i, price: parsed } : i)));
-          } else {
-            amount = 0;
-          }
-        } else {
-          amount = 0;
-        }
-      }
-
-      const { mapStoreToCategory } = await import('../../lib/storeMapping');
-      const category = mapStoreToCategory(target.store);
-
-      try {
-        const { data: expense, error: expenseError } = await supabase
-          .from("expenses")
-          .insert({
-            household_id: householdId,
-            user_id: userId,
-            title: target.text,
-            amount: amount || 0,
-            date: new Date().toISOString(),
-            category,
-            note: t(`Added from Shopping list (${target.store || 'unknown store'})`, `Aus der Einkaufsliste hinzugefügt (${target.store || 'Geschäft unbekannt'})`),
-          })
-          .select()
-          .single();
-        if (expenseError) throw expenseError;
-
-        window.dispatchEvent(new CustomEvent('expense:undoable', { detail: expense }));
-        const { showToast } = await import('../../lib/toast');
-        showToast(t(`Added expense ${expense.title} — $${expense.amount.toFixed(2)}`, `Ausgabe ${expense.title} hinzugefügt – $${expense.amount.toFixed(2)}`), 'success');
-      } catch (err) {
-        console.error('Failed to add expense from shopping item', err);
+    if (nextCompleted) {
+      if (target.price !== null) await recordPurchase(target, target.price);
+      else setAskPriceId(id);
+    } else {
+      // Un-checking takes back the price we just remembered for it.
+      const logId = logIdByItem.current.get(id);
+      if (logId) {
+        logIdByItem.current.delete(id);
+        setPriceLog((prev) => prev.filter((e) => e.id !== logId));
+        const { error: undoError } = await supabase.from("shopping_price_log").delete().eq("id", logId);
+        if (undoError) console.warn("Could not take back the price:", undoError);
       }
     }
   };
 
+  const savePrice = async (id: string, price: number) => {
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
+    setAskPriceId(null);
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, price } : i)));
+    const { error } = await supabase.from("shopping_items").update({ price }).eq("id", id);
+    if (error) console.error("Failed to save price:", error);
+    await recordPurchase({ ...target, price }, price);
+  };
+
+  const offerUndo = (gone: ShoppingItem[]) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setRemoved(gone);
+    undoTimer.current = setTimeout(() => setRemoved(null), UNDO_MS);
+  };
+
   const deleteItem = async (id: string) => {
+    const target = items.find((i) => i.id === id);
+    if (!target) return;
     setItems((prev) => prev.filter((item) => item.id !== id));
+    if (askPriceId === id) setAskPriceId(null);
+    offerUndo([target]);
     const { error } = await supabase.from("shopping_items").delete().eq("id", id);
     if (error) {
       console.error("Failed to delete item:", error);
+      setRemoved(null);
+      loadData();
+    }
+  };
+
+  const clearCompleted = async () => {
+    const gone = items.filter((i) => i.completed);
+    if (gone.length === 0) return;
+    setItems((prev) => prev.filter((i) => !i.completed));
+    offerUndo(gone);
+    const { error } = await supabase
+      .from("shopping_items")
+      .delete()
+      .in("id", gone.map((i) => i.id));
+    if (error) {
+      console.error("Failed to clear completed items:", error);
+      setRemoved(null);
+      loadData();
+    }
+  };
+
+  const undoRemove = async () => {
+    if (!removed || !householdId) return;
+    const restore = removed;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setRemoved(null);
+    setItems((prev) => [...restore, ...prev]);
+    const { error } = await supabase
+      .from("shopping_items")
+      .insert(restore.map((i) => ({ ...i, household_id: householdId })));
+    if (error) {
+      console.error("Failed to restore items:", error);
       loadData();
     }
   };
 
   const searchItem = (item: ShoppingItem) => {
-    if (item.store?.toLowerCase().includes('migros')) {
-      window.open(`https://www.migros.ch/de/search?query=${encodeURIComponent(item.text)}`, '_blank');
-    } else if (item.store?.toLowerCase().includes('coop')) {
-      window.open(`https://www.coop.ch/de/search/?text=${encodeURIComponent(item.text)}`, '_blank');
+    if (item.store?.toLowerCase().includes("migros")) {
+      window.open(`https://www.migros.ch/de/search?query=${encodeURIComponent(item.text)}`, "_blank", "noopener,noreferrer");
+    } else if (item.store?.toLowerCase().includes("coop")) {
+      window.open(`https://www.coop.ch/de/search/?text=${encodeURIComponent(item.text)}`, "_blank", "noopener,noreferrer");
     } else {
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(item.text)}+price+near+me`, '_blank');
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(item.text)}+price+near+me`, "_blank", "noopener,noreferrer");
     }
-  };
-
-  // Called when clicking the % icon on a list item
-  const viewSales = async (storeName: string) => {
-    setActiveTab("deals");
-    loadDeals(storeName);
-  };
-
-  const addDealToList = async (offer: SaleOffer) => {
-    if (!householdId) return;
-    const price = parseFloat(offer.price.split(' ')[0].replace(/[^0-9.]/g, '')) || null;
-    const { data, error } = await supabase
-      .from("shopping_items")
-      .insert({ household_id: householdId, text: offer.title, price, store: currentStoreSales || null })
-      .select()
-      .single();
-    if (error) {
-      console.error("Failed to add deal to list:", error);
-      return;
-    }
-    setItems((prev) => [data as ShoppingItem, ...prev]);
   };
 
   return (
@@ -277,33 +374,34 @@ export default function ShoppingPage() {
           {t("Shopping", "Einkauf")}
         </h1>
         {householdId && isEnabled && (
-          <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]">
+          <div className="relative flex rounded-[var(--radius-md)] p-1 bg-[var(--surface-2)]" role="tablist">
             <span
               aria-hidden
               className="absolute inset-y-1 rounded-[calc(var(--radius-md)-2px)] bg-[var(--surface)] shadow-sm"
               style={{
                 width: "calc(50% - 4px)",
                 left: 4,
-                transform: activeTab === "deals" ? "translateX(calc(100% + 0px))" : "translateX(0)",
+                transform: activeTab === "prices" ? "translateX(calc(100% + 0px))" : "translateX(0)",
                 transitionProperty: "transform",
                 transitionDuration: "var(--dur-base)",
                 transitionTimingFunction: "var(--ease-spring)",
               }}
             />
             <button
+              role="tab"
+              aria-selected={activeTab === "list"}
               onClick={() => setActiveTab("list")}
               className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
             >
               {t("My List", "Meine Liste")}
             </button>
             <button
-              onClick={() => {
-                setActiveTab("deals");
-                loadDeals("Migros");
-              }}
+              role="tab"
+              aria-selected={activeTab === "prices"}
+              onClick={() => setActiveTab("prices")}
               className="relative z-10 press px-4 py-1.5 rounded-md text-sm font-medium text-[var(--text)]"
             >
-              {t("Deals", "Angebote")}
+              {t("Prices", "Preise")}
             </button>
           </div>
         )}
@@ -330,7 +428,7 @@ export default function ShoppingPage() {
           bullets={[
             t("Everyone in the household sees the same list, live", "Alle im Haushalt sehen dieselbe Liste, live"),
             t("Tag items with a store and price to track spending", "Gib Geschäft und Preis an, um Ausgaben im Blick zu behalten"),
-            t("Discover local deals and add them straight to your list", "Entdecke Angebote und setze sie direkt auf deine Liste"),
+            t("See what things usually cost and when they get pricier", "Sieh, was etwas sonst kostet und wann es teurer wird"),
           ]}
         />
       ) : isLoading ? (
@@ -359,21 +457,34 @@ export default function ShoppingPage() {
               addItem={addItem}
               toggleItem={toggleItem}
               deleteItem={deleteItem}
+              clearCompleted={clearCompleted}
               searchItem={searchItem}
-              viewSales={viewSales}
+              usualFor={usualFor}
+              lastStoreFor={lastStoreFor}
+              askPriceId={askPriceId}
+              savePrice={savePrice}
+              skipPrice={() => setAskPriceId(null)}
             />
           ) : (
-            <DealsTab
-              currentStoreSales={currentStoreSales}
-              salesOffers={salesOffers}
-              isLoadingSales={isLoadingSales}
-              salesError={salesError}
-              selectedCategory={selectedCategory}
-              setSelectedCategory={setSelectedCategory}
-              loadDeals={loadDeals}
-              addDealToList={addDealToList}
-            />
+            <PricesTab trends={trends} />
           )}
+        </div>
+      )}
+
+      {removed && (
+        <div
+          role="status"
+          className="material-sheet animate-sheet fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-4 py-2.5 rounded-[var(--radius-md)]"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1.25rem)", boxShadow: "var(--shadow-lg)" }}
+        >
+          <span className="text-sm font-medium">
+            {removed.length === 1
+              ? t(`"${removed[0].text}" removed`, `«${removed[0].text}» entfernt`)
+              : t(`${removed.length} items removed`, `${removed.length} Artikel entfernt`)}
+          </span>
+          <button onClick={undoRemove} className="press text-sm font-semibold" style={{ color: "var(--accent)" }}>
+            {t("Undo", "Rückgängig")}
+          </button>
         </div>
       )}
     </div>

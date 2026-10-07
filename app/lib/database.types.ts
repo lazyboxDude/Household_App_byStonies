@@ -931,6 +931,54 @@ export type Database = {
           },
         ]
       }
+      shopping_price_log: {
+        Row: {
+          bought_at: string
+          created_by: string | null
+          household_id: string
+          id: string
+          item_key: string
+          item_name: string
+          price: number
+          store: string | null
+        }
+        Insert: {
+          bought_at?: string
+          created_by?: string | null
+          household_id: string
+          id?: string
+          item_key: string
+          item_name: string
+          price: number
+          store?: string | null
+        }
+        Update: {
+          bought_at?: string
+          created_by?: string | null
+          household_id?: string
+          id?: string
+          item_key?: string
+          item_name?: string
+          price?: number
+          store?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_price_log_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_price_log_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shops: {
         Row: {
           household_id: string

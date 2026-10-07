@@ -185,7 +185,7 @@
       The engine underneath is <a href="#routinen">Routinen</a> (<code>app/tasks/routines</code>).</li>
     <li><strong>App shell:</strong> landing page for signed-out visitors, system-controlled dark mode, PWA manifest with generated icons,
       swipe-to-delete, toasts, per-feature onboarding banners.</li>
-    <li><strong>Deals tab:</strong> UI done (store chips, category filter, add to list), but <code>/api/sales</code> returns the same hard-coded mock offers for every store.</li>
+    <li><strong>Deals tab:</strong> removed. The mock <code>/api/sales</code> is gone; the Prices tab links to each store's own offers page and tracks what household items usually cost.</li>
   </ul>
 
   <h2>TODO — roadmap for later sessions</h2>
@@ -275,7 +275,7 @@
       localStorage is only used for the “onboarding seen” flag.</span></li>
     <li><input type="checkbox" disabled><span>Add the remaining Supabase migrations to the repo. <code>supabase/migrations</code> now holds only the Routinen migration; the rest of the schema
       (households, tasks, finance, …) exists only in the live project, so its RLS and Realtime publications still cannot be reviewed.</span></li>
-    <li><input type="checkbox" disabled><span>Real data for the Deals tab (currently mock; <code>cheerio</code> is already a dependency).</span></li>
+    <li><input type="checkbox" disabled><span>Automatic store offers: only if a clean, permitted source appears (scraping was ruled out as too fragile).</span></li>
   </ul>
 
   <h3 id="parked">Tasks rebuild — parked</h3>
