@@ -1,15 +1,5 @@
-import { Recurrence } from "./types";
 import type { Language } from "../context/LanguageContext";
-
-type Bilingual = { en: string; de: string };
-
-export const RECURRENCE_OPTIONS: { value: Recurrence; label: Bilingual; days: number | null }[] = [
-  { value: "daily", label: { en: "Daily", de: "Täglich" }, days: 1 },
-  { value: "weekly", label: { en: "Weekly", de: "Wöchentlich" }, days: 7 },
-  { value: "biweekly", label: { en: "Every 2 weeks", de: "Alle 2 Wochen" }, days: 14 },
-  { value: "monthly", label: { en: "Monthly", de: "Monatlich" }, days: 30 },
-  { value: "once", label: { en: "One-time", de: "Einmalig" }, days: null },
-];
+import type { Bilingual } from "./routines/i18n";
 
 export const ROOM_ICON_PRESETS = ["🛋️", "🍳", "🛁", "🛏️", "🚪", "🧺", "🚗", "🌿"];
 

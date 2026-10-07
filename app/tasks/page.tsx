@@ -1,36 +1,50 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ListChecks, Sparkles } from "lucide-react";
+import { CheckCircle2, DoorOpen, ListChecks, Repeat } from "lucide-react";
 import { MascotLoader } from "@/components/Mascot";
-import TaskListTab from "./components/TaskListTab";
-import CleaningPlanTab from "./components/CleaningPlanTab";
+import { showToast } from "../../lib/toast";
+import AllView from "./components/AllView";
+import RoomsView from "./components/RoomsView";
 import TaskOnboarding from "./components/TaskOnboarding";
+import TodayView from "./components/TodayView";
+import UndoBar from "./components/UndoBar";
+import type { RowContext } from "./components/rowContext";
+import RoutineForm from "./routines/components/RoutineForm";
+import { buildAgenda } from "./routines/agenda";
+import { useRoutines } from "./routines/useRoutines";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/LanguageContext";
-import { supabase } from "../lib/supabase";
+import { useRooms } from "./useRooms";
+import { useTasks } from "./useTasks";
 
+// v2: the page was rebuilt (Heute / Räume / Alle), so everyone gets the new intro once.
 function onboardingSeenKey(householdId: string) {
-  return `tasks-onboarding-seen-${householdId}`;
+  return `tasks-onboarding-v2-${householdId}`;
 }
 
-interface TaskCounts {
-  open: number;
-  done: number;
-}
-
-type Tab = "tasks" | "cleaning";
+type View = "today" | "rooms" | "all";
 
 export default function TasksPage() {
-  const { household } = useAuth();
+  const { household, user } = useAuth();
   const { t } = useI18n();
   const householdId = household?.id;
+  const members = useMemo(() => household?.members ?? [], [household?.members]);
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
+  const calendarEnabled = household?.enabledFeatures.includes("calendar") ?? false;
+  const expensesEnabled = household?.enabledFeatures.includes("expenses") ?? false;
 
-  const [activeTab, setActiveTab] = useState<Tab>("tasks");
-  const [counts, setCounts] = useState<TaskCounts>({ open: 0, done: 0 });
-  const [isLoading, setIsLoading] = useState(true);
+  const data = useRoutines(householdId, user?.id, { calendarEnabled, expensesEnabled }, memberIds);
+  const roomStore = useRooms(householdId);
+  const taskStore = useTasks(householdId);
+
+  const [view, setView] = useState<View>("today");
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // The full form. `key` starts it fresh each time it is opened, so it never shows an old draft.
+  const [form, setForm] = useState<{ key: number; title: string; roomId: string | null } | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     if (!householdId) return;
@@ -43,6 +57,10 @@ export default function TasksPage() {
     }
   }, [householdId]);
 
+  useEffect(() => {
+    if (form) formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [form]);
+
   const dismissOnboarding = () => {
     setShowOnboarding(false);
     if (!householdId) return;
@@ -53,47 +71,7 @@ export default function TasksPage() {
     }
   };
 
-  // A plain, non-competitive read of how the household is doing — open vs.
-  // done, nothing to compare between people. Enough to keep chores from
-  // quietly falling behind, without the points/levels/leaderboard that
-  // didn't land.
-  const loadCounts = useCallback(async () => {
-    if (!householdId) return;
-    const [{ count: open }, { count: done }] = await Promise.all([
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("household_id", householdId)
-        .eq("completed", false),
-      supabase
-        .from("tasks")
-        .select("id", { count: "exact", head: true })
-        .eq("household_id", householdId)
-        .eq("completed", true),
-    ]);
-    setCounts({ open: open ?? 0, done: done ?? 0 });
-  }, [householdId]);
-
-  useEffect(() => {
-    // Standard fetch-on-mount: loadCounts sets isLoading(false) once done.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadCounts().finally(() => setIsLoading(false));
-  }, [loadCounts]);
-
-  useEffect(() => {
-    if (!householdId) return;
-    const channel = supabase
-      .channel(`task-counts-${householdId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tasks", filter: `household_id=eq.${householdId}` },
-        loadCounts
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [householdId, loadCounts]);
+  const agenda = useMemo(() => buildAgenda(data.routines, data.occurrences, data.today), [data.routines, data.occurrences, data.today]);
 
   if (!householdId) {
     return (
@@ -104,7 +82,7 @@ export default function TasksPage() {
         </h1>
         <div className="surface p-8 text-center animate-rise">
           <p className="text-body text-[var(--text-secondary)] mb-4">
-            {t("Join or create a household to share tasks and the cleaning plan.", "Tritt einem Haushalt bei oder erstelle einen, um Aufgaben und Putzplan zu teilen.")}
+            {t("Join or create a household to share tasks and the rooms.", "Tritt einem Haushalt bei oder erstelle einen, um Aufgaben und Räume zu teilen.")}
           </p>
           <Link href="/login" className="btn btn-primary inline-flex">
             {t("Go to Login", "Zur Anmeldung")}
@@ -114,11 +92,54 @@ export default function TasksPage() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <MascotLoader className="py-24" label={t("Loading", "Lädt")} />
-    );
+  if (data.isLoading || roomStore.isLoading || taskStore.isLoading) {
+    return <MascotLoader className="py-24" label={t("Loading", "Lädt")} />;
   }
+
+  const ctx: RowContext = {
+    members,
+    userId: user?.id,
+    rooms: roomStore.rooms,
+    finance: data.finance,
+    actions: {
+      resolve: data.resolve,
+      swap: data.swap,
+      pay: data.payBill,
+      update: data.updateRoutine,
+      remove: data.deleteRoutine,
+    },
+  };
+
+  // What is on the plate right now: overdue and due today, plus the to-dos without a date.
+  // What is coming later this week is mentioned, but does not count as "open".
+  const openNow = agenda.filter((i) => i.group !== "soon").length + taskStore.tasks.filter((x) => !x.completed).length;
+  const comingUp = agenda.filter((i) => i.group === "soon").length;
+
+  const openForm = (title = "", roomId: string | null = null) => setForm({ key: Date.now(), title, roomId });
+
+  // Arrow keys move between the views, like any tab list.
+  const onTabKey = (e: React.KeyboardEvent, index: number, count: number, ids: View[]) => {
+    let next = index;
+    if (e.key === "ArrowRight") next = (index + 1) % count;
+    else if (e.key === "ArrowLeft") next = (index - 1 + count) % count;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = count - 1;
+    else return;
+    e.preventDefault();
+    setView(ids[next]);
+    tabRefs.current[next]?.focus();
+  };
+
+  const moveCleaning = async () => {
+    const moved = await data.importCleaningPlan(members);
+    if (moved > 0) showToast(t(`${moved} ${moved === 1 ? "task" : "tasks"} moved over`, `${moved} ${moved === 1 ? "Aufgabe" : "Aufgaben"} umgezogen`), "success");
+  };
+
+  const tabs: { id: View; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: "today", label: t("Today", "Heute"), icon: <ListChecks className="w-4 h-4" />, badge: openNow },
+    { id: "rooms", label: t("Rooms", "Räume"), icon: <DoorOpen className="w-4 h-4" /> },
+    { id: "all", label: t("All", "Alle"), icon: <Repeat className="w-4 h-4" /> },
+  ];
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -128,21 +149,21 @@ export default function TasksPage() {
           {t("Household Tasks", "Haushaltsaufgaben")}
         </h1>
 
-        {/* Progress — a plain, non-competitive count, not a scoreboard */}
+        {/* A plain, non-competitive read of what is on the plate, not a scoreboard */}
         <div className="surface p-4 flex items-center gap-4">
-          <div
-            className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
-            style={{ background: "var(--accent-soft)" }}
-          >
+          <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--accent-soft)" }}>
             <ListChecks className="w-5 h-5" style={{ color: "var(--accent)" }} />
           </div>
           <div>
             <div className="text-headline">
-              {counts.open === 0 ? t("All caught up", "Alles erledigt") : t(`${counts.open} open`, `${counts.open} offen`)}
+              {openNow === 0 ? t("All caught up", "Alles erledigt") : t(`${openNow} open`, `${openNow} offen`)}
             </div>
             <p className="text-caption">
-              {t(`${counts.done} completed so far`, `${counts.done} bisher erledigt`)}
-              {counts.open === 0 && counts.done > 0 ? t(" · nicely done", " · gut gemacht") : ""}
+              {comingUp > 0
+                ? t(`${comingUp} coming up this week`, `${comingUp} ${comingUp === 1 ? "steht" : "stehen"} diese Woche an`)
+                : openNow === 0
+                  ? t("Nicely done", "Gut gemacht")
+                  : t("Nothing else this week", "Sonst steht diese Woche nichts an")}
             </p>
           </div>
         </div>
@@ -150,39 +171,91 @@ export default function TasksPage() {
 
       {showOnboarding && <TaskOnboarding onDismiss={dismissOnboarding} />}
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b divider">
-        <button
-          onClick={() => setActiveTab("tasks")}
-          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 ${
-            activeTab === "tasks"
-              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
-              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
-          }`}
-        >
-          {t("Tasks", "Aufgaben")}
-        </button>
-        <button
-          onClick={() => setActiveTab("cleaning")}
-          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 flex items-center gap-1.5 ${
-            activeTab === "cleaning"
-              ? "border-teal-600 text-teal-600 dark:text-teal-400"
-              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
-          }`}
-        >
-          <Sparkles className="w-4 h-4" /> {t("Cleaning Plan", "Putzplan")}
-        </button>
+      <div className="flex gap-2 mb-6 border-b divider" role="tablist" aria-label={t("Views", "Ansichten")}>
+        {tabs.map((tab, index) => (
+          <button
+            key={tab.id}
+            ref={(el) => {
+              tabRefs.current[index] = el;
+            }}
+            id={`tasks-tab-${tab.id}`}
+            type="button"
+            role="tab"
+            aria-selected={view === tab.id}
+            aria-controls="tasks-panel"
+            tabIndex={view === tab.id ? 0 : -1}
+            onClick={() => setView(tab.id)}
+            onKeyDown={(e) => onTabKey(e, index, tabs.length, tabs.map((x) => x.id))}
+            className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 flex items-center gap-1.5 ${
+              view === tab.id
+                ? "border-[var(--accent)] text-[var(--accent)]"
+                : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
+            }`}
+          >
+            {tab.icon} {tab.label}
+            {tab.badge ? (
+              <span className="rounded-full px-1.5 text-[11px] font-semibold" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                {tab.badge}
+              </span>
+            ) : null}
+          </button>
+        ))}
       </div>
 
-      {activeTab === "tasks" ? (
-        <div className="animate-rise">
-          <TaskListTab householdId={householdId} />
-        </div>
-      ) : (
-        <div className="animate-rise">
-          <CleaningPlanTab householdId={householdId} />
+      {form && (
+        <div ref={formRef} className="mb-6 max-w-3xl scroll-mt-4">
+          <RoutineForm
+            key={form.key}
+            today={data.today}
+            members={members}
+            userId={user?.id}
+            rooms={roomStore.rooms}
+            calendarEnabled={calendarEnabled}
+            livingMode={data.team.livingMode}
+            initial={{ title: form.title, roomId: form.roomId }}
+            onSubmit={data.addRoutine}
+            onCancel={() => setForm(null)}
+          />
         </div>
       )}
+
+      <div className="animate-rise" key={view} id="tasks-panel" role="tabpanel" aria-labelledby={`tasks-tab-${view}`}>
+        {view === "today" && (
+          <div className="max-w-3xl">
+            <TodayView
+              householdId={householdId}
+              today={data.today}
+              agenda={agenda}
+              routines={data.routines}
+              doneRecent={data.doneRecent}
+              taskStore={taskStore}
+              ctx={ctx}
+              onAddRoutine={data.addRoutine}
+              onMoreOptions={openForm}
+              cleaningOpen={data.cleaningOpen}
+              onMoveCleaning={moveCleaning}
+            />
+          </div>
+        )}
+        {view === "rooms" && (
+          <RoomsView
+            today={data.today}
+            roomStore={roomStore}
+            routines={data.routines}
+            occurrences={data.occurrences}
+            ctx={ctx}
+            onAddRoutine={data.addRoutine}
+            onMoreOptions={openForm}
+            cleaningOpen={data.cleaningOpen}
+            onMoveCleaning={moveCleaning}
+          />
+        )}
+        {view === "all" && (
+          <AllView today={data.today} routines={data.routines} occurrences={data.occurrences} ctx={ctx} team={data.team} onNew={() => openForm()} />
+        )}
+      </div>
+
+      <UndoBar undoable={data.undoable} />
     </div>
   );
 }

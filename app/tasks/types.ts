@@ -1,3 +1,5 @@
+// A plain to-do without a date. Everything that has a date or comes back is a routine
+// (see routines/types.ts).
 export interface Task {
   id: string;
   title: string;
@@ -7,21 +9,8 @@ export interface Task {
   is_shared: boolean;
 }
 
-export type Recurrence = "daily" | "weekly" | "biweekly" | "monthly" | "once";
-
 export interface Room {
   id: string;
   name: string;
   icon: string;
-}
-
-export interface CleaningTask {
-  id: string;
-  roomId: string;
-  title: string;
-  supplies: string[];
-  recurrence: Recurrence;
-  assignee: string | null;
-  lastDone: string | null;
-  nextDue: string;
 }
