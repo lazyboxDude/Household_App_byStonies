@@ -13,7 +13,7 @@ interface User {
   avatar?: string;
 }
 
-// Tasks (with its Cleaning Plan sub-tab) is the always-on baseline feature —
+// Tasks (Heute / Räume / Alle) is the always-on baseline feature —
 // everything else starts off for a new household and is switched on
 // individually from Settings, so new households aren't overwhelmed.
 export type OptionalFeature = "shopping" | "expenses" | "calendar";

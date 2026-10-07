@@ -34,9 +34,9 @@ interface CalendarEvent {
   type: 'task' | 'shopping' | 'event';
   location?: string;
   photo?: string; // base64 data URL or a real URL
-  // Set for events mirrored from a cleaning task (see app/tasks/calendarSync.ts).
-  // They are managed from the Tasks page, so they are read-only here.
-  sourceCleaningTaskId?: string;
+  // True for events mirrored from a task (a recurring task's date, or a task of the old cleaning
+  // plan). They are managed from the Tasks page, so they are read-only here.
+  managedByTasks?: boolean;
 }
 
 type Bi = { en: string; de: string };
@@ -63,7 +63,7 @@ function toCalendarEvent(ev: Tables<'calendar_events'>): CalendarEvent {
     type: ev.type as CalendarEvent['type'],
     location: ev.location ?? undefined,
     photo: ev.photo_url ?? undefined,
-    sourceCleaningTaskId: ev.source_cleaning_task_id ?? undefined,
+    managedByTasks: !!(ev.source_occurrence_id || ev.source_cleaning_task_id),
   };
 }
 
@@ -214,7 +214,7 @@ export default function CalendarPage() {
     setIsModalOpen(false);
   };
 
-  const isReadOnlyEvent = !!editingEvent?.sourceCleaningTaskId;
+  const isReadOnlyEvent = !!editingEvent?.managedByTasks;
 
   const getEventsForDay = (date: Date) => {
     return events.filter(event => isSameDay(event.date, date)).sort(byTime);
@@ -246,12 +246,12 @@ export default function CalendarPage() {
         icon={CalendarIcon}
         title={t('Calendar', 'Kalender')}
         description={t(
-          'A shared household calendar for events and cleaning tasks.',
-          'Ein gemeinsamer Haushaltskalender für Termine und Putzaufgaben.'
+          'A shared household calendar for events and your tasks.',
+          'Ein gemeinsamer Haushaltskalender für Termine und Aufgaben.'
         )}
         bullets={[
           t('Everyone in the household sees the same events, live', 'Alle im Haushalt sehen dieselben Termine, live'),
-          t('Cleaning-plan tasks can sync their due dates here automatically', 'Aufgaben aus dem Putzplan erscheinen hier automatisch mit ihrem Datum'),
+          t('Tasks with a date show up here automatically', 'Aufgaben mit Datum erscheinen hier automatisch'),
           t('Snap a photo of a flyer or ticket and attach it to an event', 'Fotografiere einen Flyer oder ein Ticket und hänge es an einen Termin'),
         ]}
       />
@@ -452,7 +452,7 @@ export default function CalendarPage() {
           <div className="material-sheet animate-sheet rounded-t-[var(--radius-lg)] md:rounded-[var(--radius-lg)] shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b divider flex justify-between items-center">
               <h3 className="text-title">
-                {isReadOnlyEvent ? t('Cleaning Task', 'Putzaufgabe') : editingEvent ? t('Edit Event', 'Termin bearbeiten') : t('Add New Event', 'Neuer Termin')}
+                {isReadOnlyEvent ? t('Task', 'Aufgabe') : editingEvent ? t('Edit Event', 'Termin bearbeiten') : t('Add New Event', 'Neuer Termin')}
               </h3>
               <button onClick={() => setIsModalOpen(false)} aria-label={t("Close", "Schliessen")} className="press text-[var(--text-tertiary)] hover:text-[var(--text)]">
                 <X className="w-5 h-5" />
@@ -463,8 +463,8 @@ export default function CalendarPage() {
               {isReadOnlyEvent && (
                 <p className="text-caption text-[var(--text-secondary)]">
                   {t(
-                    'This event comes from the cleaning plan. Change its date or remove it on the Tasks page.',
-                    'Dieser Termin stammt aus dem Putzplan. Das Datum ändern oder ihn entfernen kannst du auf der Aufgaben-Seite.'
+                    'This event comes from your tasks. Change or remove it on the Tasks page.',
+                    'Dieser Termin stammt aus deinen Aufgaben. Ändern oder entfernen kannst du ihn auf der Aufgaben-Seite.'
                   )}
                 </p>
               )}

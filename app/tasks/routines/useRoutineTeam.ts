@@ -4,14 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import type { Json } from "../../lib/database.types";
 import { showToast } from "../../../lib/toast";
+import { useI18n } from "../../context/LanguageContext";
 import type { Absence, LivingMode, RoutineSettings, Settlement } from "./types";
 
-const ERROR_TEXT = "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?";
 const DEFAULT_SETTINGS: RoutineSettings = { livingMode: null, fairnessWeights: null };
 
 // How the household lives and how it divides things up: Paar/WG, target shares for the
 // Fairness-Waage, absences ("Ich bin weg") and settle-up payments.
 export function useRoutineTeam(householdId: string | undefined, memberIds: string[]) {
+  const { t } = useI18n();
+  const errorText = t("That didn't work just now. Want to try again?", "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?");
   const [settings, setSettings] = useState<RoutineSettings>(DEFAULT_SETTINGS);
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -87,13 +89,13 @@ export function useRoutineTeam(householdId: string | undefined, memberIds: strin
         { onConflict: "household_id" }
       );
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         loadSettings();
         return false;
       }
       return true;
     },
-    [householdId, settings, loadSettings]
+    [householdId, settings, loadSettings, errorText]
   );
 
   const addAbsence = useCallback(
@@ -101,13 +103,13 @@ export function useRoutineTeam(householdId: string | undefined, memberIds: strin
       if (!householdId) return false;
       const { error } = await supabase.from("routine_absences").insert({ household_id: householdId, user_id: userId, from_date: fromDate, to_date: toDate });
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         return false;
       }
       await loadAbsences();
       return true;
     },
-    [householdId, loadAbsences]
+    [householdId, loadAbsences, errorText]
   );
 
   const removeAbsence = useCallback(
@@ -115,11 +117,11 @@ export function useRoutineTeam(householdId: string | undefined, memberIds: strin
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       const { error } = await supabase.from("routine_absences").delete().eq("id", id);
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         loadAbsences();
       }
     },
-    [loadAbsences]
+    [loadAbsences, errorText]
   );
 
   // "Ausgleich": from paid to what the splits added up to.
@@ -128,13 +130,13 @@ export function useRoutineTeam(householdId: string | undefined, memberIds: strin
       if (!householdId) return false;
       const { error } = await supabase.from("routine_settlements").insert({ household_id: householdId, from_user: fromUser, to_user: toUser, amount });
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         return false;
       }
       await loadSettlements();
       return true;
     },
-    [householdId, loadSettlements]
+    [householdId, loadSettlements, errorText]
   );
 
   // Stable keys so the planner only reruns when the content changes, not the array identity.

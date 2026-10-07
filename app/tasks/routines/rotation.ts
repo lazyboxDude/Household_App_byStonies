@@ -97,6 +97,22 @@ export function planAssignments(
   return changes;
 }
 
+// When somebody changes who does a task, the date that is already waiting follows the new setting.
+// The plan above leaves overdue dates alone (they count as history), but a waiting date is exactly
+// what the person wants to give to somebody. A date that was handed over by hand stays as it is.
+// "Fair share" is left to the plan, it needs the loads of everybody.
+export function reassignWaiting(routine: Routine, occ: Occurrence, today: string): { assignedTo: string | null } | null {
+  if (occ.status !== "open" || occ.locked || occ.dueDate >= today) return null;
+  let to: string | null;
+  switch (routine.assignment) {
+    case "open": to = null; break;
+    case "fixed": to = routine.assigneeId; break;
+    case "rotation": to = routine.rotation?.[0] ?? null; break;
+    default: return null;
+  }
+  return to === occ.assignedTo ? null : { assignedTo: to };
+}
+
 // Absences that touch the planning window; used to hide old ones.
 export function currentAbsences(absences: Absence[], today: string): Absence[] {
   return absences.filter((a) => a.toDate >= today);

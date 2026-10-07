@@ -102,7 +102,10 @@
   <p class="lead">Analysis of three household apps to inform our roadmap. Findings feed the TODO list
   below so we know what's next. Status below was checked against the code on 2026-10-05.
   The section <a href="#routinen">Idea: Routinen</a> covers recurring chores and bills (Abfuhr, Stromrechnung, …):
-  <strong>phases 1–4 are built and their migrations are applied</strong>; only the push environment setup is still open (see the TODO list).</p>
+  <strong>phases 1–4 are built and their migrations are applied</strong>; only the push environment setup is still open (see the TODO list).
+  On 2026-10-07 the Tasks page was rebuilt around them as <strong>Heute / Räume / Alle</strong> (plan and decisions:
+  <a href="tasks-rethink.html">tasks-rethink.html</a>). The old Cleaning Plan tab, the task-list tab and the Routinen tab are gone;
+  bills, calendar import, push reminders and the Fairness-Waage are parked (see <a href="#parked">Tasks rebuild — parked</a>).</p>
 
   <h2>Homsy <small>(household/family organizer)</small></h2>
   <ul>
@@ -140,14 +143,14 @@
         <tr><th>Idea</th><th>Source</th><th>Status</th></tr>
       </thead>
       <tbody>
-        <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Done — Tasks: Cleaning Plan</td></tr>
-        <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Done — Tasks: Cleaning Plan</td></tr>
-        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — Cleaning Plan and Routinen (chores, reminders, bills)</td></tr>
+        <tr><td>Rooms → tasks → frequency setup flow</td><td>Sweepy</td><td>Done — Tasks: Räume (one-tap ideas per room type)</td></tr>
+        <tr><td>Cleaning supplies attached to a task</td><td>(extension of Sweepy's room model)</td><td>Done — ideas come with their supplies; the full form and the task details show them</td></tr>
+        <tr><td>Recurrence + auto-generated due dates</td><td>Homsy + Sweepy</td><td>Done — the Routinen schedule engine behind Heute / Räume / Alle (chores, reminders, bills)</td></tr>
         <tr><td>Recurring household chores that are fixed in the calendar (Abfuhr, Papiersammlung)</td><td>(our own synthesis)</td><td>Done (phase 1) — Tasks: <a href="#routinen">Routinen</a></td></tr>
         <tr><td>Recurring bills with payer, “paid” status and bookings (Strom, Internet, Serafe)</td><td>(our own synthesis)</td><td>Done (phase 2–3) — Tasks: <a href="#routinen">Routinen</a>, feeds the Rechnungen-Planer; splits and “wer schuldet wem” are built</td></tr>
-        <tr><td>Cleaning task → calendar entry</td><td>(our own synthesis)</td><td>Done — one-way sync via <code>calendarSync.ts</code></td></tr>
-        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Partial — overdue badge per room only</td></tr>
-        <tr><td>Task rotation between household members</td><td>Homsy</td><td>Done for Routinen (phase 3: rotation, swap, absence); Tasks and Cleaning Plan still use a free-text assignee</td></tr>
+        <tr><td>Task → calendar entry</td><td>(our own synthesis)</td><td>Done — open dates of recurring tasks are mirrored one way (<code>useRoutines.ts</code>); the old <code>calendarSync.ts</code> is gone</td></tr>
+        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Done — room cards show nothing planned / all good / coming up / due today / waiting</td></tr>
+        <tr><td>Task rotation between household members</td><td>Homsy</td><td>Done for every recurring task (abwechselnd, hand over in one tap, absence); plain to-dos without a date still use a free-text assignee</td></tr>
         <tr><td>Fair share of chores between members (Fairness-Waage)</td><td>Homsy + Sweepy, without the scoreboard</td><td>Done (phase 3) — share of effort over 30 days next to a target split</td></tr>
         <tr><td>Completion streaks per person</td><td>Homsy + Sweepy</td><td>Backlog — XP/leaderboard UI was removed</td></tr>
         <tr><td>Recipe templates → shopping list</td><td>Bring!</td><td>Backlog</td></tr>
@@ -177,7 +180,9 @@
         <li>Finance widget on the dashboard.</li>
       </ul>
     </li>
-    <li><strong>Routinen</strong> (<code>app/tasks/routines</code>, third tab on the Tasks page plus a “Diese Woche” card on the dashboard): see <a href="#routinen">Idea: Routinen</a>.</li>
+    <li><strong>Tasks page</strong> (<code>app/tasks</code>, rebuilt 2026-10-07): <em>Heute</em> (what is due, quick-add bar, one-tap done and hand over, to-dos without a date),
+      <em>Räume</em> (room cards with their state, ideas per room type, the room’s tasks) and <em>Alle</em> (everything that comes back, details, delete). Plus a “Diese Woche” card on the dashboard.
+      The engine underneath is <a href="#routinen">Routinen</a> (<code>app/tasks/routines</code>).</li>
     <li><strong>App shell:</strong> landing page for signed-out visitors, system-controlled dark mode, PWA manifest with generated icons,
       swipe-to-delete, toasts, per-feature onboarding banners.</li>
     <li><strong>Deals tab:</strong> UI done (store chips, category filter, add to list), but <code>/api/sales</code> returns the same hard-coded mock offers for every store.</li>
@@ -201,10 +206,10 @@
         <code>supabase/migrations/20261005120000_calendar_feed.sql</code> applied to the <code>household-app-bystonies</code>
         project on 2026-10-05. Needed again only for a fresh database (SQL editor or <code>supabase db push</code>; the file is idempotent).
         Without it, the calendar link in Settings shows an error and the feed route returns 503.</span></li>
-      <li><input type="checkbox" disabled><span><strong>Push reminders (Vercel → Project → Settings → Environment Variables)</strong>: generate a key pair once with
+      <li><input type="checkbox" disabled><span><strong>Push reminders (parked, see <a href="#parked">below</a>)</strong> — (Vercel → Project → Settings → Environment Variables): generate a key pair once with
         <code>npx web-push generate-vapid-keys</code>, then set <code>NEXT_PUBLIC_VAPID_PUBLIC_KEY</code>, <code>VAPID_PRIVATE_KEY</code>, <code>VAPID_SUBJECT</code> (<code>mailto:…</code>),
         <code>SUPABASE_SERVICE_ROLE_KEY</code> (Supabase → Settings → API) and <code>CRON_SECRET</code> (any long random string). The last four are server-only secrets, never with a
-        <code>NEXT_PUBLIC_</code> prefix. Then redeploy: <code>vercel.json</code> runs <code>/api/push/send</code> daily at 16:00 UTC. Until the public key is set, the “Erinnerungen aufs Handy” card stays hidden.</span></li>
+        <code>NEXT_PUBLIC_</code> prefix. Then redeploy. The daily cron (<code>vercel.json</code>, <code>/api/push/send</code> at 16:00 UTC) and the “Erinnerungen aufs Handy” card are not part of the rebuilt page yet, see the parked list.</span></li>
     </ul>
   </div>
 
@@ -212,19 +217,18 @@
   <ul class="todo">
     <li class="done"><input type="checkbox" disabled checked><span>Tasks page: general household tasks (one-off), shared or private.</span>
       <ul class="todo">
-        <li><input type="checkbox" disabled><span>Daily/recurring general tasks — <code>tasks</code> has no recurrence field yet (recurrence exists only in the Cleaning Plan).
-          Superseded by <a href="#routinen">Routinen</a> rather than bolting a recurrence column onto <code>tasks</code>.</span></li>
-        <li><input type="checkbox" disabled><span><code>TaskOnboarding.tsx</code> promises “starter tasks below” but creates none (starter tasks are only seeded on household creation).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Daily/recurring general tasks — the quick-add bar turns “Täglich / Wöchentlich / Alle 2 Wochen / Monatlich” into a routine; the <code>tasks</code> table stays for plain to-dos without a date (shown under “Ohne Datum”).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span><code>TaskOnboarding.tsx</code> no longer promises starter tasks; it explains the three views (shown once more to everyone, new key <code>tasks-onboarding-v2-…</code>).</span></li>
       </ul>
     </li>
-    <li class="done"><input type="checkbox" disabled checked><span>Tasks page: <strong>Cleaning Plan</strong> sub-feature</span>
+    <li class="done"><input type="checkbox" disabled checked><span>Tasks page rebuilt as <strong>Heute / Räume / Alle</strong> (replaces the Cleaning Plan, the task list and the Routinen tab).</span>
       <ul class="todo">
-        <li class="done"><input type="checkbox" disabled checked><span>Define rooms</span></li>
-        <li class="done"><input type="checkbox" disabled checked><span>Add tasks per room</span></li>
-        <li class="done"><input type="checkbox" disabled checked><span>Attach cleaning supplies to a task</span></li>
-        <li class="done"><input type="checkbox" disabled checked><span>Set recurrence per task (daily/weekly/biweekly/monthly/once)</span></li>
-        <li class="done"><input type="checkbox" disabled checked><span>Link cleaning tasks to the Calendar (event upserted on create and on mark-done)</span></li>
-        <li><input type="checkbox" disabled><span>“monthly” is a fixed 30 days, not a calendar month (the Routinen schedule engine fixes this with real month arithmetic).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Rooms: create and delete, state per room, one-tap ideas per room type (kitchen, bathroom, bedroom, living room, hall, laundry, car, garden), supplies, the old Cleaning Plan moves over on request (“Jetzt umziehen”).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>“Monthly” is a real calendar month now (schedule engine), not 30 days.</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Details of a task can be changed later: name, room, who does it (me / partner / abwechselnd / wer Zeit hat / fair verteilt). The rhythm cannot be edited yet (delete and re-create).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Hand over: one tap with two people (undo bar takes it back), a short list with three or more.</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Every text on the page and the dashboard card goes through <code>t("English", "Deutsch")</code>; the pure modules take a language argument. Titles that came from a template or an idea are shown in the reader’s language, anything typed is shown as written.</span></li>
+        <li><input type="checkbox" disabled><span>Plain to-dos without a date keep their free-text <code>assignee</code> and cannot be handed over; they can only be shared or private.</span></li>
       </ul>
     </li>
   </ul>
@@ -242,8 +246,8 @@
         <li><input type="checkbox" disabled><span>Set the push environment variables (see “Manual setup required”) and open the app once from each phone to switch reminders on. Real delivery is <strong>untested</strong>: the sender, the planning and the <code>web-push</code> call (201/410/404/500 handling) are tested against fakes, but no real browser push service was reachable.</span></li>
         <li><input type="checkbox" disabled><span>Push goes out once a day (16:00 UTC, i.e. 17:00/18:00 in Switzerland; the sender uses the <code>Europe/Zurich</code> date), one message per person with everything that applies. Hobby-plan cron allows exactly this frequency. iPhones only receive push for an app added to the Home Screen.</span></li>
         <li><input type="checkbox" disabled><span>ICS import reads single events and the common repeat rules (daily, weekly with weekday, monthly by day or n-th weekday, yearly) with COUNT/UNTIL/EXDATE; anything else is reported, not guessed. Time zones of date-times are ignored (the written date counts).</span></li>
-        <li><input type="checkbox" disabled><span>The Cleaning Plan takeover copies each task into a routine (title “Room: Task”, room icon, supplies, after-done interval, overdue stays overdue; “once” becomes a single date), hides the task in the Cleaning Plan and removes its old calendar entry. A free-text assignee only carries over when it matches a member’s name. Deleting the routine brings the task back. There is no separate room overview yet; <code>room_id</code> is stored for it.</span></li>
-        <li><input type="checkbox" disabled><span>Routines still cannot be edited (delete and re-create); only the yearly calendar re-import updates dates in place.</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>The Cleaning Plan takeover (“Jetzt umziehen” on Heute and Räume) copies each task into a routine (the title stays as written, the room becomes <code>room_id</code>, supplies, after-done interval, overdue stays overdue; “once” becomes a single date) and removes its old calendar entry. A free-text assignee only carries over when it matches a member’s name. The old <code>cleaning_tasks</code> rows stay (hidden, linked by <code>migrated_routine_id</code>); deleting the new task now deletes its old row too, so it does not come back as “still to move”. The table can be dropped once every household has moved.</span></li>
+        <li><input type="checkbox" disabled><span>Name, room and who can be changed on an existing task; its rhythm cannot (delete and re-create). Only the yearly calendar re-import updates dates in place.</span></li>
       </ul>
     </li>
     <li class="done"><input type="checkbox" disabled checked><span><strong>Routinen, phase 2</strong> — bills with amount, payer, “Bezahlt” (optionally as expense and as a Verteilertopf booking), planner link, Jahresabrechnung reminder.</span>
@@ -262,8 +266,8 @@
         <li><input type="checkbox" disabled><span>The Fairness-Waage credits whoever ticks an occurrence off, not necessarily the assigned person.</span></li>
       </ul>
     </li>
-    <li><input type="checkbox" disabled><span>Per-room cleanliness indicator (clean → needs attention → overdue) on a room overview. Today: red overdue counter per room only.</span></li>
-    <li><input type="checkbox" disabled><span>Task rotation for the plain Tasks list and the Cleaning Plan. Routinen rotate since phase 3 (with user ids); <code>tasks.assignee</code> and <code>cleaning_tasks.assignee</code> are still free-text strings.</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Per-room cleanliness indicator on a room overview — the room cards in <em>Räume</em> (<code>routines/rooms.ts</code>).</span></li>
+    <li><input type="checkbox" disabled><span>Rotation for plain to-dos without a date. Recurring tasks rotate since phase 3 (with user ids); <code>tasks.assignee</code> is still a free-text string.</span></li>
     <li><input type="checkbox" disabled><span>Completion streaks per person + simple leaderboard. The earlier points/levels UI was removed;
       <code>member_stats</code> and <code>tasks.points</code> remain unused in the schema.</span></li>
     <li class="done"><input type="checkbox" disabled checked><span>Real backend: households, tasks, cleaning plan, calendar, shopping and finance all live in
@@ -272,6 +276,21 @@
     <li><input type="checkbox" disabled><span>Add the remaining Supabase migrations to the repo. <code>supabase/migrations</code> now holds only the Routinen migration; the rest of the schema
       (households, tasks, finance, …) exists only in the live project, so its RLS and Realtime publications still cannot be reviewed.</span></li>
     <li><input type="checkbox" disabled><span>Real data for the Deals tab (currently mock; <code>cheerio</code> is already a dependency).</span></li>
+  </ul>
+
+  <h3 id="parked">Tasks rebuild — parked</h3>
+  <p>These came with PR #45 and are not on the rebuilt page. Their logic, hooks, tests, database tables and the API route stay in the repo; only the screens
+  were taken out. Files marked <em>parked</em> carry a comment at the top; their text is still German only and needs <code>t("English", "Deutsch")</code> before they go back on a page.
+  The old screens are in the history of PR #45 (<code>refs/pull/45/head</code>).</p>
+  <ul class="todo">
+    <li><input type="checkbox" disabled><span><strong>Bills as tasks</strong> — creating them (amount, payer, split), settle-up (“wer schuldet wem”).
+      Existing bill routines still show on Heute and can be paid (<code>routines/components/PayPanel.tsx</code>, translated), and they still feed the Rechnungen-Planer. New ones cannot be created from the page for now.
+      Parked: <code>routines/components/BalanceCards.tsx</code> (SettleUpCard), <code>settle.ts</code>, the bill part of <code>formModel.ts</code>.</span></li>
+    <li><input type="checkbox" disabled><span><strong>Entsorgungskalender import</strong> (.ics / CSV) — parked: <code>routines/components/ImportPanel.tsx</code>; kept and tested: <code>calendarImport.ts</code>, <code>useRoutines.importCalendar</code>.</span></li>
+    <li><input type="checkbox" disabled><span><strong>Push reminders</strong> — parked: <code>routines/components/PushCard.tsx</code>, <code>useWebPush.ts</code>. Kept: <code>public/sw.js</code>, <code>/api/push/send</code>, <code>pushPlan.ts</code>/<code>pushRun.ts</code> with tests.
+      <code>vercel.json</code> (the daily cron) was left out of this branch on purpose: without the card nobody can subscribe, and the route answers 503 until the environment variables are set. Restore it from PR #45 together with the card.</span></li>
+    <li><input type="checkbox" disabled><span><strong>Fairness-Waage</strong> (share of effort over 30 days next to a target split) — parked: <code>FairnessCard</code> in <code>BalanceCards.tsx</code>. Kept: <code>fairness.ts</code>, which “Fair verteilt” still uses to pick who is next.</span></li>
+    <li><input type="checkbox" disabled><span><strong>“Wie wohnt ihr?”</strong> (couple or WG) — parked: <code>LivingModeCard</code> in <code>TeamCards.tsx</code>. The setting is still derived from the number of members (two = couple, three or more = WG) and only decides the starting point of new tasks.</span></li>
   </ul>
 
   <h3>Finanzen — known gaps</h3>
@@ -285,7 +304,7 @@
     <li><input type="checkbox" disabled><span>Edit dialogs use <code>window.prompt</code>; optimistic updates (pots, debts, budgets, expenses, bills) have no error rollback.</span></li>
     <li><input type="checkbox" disabled><span>Debt payments are not stored as history, only <code>remaining</code> changes.</span></li>
     <li><input type="checkbox" disabled><span>Shopping check-off toast shows “$” instead of CHF.</span></li>
-    <li><input type="checkbox" disabled><span>Tests: only <code>calc.test.ts</code> exists, and CI runs build and lint only (<code>lint || true</code>), not <code>npm test</code>.</span></li>
+    <li><input type="checkbox" disabled><span>Tests: <code>npm test</code> now finds every test file (the unquoted glob used to stop one level deep and skipped the Routinen tests). CI still runs build and lint only (<code>lint || true</code>), not <code>npm test</code>; the tests need Node 22+ (type stripping).</span></li>
   </ul>
 
   <h3>Later / nice-to-have</h3>
@@ -310,6 +329,10 @@
 
   <h2 id="routinen">Idea: Routinen — one rhythm for chores and bills</h2>
   <p class="proposal">Phase 1 built · phases 2–4 proposal</p>
+  <div class="callout">
+    <p><strong>Status 2026-10-07:</strong> this section is the original design. The screens it describes (a “Routinen” tab, the “Putzplan übernehmen” card, the “Diese Woche” list on its own)
+    were replaced by <em>Heute / Räume / Alle</em>; the schedule engine, the data model and the rules below still hold. See <a href="tasks-rethink.html">tasks-rethink.html</a>.</p>
+  </div>
 
   <h3>The problem</h3>
   <p>A household runs on things that come back: Kehricht-Abfuhr every second Thursday, Papiersammlung on fixed dates, the

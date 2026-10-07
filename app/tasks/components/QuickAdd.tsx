@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Lock, Plus, Users } from "lucide-react";
 import { useI18n } from "../../context/LanguageContext";
 import { ROOM_PRESETS, localizeKnown } from "../constants";
-import { buildQuickRoutine, type QuickWhen, type QuickWho } from "../routines/quickAdd";
+import { RECURRING_WHEN, buildQuickRoutine, type QuickWhen, type QuickWho } from "../routines/quickAdd";
 import type { NewRoutine } from "../routines/useRoutines";
 import type { Room } from "../types";
 import type { Person } from "./rowContext";
@@ -53,10 +53,14 @@ export default function QuickAdd({
   const undated = when === "none";
   const withOthers = members.length > 1;
   const effectiveRoom = fixedRoom?.id ?? roomId;
+  // Two levels: a day (or none) first, and only if it comes back, how often.
+  const recurring = RECURRING_WHEN.includes(when);
   const whenOptions: { value: QuickWhen; label: string }[] = [
     ...(allowUndated ? [{ value: "none" as const, label: t("No date", "Ohne Datum") }] : []),
     { value: "today", label: t("Today", "Heute") },
     { value: "tomorrow", label: t("Tomorrow", "Morgen") },
+  ];
+  const everyOptions: { value: QuickWhen; label: string }[] = [
     { value: "daily", label: t("Daily", "Täglich") },
     { value: "weekly", label: t("Weekly", "Wöchentlich") },
     { value: "biweekly", label: t("Every 2 weeks", "Alle 2 Wochen") },
@@ -147,7 +151,19 @@ export default function QuickAdd({
                   {o.label}
                 </button>
               ))}
+              <button type="button" className="chip" data-active={recurring} onClick={() => !recurring && setWhen("weekly")}>
+                {t("Repeating", "Wiederkehrend")}
+              </button>
             </div>
+            {recurring && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {everyOptions.map((o) => (
+                  <button key={o.value} type="button" className="chip" data-active={when === o.value} onClick={() => setWhen(o.value)}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {withOthers && (undated ? shared : true) && (

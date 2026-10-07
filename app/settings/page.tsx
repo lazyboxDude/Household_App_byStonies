@@ -38,8 +38,8 @@ const FEATURES: {
     icon: Calendar,
     title: { en: "Calendar", de: "Kalender" },
     description: {
-      en: "A shared household calendar for events, synced with the cleaning plan.",
-      de: "Ein gemeinsamer Haushaltskalender, abgestimmt mit dem Putzplan.",
+      en: "A shared household calendar for events, synced with your tasks.",
+      de: "Ein gemeinsamer Haushaltskalender, abgestimmt mit deinen Aufgaben.",
     },
   },
 ];

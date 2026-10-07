@@ -14,6 +14,7 @@ import type { NewRoutine } from "../routines/useRoutines";
 import type { Task } from "../types";
 import type { useTasks } from "../useTasks";
 import SwipeToDelete, { type SwipeToDeleteHandle } from "../../components/SwipeToDelete";
+import CleaningMoveBanner from "./CleaningMoveBanner";
 import QuickAdd from "./QuickAdd";
 import RoutineRow from "./RoutineRow";
 import type { RowContext } from "./rowContext";
@@ -68,7 +69,6 @@ export default function TodayView({
   const { tasks, addTask, toggleTask, toggleShared, deleteTask } = taskStore;
   const [filter, setFilter] = useState<Filter>("all");
   const [showDone, setShowDone] = useState(false);
-  const [movingCleaning, setMovingCleaning] = useState(false);
   const swipeRefs = useRef(new Map<string, SwipeToDeleteHandle | null>());
   const withOthers = members.length > 1;
 
@@ -152,28 +152,7 @@ export default function TodayView({
         onMoreOptions={onMoreOptions}
       />
 
-      {cleaningOpen > 0 && (
-        <div className="surface p-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm">
-            {t(
-              `Your old cleaning plan still has ${cleaningOpen} ${cleaningOpen === 1 ? "task" : "tasks"}. They can move into the rooms here.`,
-              `In deinem alten Putzplan ${cleaningOpen === 1 ? "liegt" : "liegen"} noch ${cleaningOpen} ${cleaningOpen === 1 ? "Aufgabe" : "Aufgaben"}. Sie können in die Räume hier umziehen.`
-            )}
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={movingCleaning}
-            onClick={async () => {
-              setMovingCleaning(true);
-              await onMoveCleaning();
-              setMovingCleaning(false);
-            }}
-          >
-            {t("Move them over", "Jetzt umziehen")}
-          </button>
-        </div>
-      )}
+      <CleaningMoveBanner count={cleaningOpen} onMove={onMoveCleaning} />
 
       {withOthers && !nothingAtAll && (
         <div className="flex items-center gap-2" role="group" aria-label={t("Show", "Anzeigen")}>
@@ -200,7 +179,7 @@ export default function TodayView({
               <p className="text-caption mt-1">
                 {mine
                   ? t("Nothing open for you. The others still might have something.", "Für dich ist nichts offen. Bei den anderen kann noch etwas anstehen.")
-                  : t("Nothing is waiting. Enjoy the quiet.", "Nichts wartet auf euch. Geniess die Ruhe.")}
+                  : t("Nothing is waiting right now. Enjoy the quiet.", "Gerade wartet nichts. Geniess die Ruhe.")}
               </p>
             </>
           )}

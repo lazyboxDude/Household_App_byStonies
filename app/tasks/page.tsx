@@ -44,6 +44,7 @@ export default function TasksPage() {
   // The full form. `key` starts it fresh each time it is opened, so it never shows an old draft.
   const [form, setForm] = useState<{ key: number; title: string; roomId: string | null } | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     if (!householdId) return;
@@ -116,6 +117,19 @@ export default function TasksPage() {
 
   const openForm = (title = "", roomId: string | null = null) => setForm({ key: Date.now(), title, roomId });
 
+  // Arrow keys move between the views, like any tab list.
+  const onTabKey = (e: React.KeyboardEvent, index: number, count: number, ids: View[]) => {
+    let next = index;
+    if (e.key === "ArrowRight") next = (index + 1) % count;
+    else if (e.key === "ArrowLeft") next = (index - 1 + count) % count;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = count - 1;
+    else return;
+    e.preventDefault();
+    setView(ids[next]);
+    tabRefs.current[next]?.focus();
+  };
+
   const moveCleaning = async () => {
     const moved = await data.importCleaningPlan(members);
     if (moved > 0) showToast(t(`${moved} ${moved === 1 ? "task" : "tasks"} moved over`, `${moved} ${moved === 1 ? "Aufgabe" : "Aufgaben"} umgezogen`), "success");
@@ -158,13 +172,20 @@ export default function TasksPage() {
       {showOnboarding && <TaskOnboarding onDismiss={dismissOnboarding} />}
 
       <div className="flex gap-2 mb-6 border-b divider" role="tablist" aria-label={t("Views", "Ansichten")}>
-        {tabs.map((tab) => (
+        {tabs.map((tab, index) => (
           <button
             key={tab.id}
+            ref={(el) => {
+              tabRefs.current[index] = el;
+            }}
+            id={`tasks-tab-${tab.id}`}
             type="button"
             role="tab"
             aria-selected={view === tab.id}
+            aria-controls="tasks-panel"
+            tabIndex={view === tab.id ? 0 : -1}
             onClick={() => setView(tab.id)}
+            onKeyDown={(e) => onTabKey(e, index, tabs.length, tabs.map((x) => x.id))}
             className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 flex items-center gap-1.5 ${
               view === tab.id
                 ? "border-[var(--accent)] text-[var(--accent)]"
@@ -198,7 +219,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      <div className="animate-rise" key={view}>
+      <div className="animate-rise" key={view} id="tasks-panel" role="tabpanel" aria-labelledby={`tasks-tab-${view}`}>
         {view === "today" && (
           <div className="max-w-3xl">
             <TodayView

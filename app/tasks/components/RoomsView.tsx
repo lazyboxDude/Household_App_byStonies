@@ -13,6 +13,7 @@ import type { Occurrence, Routine } from "../routines/types";
 import type { NewRoutine } from "../routines/useRoutines";
 import type { Room } from "../types";
 import type { useRooms } from "../useRooms";
+import CleaningMoveBanner from "./CleaningMoveBanner";
 import QuickAdd from "./QuickAdd";
 import RoutineRow from "./RoutineRow";
 import type { RowContext } from "./rowContext";
@@ -74,7 +75,6 @@ export default function RoomsView({
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newIcon, setNewIcon] = useState(ROOM_ICON_PRESETS[0]);
-  const [movingCleaning, setMovingCleaning] = useState(false);
 
   const summaries = useMemo(
     () => new Map(rooms.map((r) => [r.id, summarizeRoom(r.id, routines, occurrences, today)])),
@@ -82,7 +82,8 @@ export default function RoomsView({
   );
   const roomName = (r: Room) => localizeKnown(r.name, ROOM_PRESETS, lang);
   const selected = rooms.find((r) => r.id === selectedId) ?? null;
-  const strayCount = routines.filter((r) => r.kind !== "bill" && !r.roomId).length;
+  // Reminders like the trash collection do not belong in a room, so only chores count.
+  const strayCount = routines.filter((r) => r.kind === "chore" && !r.roomId).length;
 
   const submitRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,28 +111,8 @@ export default function RoomsView({
 
   return (
     <div className="space-y-4">
-      {cleaningOpen > 0 && (
-        <div className="surface p-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm">
-            {t(
-              `Your old cleaning plan still has ${cleaningOpen} ${cleaningOpen === 1 ? "task" : "tasks"}. They can move into the rooms here.`,
-              `In deinem alten Putzplan ${cleaningOpen === 1 ? "liegt" : "liegen"} noch ${cleaningOpen} ${cleaningOpen === 1 ? "Aufgabe" : "Aufgaben"}. Sie können in die Räume hier umziehen.`
-            )}
-          </p>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            disabled={movingCleaning}
-            onClick={async () => {
-              setMovingCleaning(true);
-              await onMoveCleaning();
-              setMovingCleaning(false);
-            }}
-          >
-            {t("Move them over", "Jetzt umziehen")}
-          </button>
-        </div>
-      )}
+      {/* On a phone the banner steps aside while a room is open. */}
+      <CleaningMoveBanner count={cleaningOpen} onMove={onMoveCleaning} className={selected ? "hidden lg:flex" : "flex"} />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* The rooms. On a phone they give way to the room that is open. */}
@@ -158,7 +139,7 @@ export default function RoomsView({
                   <span className="block font-medium truncate">{roomName(room)}</span>
                   <span className="block text-caption truncate">
                     {summary.routineCount === 0
-                      ? t("Tap to add the first task", "Tippe, um die erste Aufgabe zu ergänzen")
+                      ? t("Tap to get started", "Tippe zum Loslegen")
                       : `${t(summary.routineCount === 1 ? "1 task" : `${summary.routineCount} tasks`, summary.routineCount === 1 ? "1 Aufgabe" : `${summary.routineCount} Aufgaben`)}${next ? ` · ${next}` : ""}`}
                   </span>
                 </span>
@@ -225,9 +206,12 @@ export default function RoomsView({
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <button type="button" className="btn btn-ghost btn-sm lg:hidden" onClick={() => setSelectedId(null)}>
-                  <ChevronLeft className="w-4 h-4" /> {t("All rooms", "Alle Räume")}
-                </button>
+                {/* On a wrapper: .btn sets its own display, which a utility class on the button cannot override. */}
+                <div className="lg:hidden">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedId(null)}>
+                    <ChevronLeft className="w-4 h-4" /> {t("All rooms", "Alle Räume")}
+                  </button>
+                </div>
                 <h2 className="text-headline flex items-center gap-2 min-w-0 flex-1">
                   <span aria-hidden>{selected.icon}</span>
                   <span className="truncate">{roomName(selected)}</span>

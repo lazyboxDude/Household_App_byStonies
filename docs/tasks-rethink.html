@@ -47,9 +47,42 @@
 <body>
 <main>
   <h1>Aufgaben &amp; Putzplan neu denken</h1>
-  <p class="lead">Stand 7. Okt. 2026 · Plan, noch kein Code. Basis: aktueller <code>main</code> und PR&nbsp;#45 (Branch <code>claude/brave-goodall-ihm9hv</code>).</p>
+  <p class="lead">Stand 7. Okt. 2026 · Plan und Umsetzung. Basis: <code>main</code> und PR&nbsp;#45 (Branch <code>claude/brave-goodall-ihm9hv</code>). Umgesetzt auf <code>claude/serene-pascal-3812de</code>.</p>
 
-  <h2>Was du gesagt hast</h2>
+  <h2>Stand der Umsetzung</h2>
+  <p>Die drei offenen Entscheidungen sind so gefallen: <strong>A</strong> die Tabelle <code>tasks</code> bleibt für Aufgaben ohne Datum (Abschnitt „Ohne Datum"),
+  <strong>B</strong> der Umbau läuft auf einem eigenen Branch, der PR&nbsp;#45 ersetzt (der alte PR lässt sich danach schliessen), <strong>C</strong> Rechnungen/Ausgleich, Kalender-Import, Push und Fairness-Waage sind geparkt.</p>
+  <div class="tbl"><table>
+    <tr><th>Schritt</th><th>Stand</th><th>Anmerkung</th></tr>
+    <tr><td>1 · Zusammenführen</td><td><span class="tag keep">erledigt</span></td><td>5 Konflikte gelöst, die vier Migrations-SQL-Dateien sind im Repo (die Datenbank hatte sie schon).</td></tr>
+    <tr><td>2 · Zweisprachig</td><td><span class="tag keep">erledigt</span></td><td>Alle Texte der Seite und des Dashboard-Widgets laufen über <code>t("English", "Deutsch")</code>. Die reinen Module (<code>describe</code>, <code>agenda</code>, <code>formModel</code>, <code>templates</code>) bekommen die Sprache als Argument.</td></tr>
+    <tr><td>3 · „Heute"</td><td><span class="tag keep">erledigt</span></td><td>Schnellanlage in einer Zeile, Abhaken und Abgeben mit je einem Tipp (Rückgängig-Leiste), Filter „Nur meine", Abschnitt „Erledigt".</td></tr>
+    <tr><td>4 · „Räume"</td><td><span class="tag keep">erledigt</span></td><td>Raumkarten mit Zustand, Ideen pro Raumtyp mit einem Tipp, der alte Putzplan zieht auf Wunsch um („Jetzt umziehen").</td></tr>
+    <tr><td>5 · Alten Putzplan-Tab entfernen</td><td><span class="tag keep">erledigt</span></td><td>Entfernt: <code>CleaningPlanTab</code>, <code>TaskListTab</code>, <code>RoutinesTab</code>, <code>WeekAgenda</code>, <code>calendarSync.ts</code>. Die Tabelle <code>cleaning_tasks</code> bleibt, bis alle Haushalte umgezogen sind.</td></tr>
+    <tr><td>6 · Geparkt</td><td><span class="tag park">wie geplant</span></td><td>Siehe <a href="feature-research.html#parked">Tasks rebuild — parked</a> in der Roadmap. Die Bildschirme sind raus, Logik, Hooks, Tests und Tabellen bleiben.</td></tr>
+  </table></div>
+
+  <h3>Abweichungen vom Plan</h3>
+  <ul>
+    <li><strong>Aufgaben später bearbeiten</strong> ist dazugekommen: Name, Raum und „Wer macht es" lassen sich in den Details einer Zeile ändern (der Rhythmus noch nicht). Das war nötig, weil sonst ein falsch gesetzter Raum nur durch Löschen und Neuanlegen zu beheben ist.</li>
+    <li><strong><code>vercel.json</code> (täglicher Push-Cron) ist nicht dabei.</strong> Ohne Push-Karte kann sich niemand anmelden, und die Route antwortet bis zur Einrichtung mit 503. Die Datei steht in PR&nbsp;#45 und kommt mit der Karte zurück.</li>
+    <li><strong>Der Raumname steht nicht mehr im Titel</strong> umgezogener Aufgaben („Küche: Herd abwischen" wird „Herd abwischen"). Der Raum ist jetzt ein eigenes Feld, und der gespeicherte Name kann der englische sein.</li>
+    <li><strong>Löschen einer umgezogenen Aufgabe</strong> entfernt auch ihre alte Putzplan-Zeile. Sonst käme sie als „noch umzuziehen" zurück.</li>
+    <li><strong>Termine aus Aufgaben sind im Kalender schreibgeschützt</strong> (vorher nur die des alten Putzplans).</li>
+    <li><strong><code>npm test</code> fand nur 10 von 110 Tests.</strong> Das Glob <code>app/**/*.test.ts</code> griff ohne Anführungszeichen nur eine Ebene tief und übersprang die Routinen-Tests. Behoben; jetzt laufen alle (144).</li>
+  </ul>
+
+  <h3>Wie geprüft</h3>
+  <ul>
+    <li>144 Unit-Tests, Typecheck, ESLint und <code>next build</code> sind grün.</li>
+    <li>Die Oberfläche wurde in einem echten Browser durchgeklickt (Handy- und Desktop-Breite, hell und dunkel, Deutsch und Englisch, Haushalt mit einer, zwei und drei Personen, leerer Haushalt, bestehende Rechnung), gegen ein lokales Ersatz-Backend, das nur im Test lief. Geprüft wurde jeweils auch, was danach in der Datenbank steht.</li>
+    <li><strong>Nicht geprüft:</strong> die echte Supabase-Datenbank (Zeilenrechte, Realtime zwischen zwei Geräten) und Push. Die Migrationen sind dort schon eingespielt, der Umbau ändert das Schema nicht.</li>
+  </ul>
+
+  <h2>Der ursprüngliche Plan</h2>
+  <p>Ab hier steht der Plan so, wie er vor dem Umbau geschrieben wurde.</p>
+
+  <h3>Was du gesagt hast</h3>
   <ul>
     <li>PR&nbsp;#45 retten, was sich lohnt.</li>
     <li>Zu zweit; Aufgaben sollen sich <strong>abgeben</strong> lassen, Rotation ist nice-to-have.</li>

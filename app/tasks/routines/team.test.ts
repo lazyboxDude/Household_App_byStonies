@@ -1,7 +1,7 @@
 // Run with: node --test app/tasks/routines/team.test.ts
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { planAssignments } from "./rotation.ts";
+import { planAssignments, reassignWaiting } from "./rotation.ts";
 import { BALANCE_TOLERANCE, fairness, targetShares } from "./fairness.ts";
 import { equalSplit, netBalances, splitShares, suggestTransfers } from "./settle.ts";
 import type { Absence, Occurrence, Routine } from "./types.ts";
@@ -202,4 +202,24 @@ test("suggestTransfers settles everything with as few payments as possible", () 
   const bills = [{ paidBy: A, amount: 100, split: { a: 50, b: 25, c: 25 } }];
   const settled = netBalances(bills, suggestTransfers(netBalances(bills, [])));
   for (const id of [A, B, C]) assert.equal(Math.abs(settled[id] ?? 0), 0, id);
+});
+
+// --- a waiting date follows a change of who does it
+
+test("reassignWaiting: an overdue date follows the new setting", () => {
+  const day = "2026-11-10";
+  const waiting = occ("w", "2026-11-07");
+  assert.deepEqual(reassignWaiting(routine({ assignment: "fixed", assigneeId: B }), waiting, day), { assignedTo: B });
+  assert.deepEqual(reassignWaiting(routine({ assignment: "rotation", rotation: [A, B] }), waiting, day), { assignedTo: A });
+  assert.deepEqual(reassignWaiting(routine({ assignment: "open" }), occ("w", "2026-11-07", { assignedTo: B }), day), { assignedTo: null });
+});
+
+test("reassignWaiting: nothing to do when it already fits, is handed over by hand, is not overdue or is over", () => {
+  const day = "2026-11-10";
+  const fixed = routine({ assignment: "fixed", assigneeId: B });
+  assert.equal(reassignWaiting(fixed, occ("w", "2026-11-07", { assignedTo: B }), day), null);
+  assert.equal(reassignWaiting(fixed, occ("w", "2026-11-07", { assignedTo: A, locked: true }), day), null);
+  assert.equal(reassignWaiting(fixed, occ("w", "2026-11-10"), day), null); // today is the plan's job
+  assert.equal(reassignWaiting(fixed, occ("w", "2026-11-07", { status: "done" }), day), null);
+  assert.equal(reassignWaiting(routine({ assignment: "fair_share" }), occ("w", "2026-11-07"), day), null);
 });

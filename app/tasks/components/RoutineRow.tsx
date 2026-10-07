@@ -80,7 +80,7 @@ export default function RoutineRow({ routine, occurrence, today, variant, showRo
     handOff.kind === "direct" && handOff.takeOver
       ? t("Take over", "Übernehmen")
       : otherName
-        ? t(`Hand to ${otherName}`, `An ${otherName}`)
+        ? t(`Give to ${otherName}`, `An ${otherName} abgeben`)
         : t("Hand over", "Abgeben");
 
   const pillStyle: React.CSSProperties = waiting
@@ -118,11 +118,11 @@ export default function RoutineRow({ routine, occurrence, today, variant, showRo
           aria-expanded={expanded}
           className="min-w-0 flex-1 text-left py-1 press"
         >
-          <span className="flex items-center gap-2">
-            <span className="text-lg shrink-0" aria-hidden>{routine.icon}</span>
-            <span className="font-medium text-sm truncate">{title}</span>
+          <span className="flex items-start gap-2">
+            <span className="text-lg shrink-0 leading-5" aria-hidden>{routine.icon}</span>
+            <span className="font-medium text-sm leading-5 line-clamp-2 min-w-0">{title}</span>
             <ChevronDown
-              className={`w-3.5 h-3.5 shrink-0 text-[var(--text-tertiary)] transition-transform ${expanded ? "rotate-180" : ""}`}
+              className={`w-3.5 h-3.5 shrink-0 mt-[3px] text-[var(--text-tertiary)] transition-transform ${expanded ? "rotate-180" : ""}`}
               aria-hidden
             />
           </span>
@@ -162,7 +162,8 @@ export default function RoutineRow({ routine, occurrence, today, variant, showRo
             title={handOffLabel}
           >
             <ArrowLeftRight className="w-4 h-4" aria-hidden />
-            <span className="max-w-[7rem] truncate">{handOffLabel}</span>
+            {/* Icon only on a phone, so the name keeps its room; the label is in the tooltip and for screen readers. */}
+            <span className="hidden sm:inline max-w-[11rem] truncate">{handOffLabel}</span>
           </button>
         )}
       </div>

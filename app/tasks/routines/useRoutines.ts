@@ -10,7 +10,8 @@ import { missingOccurrences } from "./ensure";
 import { mergedDates, type ImportItem } from "./calendarImport";
 import { planCleaningMigration, type CleaningRecurrence } from "./cleaningMigration";
 import { loadsFrom } from "./fairness";
-import { planAssignments } from "./rotation";
+import { planAssignments, reassignWaiting } from "./rotation";
+import { nextOccurrence } from "./agenda";
 import { addDays, nextAfterDone, todayLocalISO } from "./schedule";
 import type { Assignment, Occurrence, Routine } from "./types";
 import type { BuiltRoutine } from "./formModel";
@@ -326,6 +327,14 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         await refresh(false);
         return false;
       }
+      if (patch.assignment !== undefined) {
+        // The plan only looks ahead; the date that is already waiting follows the change here.
+        const waiting = nextOccurrence(next, occurrences, todayLocalISO());
+        const change = waiting ? reassignWaiting(next, waiting, todayLocalISO()) : null;
+        if (waiting && change) {
+          await supabase.from("routine_occurrences").update({ assigned_to: change.assignedTo }).eq("id", waiting.id);
+        }
+      }
       if (title !== undefined && current.kind !== "bill") {
         const ids = occurrences.filter((o) => o.routineId === id && o.status === "open").map((o) => o.id);
         if (ids.length > 0) {
@@ -343,6 +352,10 @@ export function useRoutines(householdId: string | undefined, userId: string | un
       // Occurrences and their calendar entries go with it (database cascade).
       setRoutines((prev) => prev.filter((r) => r.id !== id));
       setOccurrences((prev) => prev.filter((o) => o.routineId !== id));
+      // A task that moved over from the old cleaning plan leaves its old row behind. Deleting the
+      // routine would only set that link to null and bring the row back as "still to move over",
+      // so it goes first. (Errors are ignored: a database without the link has nothing to remove.)
+      await supabase.from("cleaning_tasks").delete().eq("migrated_routine_id", id);
       const { error } = await supabase.from("routines").delete().eq("id", id);
       if (error) {
         showToast(errorText, "error");
