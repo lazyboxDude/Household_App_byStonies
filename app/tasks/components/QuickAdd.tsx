@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Lock, Plus, Users } from "lucide-react";
+import { showToast } from "../../../lib/toast";
 import { useI18n } from "../../context/LanguageContext";
 import { ROOM_PRESETS, localizeKnown } from "../constants";
 import { RECURRING_WHEN, buildQuickRoutine, type QuickWhen, type QuickWho } from "../routines/quickAdd";
@@ -48,7 +49,11 @@ export default function QuickAdd({
   const [who, setWho] = useState<string>("open"); // "open" | "turns" | a member id
   const [roomId, setRoomId] = useState<string | null>(null);
   const [shared, setShared] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // What is in the bar right now, for deciding after a failed save whether it is still free to be refilled.
+  const titleRef = useRef("");
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
 
   const undated = when === "none";
   const withOthers = members.length > 1;
@@ -67,6 +72,12 @@ export default function QuickAdd({
     { value: "monthly", label: t("Monthly", "Monatlich") },
   ];
 
+  // Taking turns needs a task that comes back; a to-do or a single day cannot rotate.
+  const chooseWhen = (next: QuickWhen) => {
+    setWhen(next);
+    if (!RECURRING_WHEN.includes(next) && who === "turns") setWho("open");
+  };
+
   const reset = () => {
     setTitle("");
     setWhen(defaultWhen);
@@ -79,29 +90,42 @@ export default function QuickAdd({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = title.trim();
-    if (!text || saving) return;
-    setSaving(true);
+    if (!text) return;
+    // Clear the bar right away: the next task can be typed while this one is still being saved.
+    const draft = { when, who, roomId, shared };
+    reset();
+
     let ok: boolean;
-    if (undated) {
-      const person = who !== "open" && who !== "turns" ? members.find((m) => m.id === who)?.name ?? null : null;
-      ok = await onAddTask(text, shared, person);
+    if (draft.when === "none") {
+      const person = draft.who !== "open" && draft.who !== "turns" ? members.find((m) => m.id === draft.who)?.name ?? null : null;
+      ok = await onAddTask(text, draft.shared, person);
+      if (!ok) showToast(t("That didn't work just now. Want to try again?", "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?"), "error");
     } else {
-      const room = effectiveRoom ? rooms.find((r) => r.id === effectiveRoom) : undefined;
-      const quickWho: QuickWho = who === "open" ? { type: "open" } : who === "turns" ? { type: "turns" } : { type: "member", id: who };
+      const roomOf = fixedRoom?.id ?? draft.roomId;
+      const room = roomOf ? rooms.find((r) => r.id === roomOf) : undefined;
+      const quickWho: QuickWho = draft.who === "open" ? { type: "open" } : draft.who === "turns" ? { type: "turns" } : { type: "member", id: draft.who };
       const built = buildQuickRoutine({
         title: text,
-        when: when as Exclude<QuickWhen, "none">,
+        when: draft.when,
         who: quickWho,
-        roomId: effectiveRoom ?? null,
+        roomId: roomOf ?? null,
         icon: room?.icon,
         today,
         userId,
         memberIds: members.map((m) => m.id),
       });
+      // The hook already tells the person when saving fails.
       ok = built ? await onAddRoutine(built) : false;
     }
-    setSaving(false);
-    if (ok) reset();
+
+    // Give the text back if it did not save, unless the next one has already been started.
+    if (!ok && !titleRef.current) {
+      setTitle(text);
+      setWhen(draft.when);
+      setWho(draft.who);
+      setRoomId(draft.roomId);
+      setShared(draft.shared);
+    }
   };
 
   const nameOf = (m: Person) => (m.id === userId ? t("Me", "Ich") : m.name);
@@ -123,7 +147,7 @@ export default function QuickAdd({
         />
         <button
           type="submit"
-          disabled={!title.trim() || saving}
+          disabled={!title.trim()}
           aria-label={t("Add task", "Aufgabe hinzufügen")}
           className="btn btn-primary btn-icon shrink-0"
         >
@@ -142,16 +166,12 @@ export default function QuickAdd({
                   type="button"
                   className="chip"
                   data-active={when === o.value}
-                  onClick={() => {
-                    setWhen(o.value);
-                    // Taking turns needs a task that comes back; a to-do without a date cannot rotate.
-                    if (o.value === "none" && who === "turns") setWho("open");
-                  }}
+                  onClick={() => chooseWhen(o.value)}
                 >
                   {o.label}
                 </button>
               ))}
-              <button type="button" className="chip" data-active={recurring} onClick={() => !recurring && setWhen("weekly")}>
+              <button type="button" className="chip" data-active={recurring} onClick={() => !recurring && chooseWhen("weekly")}>
                 {t("Repeating", "Wiederkehrend")}
               </button>
             </div>
@@ -178,7 +198,7 @@ export default function QuickAdd({
                     {nameOf(m)}
                   </button>
                 ))}
-                {!undated && (
+                {recurring && (
                   <button type="button" className="chip" data-active={who === "turns"} onClick={() => setWho("turns")}>
                     {t("Taking turns", "Abwechselnd")}
                   </button>
