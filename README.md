@@ -79,7 +79,6 @@ npm run dev
 - **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
 - **Linting:** ESLint
 - **Icons:** [Lucide React](https://lucide.dev/)
-- **Scraping:** [Cheerio](https://cheerio.js.org/) (for fetching store deals)
 - **Backend:** [Supabase](https://supabase.com/) (Postgres + Auth, with Row Level Security scoping every table to a household)
 
 ## 🔐 Backend & Authentication Setup
@@ -126,18 +125,11 @@ When deploying to Vercel, add the same environment variables in
 
 ## ✨ Features
 
-### 🛒 Smart Shopping List
-- **Interactive List**: Add, check off, and delete items easily.
-- **Store Categorization**: Tag items with specific stores (Migros, Coop, etc.).
-- **Price Tracking**: Optional price input for budgeting.
-- **Nearby Stores**: "Find Nearby" simulation to discover local shops.
-
-### 🏷️ Deals & Sales
-- **Live Sales Browser**: View current offers from major Swiss supermarkets directly in the app.
-- **Category Filtering**: Filter deals by Fruits, Dairy, Meat, Bakery, etc.
-- **Smart Fallbacks**: Automatically displays category icons if product images fail to load.
-- **One-Click Add**: Instantly add sale items to your shopping list.
-- **Store Support**: Currently optimized for Migros, with links for Coop, Denner, Aldi, and Lidl.
+### 🛒 Shopping List with Price Memory
+- **Interactive List**: Add, check off, and delete items. Checking off responds instantly; a slip can be undone.
+- **Store Tagging**: Tag items with specific stores (Migros, Coop, etc.).
+- **Price Memory**: Every checked-off item with a price is remembered. The list shows what something *usually* costs, and the **Prices** tab shows what got more expensive (or cheaper).
+- **Offers**: No scraped or mock offers. The Prices tab links to each store's own offers page, which is always more current.
 
 ## 📁 Project Structure
 
@@ -145,12 +137,12 @@ When deploying to Vercel, add the same environment variables in
 Household_App_byStonies/
 ├── app/                    # Next.js App Router directory
 │   ├── api/               # API Routes
-│   │   └── sales/        # Backend logic for fetching store deals
 │   ├── shopping/          # Shopping List Feature
-│   │   ├── components/   # Reusable UI components (ShoppingList, DealsTab)
+│   │   ├── components/   # Reusable UI components (ShoppingList, PricesTab)
 │   │   ├── page.tsx      # Main Shopping page
+│   │   ├── priceHistory.ts # Price memory: usual price, price changes (tested)
 │   │   ├── types.ts      # TypeScript interfaces
-│   │   └── constants.ts  # App constants (Stores, Categories)
+│   │   └── constants.ts  # Store links to the offers pages
 │   ├── layout.tsx         # Root layout component
 │   ├── page.tsx           # Home page
 │   └── globals.css        # Global styles

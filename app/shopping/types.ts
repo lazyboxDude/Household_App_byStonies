@@ -5,11 +5,3 @@ export interface ShoppingItem {
   price: number | null;
   store: string | null;
 }
-
-export interface SaleOffer {
-  title: string;
-  price: string;
-  image?: string;
-  category?: string;
-  link?: string;
-}

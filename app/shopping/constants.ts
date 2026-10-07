@@ -1,5 +1,5 @@
-import { Apple, Milk, Drumstick, Croissant, Cookie, Package } from "lucide-react";
-
+// Where each store publishes its current offers. We link out instead of
+// copying them: the stores' own pages and apps are always more current.
 export const STORE_LINKS: Record<string, string> = {
   "Migros": "https://www.migros.ch/de/offers/home",
   "Coop": "https://www.coop.ch/de/aktionen.html",
@@ -8,16 +8,10 @@ export const STORE_LINKS: Record<string, string> = {
   "Lidl": "https://www.lidl.ch/c/de-CH/angebote/a10006068"
 };
 
-// `name` is the key the offers API uses; `label` is what people read.
-export const CATEGORIES = [
-  { name: "All", label: { en: "All", de: "Alle" }, icon: Package },
-  { name: "Fruits & Vegetables", label: { en: "Fruits & Vegetables", de: "Obst & Gemüse" }, icon: Apple },
-  { name: "Dairy", label: { en: "Dairy", de: "Milchprodukte" }, icon: Milk },
-  { name: "Meat", label: { en: "Meat", de: "Fleisch" }, icon: Drumstick },
-  { name: "Bakery", label: { en: "Bakery", de: "Backwaren" }, icon: Croissant },
-  { name: "Sweets", label: { en: "Sweets", de: "Süsses" }, icon: Cookie },
-];
-
-export function categoryLabel(name: string, lang: "en" | "de"): string {
-  return CATEGORIES.find((c) => c.name === name)?.label[lang] ?? name;
+/** The offers page for a store name as people type it ("Migros Zürich" finds Migros); null if unknown. */
+export function offersUrl(store: string | null | undefined): string | null {
+  if (!store) return null;
+  const name = store.toLowerCase();
+  const key = Object.keys(STORE_LINKS).find((k) => name.includes(k.toLowerCase()));
+  return key ? STORE_LINKS[key] : null;
 }
