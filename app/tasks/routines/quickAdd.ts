@@ -42,6 +42,13 @@ export function whenToSchedule(when: Exclude<QuickWhen, "none">, today: string):
   return { schedule: { type: "interval", ...EVERY[when], anchor: today }, mode: "after_done" };
 }
 
+// A to-do keeps the name of whoever it was for, a routine the id. Matches the way the to-do list does it.
+export function memberByName<T extends { name: string }>(name: string | null, members: T[]): T | null {
+  const wanted = name?.trim().toLowerCase();
+  if (!wanted) return null;
+  return members.find((m) => m.name.trim().toLowerCase() === wanted) ?? null;
+}
+
 // "Taking turns" goes through everybody, starting with whoever adds the task.
 export function turnOrder(memberIds: string[], userId: string | undefined): string[] {
   if (!userId || !memberIds.includes(userId)) return memberIds;

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildQuickRoutine, buildSuggestedRoutine, turnOrder, whenToSchedule, type QuickAddInput } from "./quickAdd.ts";
+import { buildQuickRoutine, buildSuggestedRoutine, memberByName, turnOrder, whenToSchedule, type QuickAddInput } from "./quickAdd.ts";
 import { missingOccurrences } from "./ensure.ts";
 import { ROOM_SUGGESTIONS } from "./rooms.ts";
 import { occurrencesBetween } from "./schedule.ts";
@@ -114,4 +114,13 @@ test("suggestion: every suggestion builds a task that is due today and keeps com
       assert.deepEqual(missingOccurrences([routine], [], TODAY), [{ routineId: "x", dueDate: TODAY }], `${kind}/${sug.key}`);
     }
   }
+});
+
+test("to-do to task: the name on the to-do finds the person, however it is written", () => {
+  const members = [{ id: "a", name: "Anna" }, { id: "t", name: " Tom " }];
+  assert.equal(memberByName("anna", members)?.id, "a");
+  assert.equal(memberByName("TOM", members)?.id, "t");
+  assert.equal(memberByName("Mia", members), null);
+  assert.equal(memberByName(null, members), null);
+  assert.equal(memberByName("  ", members), null);
 });

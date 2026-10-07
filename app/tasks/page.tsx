@@ -42,7 +42,7 @@ export default function TasksPage() {
   const [view, setView] = useState<View>("today");
   const [showOnboarding, setShowOnboarding] = useState(false);
   // The full form. `key` starts it fresh each time it is opened, so it never shows an old draft.
-  const [form, setForm] = useState<{ key: number; title: string; roomId: string | null } | null>(null);
+  const [form, setForm] = useState<{ key: number; title: string; roomId: string | null; taskId?: string } | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -115,7 +115,7 @@ export default function TasksPage() {
   const openNow = agenda.filter((i) => i.group !== "soon").length + taskStore.tasks.filter((x) => !x.completed).length;
   const comingUp = agenda.filter((i) => i.group === "soon").length;
 
-  const openForm = (title = "", roomId: string | null = null) => setForm({ key: Date.now(), title, roomId });
+  const openForm = (title = "", roomId: string | null = null, taskId?: string) => setForm({ key: Date.now(), title, roomId, taskId });
 
   // Arrow keys move between the views, like any tab list.
   const onTabKey = (e: React.KeyboardEvent, index: number, count: number, ids: View[]) => {
@@ -213,7 +213,12 @@ export default function TasksPage() {
             calendarEnabled={calendarEnabled}
             livingMode={data.team.livingMode}
             initial={{ title: form.title, roomId: form.roomId }}
-            onSubmit={data.addRoutine}
+            onSubmit={async (routine) => {
+              const ok = await data.addRoutine(routine);
+              // The form was opened from a to-do: it is a task with a date now, so the to-do goes.
+              if (ok && form.taskId) await taskStore.deleteTask(form.taskId);
+              return ok;
+            }}
             onCancel={() => setForm(null)}
           />
         </div>

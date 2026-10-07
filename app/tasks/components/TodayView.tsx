@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, ChevronDown, Lock, Trash2, User, Users } from "lucide-react";
 import Mascot from "@/components/Mascot";
+import { showToast } from "../../../lib/toast";
 import { useI18n } from "../../context/LanguageContext";
 import { localizeKnown } from "../constants";
 import type { AgendaItem } from "../routines/agenda";
@@ -10,6 +11,7 @@ import { daysBetween, todayLocalISO } from "../routines/schedule";
 import { KNOWN_TITLES } from "../routines/knownTitles";
 import { localeOf } from "../routines/i18n";
 import type { Occurrence, Routine } from "../routines/types";
+import { buildQuickRoutine, memberByName, type QuickWhen } from "../routines/quickAdd";
 import type { NewRoutine } from "../routines/useRoutines";
 import type { Task } from "../types";
 import type { useTasks } from "../useTasks";
@@ -17,6 +19,7 @@ import SwipeToDelete, { type SwipeToDeleteHandle } from "../../components/SwipeT
 import CleaningMoveBanner from "./CleaningMoveBanner";
 import QuickAdd from "./QuickAdd";
 import RoutineRow from "./RoutineRow";
+import TodoPanel from "./TodoPanel";
 import type { RowContext } from "./rowContext";
 
 type Filter = "all" | "me";
@@ -43,7 +46,8 @@ interface Props {
   taskStore: ReturnType<typeof useTasks>;
   ctx: RowContext;
   onAddRoutine: (routine: NewRoutine) => Promise<boolean>;
-  onMoreOptions: (title: string, roomId: string | null) => void;
+  // `taskId`: the to-do the form was opened from; it is removed when the task is saved.
+  onMoreOptions: (title: string, roomId: string | null, taskId?: string) => void;
   // Tasks from the old cleaning plan that have not moved over yet.
   cleaningOpen: number;
   onMoveCleaning: () => Promise<void>;
@@ -71,6 +75,7 @@ export default function TodayView({
   const [showDone, setShowDone] = useState(false);
   const swipeRefs = useRef(new Map<string, SwipeToDeleteHandle | null>());
   const withOthers = members.length > 1;
+  const [openTodo, setOpenTodo] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -128,6 +133,27 @@ export default function TodayView({
     return new Date(iso).toLocaleDateString(localeOf(lang), { weekday: "short" });
   };
   const personName = (id: string | null) => (id ? (id === userId ? t("You", "Du") : members.find((m) => m.id === id)?.name ?? null) : null);
+
+  // A to-do gets a day or a rhythm: it becomes a task and the to-do goes. If the task cannot be
+  // saved, the to-do stays (the hook tells the person).
+  const convert = async (task: Task, when: Exclude<QuickWhen, "none">) => {
+    const owner = memberByName(task.assignee, members);
+    const built = buildQuickRoutine({
+      title: task.title,
+      when,
+      who: owner ? { type: "member", id: owner.id } : { type: "open" },
+      roomId: null,
+      today,
+      userId,
+      memberIds: members.map((m) => m.id),
+    });
+    if (!built) return;
+    setOpenTodo(null);
+    if (await onAddRoutine(built)) {
+      await deleteTask(task.id);
+      showToast(t(`“${task.title}” has a date now`, `„${task.title}“ hat jetzt einen Termin`), "success");
+    }
+  };
 
   const renderRows = (list: AgendaItem[]) => (
     <ul>
@@ -236,15 +262,27 @@ export default function TodayView({
                             <CheckCircle2 className="w-4 h-4" />
                           </span>
                         </button>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-sm">{localizeKnown(task.title, KNOWN_TITLES, lang)}</div>
+                        <button
+                          type="button"
+                          onClick={() => setOpenTodo(openTodo === task.id ? null : task.id)}
+                          aria-expanded={openTodo === task.id}
+                          disabled={task.id.startsWith("pending-")}
+                          className="min-w-0 flex-1 text-left press"
+                        >
+                          <span className="flex items-start gap-2">
+                            <span className="font-medium text-sm">{localizeKnown(task.title, KNOWN_TITLES, lang)}</span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 shrink-0 mt-[3px] text-[var(--text-tertiary)] transition-transform ${openTodo === task.id ? "rotate-180" : ""}`}
+                              aria-hidden
+                            />
+                          </span>
                           {(task.assignee || !task.is_shared) && (
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-caption">
                               {task.assignee && <span className="flex items-center gap-1"><User className="w-3 h-3" aria-hidden />{task.assignee}</span>}
                               {!task.is_shared && <span className="flex items-center gap-1"><Lock className="w-3 h-3" aria-hidden />{t("Only me", "Nur ich")}</span>}
                             </div>
                           )}
-                        </div>
+                        </button>
                         {withOthers && task.created_by === userId && (
                           <button
                             type="button"
@@ -267,6 +305,17 @@ export default function TodayView({
                         </button>
                       </div>
                     </SwipeToDelete>
+                    {openTodo === task.id && (
+                      <TodoPanel
+                        task={task}
+                        onConvert={(when) => convert(task, when)}
+                        onMore={() => {
+                          setOpenTodo(null);
+                          onMoreOptions(task.title, null, task.id);
+                        }}
+                        onShare={() => toggleShared(task.id)}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
