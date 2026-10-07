@@ -57,13 +57,14 @@
     <tr><td>1 · Zusammenführen</td><td><span class="tag keep">erledigt</span></td><td>5 Konflikte gelöst, die vier Migrations-SQL-Dateien sind im Repo (die Datenbank hatte sie schon).</td></tr>
     <tr><td>2 · Zweisprachig</td><td><span class="tag keep">erledigt</span></td><td>Alle Texte der Seite und des Dashboard-Widgets laufen über <code>t("English", "Deutsch")</code>. Die reinen Module (<code>describe</code>, <code>agenda</code>, <code>formModel</code>, <code>templates</code>) bekommen die Sprache als Argument.</td></tr>
     <tr><td>3 · „Heute"</td><td><span class="tag keep">erledigt</span></td><td>Schnellanlage in einer Zeile, Abhaken und Abgeben mit je einem Tipp (Rückgängig-Leiste), Filter „Nur meine", Abschnitt „Erledigt".</td></tr>
-    <tr><td>4 · „Räume"</td><td><span class="tag keep">erledigt</span></td><td>Raumkarten mit Zustand, Ideen pro Raumtyp mit einem Tipp, der alte Putzplan zieht auf Wunsch um („Jetzt umziehen").</td></tr>
+    <tr><td>4 · „Räume"</td><td><span class="tag keep">erledigt</span></td><td>Ruhiges Raster aus Kacheln mit dem Zustand pro Raum. Ein Raum öffnet ein Fenster mit seinen Aufgaben, Ideen pro Raumtyp (ein Tipp) und der Schnellanlage. „Ohne Raum" sammelt Aufgaben, die noch keinen haben. Der alte Putzplan zieht auf Wunsch um („Jetzt umziehen").</td></tr>
     <tr><td>5 · Alten Putzplan-Tab entfernen</td><td><span class="tag keep">erledigt</span></td><td>Entfernt: <code>CleaningPlanTab</code>, <code>TaskListTab</code>, <code>RoutinesTab</code>, <code>WeekAgenda</code>, <code>calendarSync.ts</code>. Die Tabelle <code>cleaning_tasks</code> bleibt, bis alle Haushalte umgezogen sind.</td></tr>
     <tr><td>6 · Geparkt</td><td><span class="tag park">wie geplant</span></td><td>Siehe <a href="feature-research.html#parked">Tasks rebuild — parked</a> in der Roadmap. Die Bildschirme sind raus, Logik, Hooks, Tests und Tabellen bleiben.</td></tr>
   </table></div>
 
   <h3>Abweichungen vom Plan</h3>
   <ul>
+    <li><strong>Räume: erst wählen, dann ein Fenster.</strong> Die erste Fassung zeigte links die Räume und daneben die Aufgaben des gewählten Raums. Das war unruhig, weil sich daneben etwas änderte, während man noch die Räume ansah. Jetzt ist die Übersicht ein Raster aus Kacheln, und ein Raum öffnet ein eigenes Fenster (auf dem Handy von unten, am Desktop in der Mitte; Escape, X und ein Tipp auf den Hintergrund schliessen es).</li>
     <li><strong>Aufgaben später bearbeiten</strong> ist dazugekommen: Name, Raum und „Wer macht es" lassen sich in den Details einer Zeile ändern (der Rhythmus noch nicht). Das war nötig, weil sonst ein falsch gesetzter Raum nur durch Löschen und Neuanlegen zu beheben ist.</li>
     <li><strong><code>vercel.json</code> (täglicher Push-Cron) ist nicht dabei.</strong> Ohne Push-Karte kann sich niemand anmelden, und die Route antwortet bis zur Einrichtung mit 503. Die Datei steht in PR&nbsp;#45 und kommt mit der Karte zurück.</li>
     <li><strong>Der Raumname steht nicht mehr im Titel</strong> umgezogener Aufgaben („Küche: Herd abwischen" wird „Herd abwischen"). Der Raum ist jetzt ein eigenes Feld, und der gespeicherte Name kann der englische sein.</li>

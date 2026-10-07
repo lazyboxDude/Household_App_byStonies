@@ -64,6 +64,25 @@ test("room: done tasks and other rooms are left out, a past reminder has just go
   assert.equal(summary.nextDue, "2026-11-24");
 });
 
+test("room: 'no room' is the chores that never got one, and it has a state like any room", () => {
+  const stray = routine({ id: "s", roomId: null });
+  const reminder = routine({ id: "k", kind: "reminder", mode: "fixed", roomId: null });
+  const placed = routine({ id: "p", roomId: "bath" });
+  const occs = [
+    occ({ id: "1", routineId: "s", dueDate: "2026-11-08" }),
+    occ({ id: "2", routineId: "k", dueDate: "2026-11-10" }),
+    occ({ id: "3", routineId: "p", dueDate: "2026-11-10" }),
+  ];
+  const summary = summarizeRoom(null, [stray, reminder, placed], occs, TODAY);
+  assert.equal(summary.routineCount, 1); // only the chore without a room
+  assert.equal(summary.status, "overdue");
+  assert.equal(summaryOf(null, [placed], [occ({ routineId: "p" })]), "empty");
+});
+
+function summaryOf(roomId: string | null, routines: Routine[], occurrences: Occurrence[]) {
+  return summarizeRoom(roomId, routines, occurrences, TODAY).status;
+}
+
 // --- suggestions ---
 
 test("rooms: the icon decides what kind of room it is, with or without a variation selector", () => {

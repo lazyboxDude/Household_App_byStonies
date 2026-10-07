@@ -19,6 +19,8 @@ interface Props {
   fixedRoom?: Room;
   // A plain to-do without a date is only offered where it makes sense (the Heute list).
   allowUndated: boolean;
+  // Without its own card, for use inside a window that already is one.
+  plain?: boolean;
   defaultWhen: QuickWhen;
   placeholder: string;
   onAddRoutine: (routine: NewRoutine) => Promise<boolean>;
@@ -36,6 +38,7 @@ export default function QuickAdd({
   rooms,
   fixedRoom,
   allowUndated,
+  plain = false,
   defaultWhen,
   placeholder,
   onAddRoutine,
@@ -133,7 +136,7 @@ export default function QuickAdd({
   const ordered = [...members].sort((a, b) => Number(b.id === userId) - Number(a.id === userId));
 
   return (
-    <div className="surface p-4 space-y-3">
+    <div className={plain ? "space-y-3" : "surface p-4 space-y-3"}>
       <form onSubmit={submit} className="flex items-center gap-2">
         <input
           ref={inputRef}

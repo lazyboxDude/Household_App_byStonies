@@ -149,7 +149,7 @@
         <tr><td>Recurring household chores that are fixed in the calendar (Abfuhr, Papiersammlung)</td><td>(our own synthesis)</td><td>Done (phase 1) — Tasks: <a href="#routinen">Routinen</a></td></tr>
         <tr><td>Recurring bills with payer, “paid” status and bookings (Strom, Internet, Serafe)</td><td>(our own synthesis)</td><td>Done (phase 2–3) — Tasks: <a href="#routinen">Routinen</a>, feeds the Rechnungen-Planer; splits and “wer schuldet wem” are built</td></tr>
         <tr><td>Task → calendar entry</td><td>(our own synthesis)</td><td>Done — open dates of recurring tasks are mirrored one way (<code>useRoutines.ts</code>); the old <code>calendarSync.ts</code> is gone</td></tr>
-        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Done — room cards show nothing planned / all good / coming up / due today / waiting</td></tr>
+        <tr><td>Per-room cleanliness/urgency indicator</td><td>Sweepy</td><td>Done — room tiles show nothing planned / all good / coming up / due today / waiting</td></tr>
         <tr><td>Task rotation between household members</td><td>Homsy</td><td>Done for every recurring task (abwechselnd, hand over in one tap, absence); plain to-dos without a date still use a free-text assignee</td></tr>
         <tr><td>Fair share of chores between members (Fairness-Waage)</td><td>Homsy + Sweepy, without the scoreboard</td><td>Done (phase 3) — share of effort over 30 days next to a target split</td></tr>
         <tr><td>Completion streaks per person</td><td>Homsy + Sweepy</td><td>Backlog — XP/leaderboard UI was removed</td></tr>
@@ -181,7 +181,7 @@
       </ul>
     </li>
     <li><strong>Tasks page</strong> (<code>app/tasks</code>, rebuilt 2026-10-07): <em>Heute</em> (what is due, quick-add bar, one-tap done and hand over, to-dos without a date),
-      <em>Räume</em> (room cards with their state, ideas per room type, the room’s tasks) and <em>Alle</em> (everything that comes back, details, delete). Plus a “Diese Woche” card on the dashboard.
+      <em>Räume</em> (a calm grid of room tiles with their state; a room opens in a window with its tasks, ideas per room type and the quick-add bar) and <em>Alle</em> (everything that comes back, details, delete). Plus a “Diese Woche” card on the dashboard.
       The engine underneath is <a href="#routinen">Routinen</a> (<code>app/tasks/routines</code>).</li>
     <li><strong>App shell:</strong> landing page for signed-out visitors, system-controlled dark mode, PWA manifest with generated icons,
       swipe-to-delete, toasts, per-feature onboarding banners.</li>
@@ -223,7 +223,7 @@
     </li>
     <li class="done"><input type="checkbox" disabled checked><span>Tasks page rebuilt as <strong>Heute / Räume / Alle</strong> (replaces the Cleaning Plan, the task list and the Routinen tab).</span>
       <ul class="todo">
-        <li class="done"><input type="checkbox" disabled checked><span>Rooms: create and delete, state per room, one-tap ideas per room type (kitchen, bathroom, bedroom, living room, hall, laundry, car, garden), supplies, the old Cleaning Plan moves over on request (“Jetzt umziehen”).</span></li>
+        <li class="done"><input type="checkbox" disabled checked><span>Rooms: a grid of tiles, each room opens a window (Escape, close button or a tap outside closes it); create and delete rooms, state per room, a “no room” tile for chores that have none, one-tap ideas per room type (kitchen, bathroom, bedroom, living room, hall, laundry, car, garden), supplies, the old Cleaning Plan moves over on request (“Jetzt umziehen”).</span></li>
         <li class="done"><input type="checkbox" disabled checked><span>“Monthly” is a real calendar month now (schedule engine), not 30 days.</span></li>
         <li class="done"><input type="checkbox" disabled checked><span>Details of a task can be changed later: name, room, who does it (me / partner / abwechselnd / wer Zeit hat / fair verteilt). The rhythm cannot be edited yet (delete and re-create).</span></li>
         <li class="done"><input type="checkbox" disabled checked><span>Hand over: one tap with two people (undo bar takes it back), a short list with three or more.</span></li>
@@ -266,7 +266,7 @@
         <li><input type="checkbox" disabled><span>The Fairness-Waage credits whoever ticks an occurrence off, not necessarily the assigned person.</span></li>
       </ul>
     </li>
-    <li class="done"><input type="checkbox" disabled checked><span>Per-room cleanliness indicator on a room overview — the room cards in <em>Räume</em> (<code>routines/rooms.ts</code>).</span></li>
+    <li class="done"><input type="checkbox" disabled checked><span>Per-room cleanliness indicator on a room overview — the room tiles in <em>Räume</em> (<code>routines/rooms.ts</code>).</span></li>
     <li><input type="checkbox" disabled><span>Rotation for plain to-dos without a date. Recurring tasks rotate since phase 3 (with user ids); <code>tasks.assignee</code> is still a free-text string.</span></li>
     <li><input type="checkbox" disabled><span>Completion streaks per person + simple leaderboard. The earlier points/levels UI was removed;
       <code>member_stats</code> and <code>tasks.points</code> remain unused in the schema.</span></li>

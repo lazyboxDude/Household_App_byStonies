@@ -20,15 +20,22 @@ export interface RoomSummary {
 
 export const SOON_DAYS = 2;
 
+// What belongs to a room: its chores and reminders. Bills are not about a room.
+// `null` is "no room": the chores that were never given one. Reminders like the trash collection
+// do not belong in a room, so they are not part of that.
+export function routinesInRoom(roomId: string | null, routines: Routine[]): Routine[] {
+  return routines.filter((r) => (roomId === null ? r.roomId === null && r.kind === "chore" : r.roomId === roomId && r.kind !== "bill"));
+}
+
 // A room is judged by its chores and reminders. Bills are not about a room.
 export function summarizeRoom(
-  roomId: string,
+  roomId: string | null,
   routines: Routine[],
   occurrences: Occurrence[],
   today: string,
   soonDays = SOON_DAYS
 ): RoomSummary {
-  const inRoom = routines.filter((r) => r.roomId === roomId && r.kind !== "bill");
+  const inRoom = routinesInRoom(roomId, routines);
   let overdue = 0;
   let dueToday = 0;
   let soon = 0;
