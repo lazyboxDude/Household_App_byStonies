@@ -259,6 +259,59 @@ test("describeRoutine reads like a person would say it", () => {
   assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "nth_weekday", nth: 1, weekday: 1 } })), "Erster Montag im Monat");
 });
 
+test("describeRoutine speaks English too", () => {
+  assert.equal(describeRoutine(routine({}), "en"), "Every week · counted from when it's done");
+  assert.equal(
+    describeRoutine(routine({ mode: "fixed", schedule: { type: "weekday", weekdays: [4], everyNWeeks: 2, anchor: "2026-11-05" } }), "en"),
+    "Every 2nd week · Thu"
+  );
+  assert.equal(
+    describeRoutine(routine({ mode: "fixed", schedule: { type: "weekday", weekdays: [2] }, activeMonths: [3, 4, 5, 6, 7, 8, 9, 10, 11] }), "en"),
+    "Every Tue · Mar–Nov"
+  );
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "nth_weekday", nth: 1, weekday: 1 } }), "en"), "First Monday of the month");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "monthday", day: 1 } }), "en"), "On the 1st of the month");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "monthday", day: 22 } }), "en"), "On the 22nd of the month");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "monthday", day: "last" } }), "de"), "Am letzten Tag des Monats");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "dates", dates: ["2026-11-12"] } }), "de"), "Ein festes Datum");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "dates", dates: ["2026-11-12", "2026-12-10"] } }), "en"), "2 fixed dates");
+  assert.equal(
+    describeRoutine(routine({ schedule: { type: "interval", every: 3, unit: "month", anchor: "2026-11-01" }, mode: "fixed" }), "en"),
+    "Every 3 months"
+  );
+});
+
+test("templates carry both languages, and the form takes the one that was asked for", () => {
+  for (const t of ROUTINE_TEMPLATES) {
+    assert.ok(t.title.en.trim() && t.title.de.trim(), t.key);
+  }
+  const bad = ROUTINE_TEMPLATES.find((x) => x.key === "bad")!;
+  assert.equal(formFromTemplate(bad, "2026-11-10", "de").title, "Bad putzen");
+  assert.equal(formFromTemplate(bad, "2026-11-10", "en").title, "Clean the bathroom");
+  assert.equal(formFromTemplate(bad, "2026-11-10").title, "Bad putzen");
+});
+
+test("form: messages come in both languages", () => {
+  const empty = buildRoutine(emptyForm("2026-11-10"));
+  assert.ok(!empty.ok);
+  if (!empty.ok) {
+    assert.ok(empty.message.en && empty.message.de);
+    assert.notEqual(empty.message.en, empty.message.de);
+  }
+});
+
+test("form: room and supplies are carried into the built routine", () => {
+  const built = buildRoutine({ ...emptyForm("2026-11-10"), title: "Dusche", roomId: "bath", supplies: ["Sponge"] });
+  assert.ok(built.ok);
+  if (built.ok) {
+    assert.equal(built.routine.roomId, "bath");
+    assert.deepEqual(built.routine.supplies, ["Sponge"]);
+  }
+  const plain = buildRoutine({ ...emptyForm("2026-11-10"), title: "Dusche" });
+  assert.ok(plain.ok);
+  if (plain.ok) assert.deepEqual([plain.routine.roomId, plain.routine.supplies], [null, []]);
+});
+
 // --- bills ---
 
 function bill(p: Partial<Routine>): Routine {

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import type { Json } from "../../lib/database.types";
+import type { Database, Json } from "../../lib/database.types";
 import { showToast } from "../../../lib/toast";
+import { useI18n } from "../../context/LanguageContext";
 import { chf } from "../../expenses/format";
 import { missingOccurrences } from "./ensure";
 import { mergedDates, type ImportItem } from "./calendarImport";
@@ -11,31 +12,24 @@ import { planCleaningMigration, type CleaningRecurrence } from "./cleaningMigrat
 import { loadsFrom } from "./fairness";
 import { planAssignments } from "./rotation";
 import { addDays, nextAfterDone, todayLocalISO } from "./schedule";
-import type { AmountKind, Assignment, Occurrence, Routine, RoutineKind, RoutineMode, Schedule, Split } from "./types";
+import type { Assignment, Occurrence, Routine } from "./types";
+import type { BuiltRoutine } from "./formModel";
 import { toOccurrence, toRoutine } from "./rowMappers";
 import { useRoutineTeam } from "./useRoutineTeam";
 
-const ERROR_TEXT = "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?";
 const UNDO_WINDOW_MS = 8000;
 
-export interface NewRoutine {
-  kind: RoutineKind;
-  title: string;
-  icon: string;
-  schedule: Schedule;
-  mode: RoutineMode;
-  activeMonths: number[] | null;
-  leadDays: number;
-  assigneeId: string | null;
-  showInCalendar: boolean;
-  amount: number | null;
-  amountKind: AmountKind | null;
-  payerId: string | null;
-  expenseCategory: string | null;
-  assignment: Assignment;
-  rotation: string[] | null;
-  effort: 1 | 2 | 3 | 5;
-  split: Split | null;
+// What the form or the quick-add bar hands over to be saved.
+export type NewRoutine = BuiltRoutine;
+
+// What can be changed on a task later, without starting over.
+export interface RoutinePatch {
+  title?: string;
+  roomId?: string | null;
+  assignment?: Assignment;
+  assigneeId?: string | null;
+  rotation?: string[] | null;
+  supplies?: string[];
 }
 
 // Where a paid bill is booked. All optional: paying only closes the bill.
@@ -61,6 +55,8 @@ export interface UndoableAction {
 // and mirrors open occurrences into the calendar when that feature is on.
 export function useRoutines(householdId: string | undefined, userId: string | undefined, features: Features, memberIds: string[]) {
   const { calendarEnabled, expensesEnabled } = features;
+  const { t } = useI18n();
+  const errorText = t("That didn't work just now. Want to try again?", "Das hat gerade nicht geklappt. Magst du es nochmal versuchen?");
   const team = useRoutineTeam(householdId, memberIds);
   // What the planner needs, kept in refs so loading does not restart when they change;
   // the effect below reruns the plan instead.
@@ -287,15 +283,59 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         rotation: input.rotation,
         effort: input.effort,
         split: input.split as unknown as Json,
+        room_id: input.roomId,
+        supplies: input.supplies,
       });
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         return false;
       }
       await refresh(true);
       return true;
     },
-    [householdId, refresh]
+    [householdId, refresh, errorText]
+  );
+
+  // Renames, moves to another room or changes who does it. The plan for who does what runs again
+  // afterwards, so open dates follow the new setting; a hand-over done by hand stays as it is.
+  const updateRoutine = useCallback(
+    async (id: string, patch: RoutinePatch): Promise<boolean> => {
+      const current = routines.find((r) => r.id === id);
+      if (!current) return false;
+      const title = patch.title !== undefined ? patch.title.trim() : undefined;
+      if (title !== undefined && !title) return false;
+
+      const next: Routine = { ...current };
+      const row: Database["public"]["Tables"]["routines"]["Update"] = {};
+      if (title !== undefined) { next.title = title; row.title = title; }
+      if (patch.roomId !== undefined) { next.roomId = patch.roomId; row.room_id = patch.roomId; }
+      if (patch.supplies !== undefined) { next.supplies = patch.supplies; row.supplies = patch.supplies; }
+      if (patch.assignment !== undefined) {
+        next.assignment = patch.assignment;
+        next.assigneeId = patch.assignment === "fixed" ? patch.assigneeId ?? null : null;
+        next.rotation = patch.assignment === "rotation" ? patch.rotation ?? null : null;
+        row.assignment = next.assignment;
+        row.assignee_id = next.assigneeId;
+        row.rotation = next.rotation;
+      }
+
+      setRoutines((prev) => prev.map((r) => (r.id === id ? next : r)));
+      const { error } = await supabase.from("routines").update(row).eq("id", id);
+      if (error) {
+        showToast(errorText, "error");
+        await refresh(false);
+        return false;
+      }
+      if (title !== undefined && current.kind !== "bill") {
+        const ids = occurrences.filter((o) => o.routineId === id && o.status === "open").map((o) => o.id);
+        if (ids.length > 0) {
+          await supabase.from("calendar_events").update({ title: `${current.icon} ${title}` }).in("source_occurrence_id", ids);
+        }
+      }
+      await refresh(true);
+      return true;
+    },
+    [routines, occurrences, refresh, errorText]
   );
 
   const deleteRoutine = useCallback(
@@ -305,11 +345,11 @@ export function useRoutines(householdId: string | undefined, userId: string | un
       setOccurrences((prev) => prev.filter((o) => o.routineId !== id));
       const { error } = await supabase.from("routines").delete().eq("id", id);
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         refresh(false);
       }
     },
-    [refresh]
+    [refresh, errorText]
   );
 
   // Marks an occurrence done (or skipped). For "after done" routines the next one is
@@ -333,7 +373,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
             )
             .select("id");
           if (error) {
-            showToast(ERROR_TEXT, "error");
+            showToast(errorText, "error");
             return;
           }
           nextId = data?.[0]?.id ?? null; // null if it already existed — then undo leaves it alone
@@ -350,7 +390,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         .eq("id", occ.id);
       if (error) {
         if (nextId) await supabase.from("routine_occurrences").delete().eq("id", nextId);
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         return;
       }
       if (older.length > 0) {
@@ -361,7 +401,10 @@ export function useRoutines(householdId: string | undefined, userId: string | un
 
       await refresh(true);
       offerUndo({
-        label: status === "done" ? `„${routine.title}“ erledigt` : `„${routine.title}“ ausgelassen`,
+        label:
+          status === "done"
+            ? t(`“${routine.title}” done`, `„${routine.title}“ erledigt`)
+            : t(`“${routine.title}” skipped`, `„${routine.title}“ ausgelassen`),
         undo: async () => {
           await supabase
             .from("routine_occurrences")
@@ -372,7 +415,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         },
       });
     },
-    [routines, occurrences, householdId, userId, refresh, offerUndo]
+    [routines, occurrences, householdId, userId, refresh, offerUndo, errorText, t]
   );
 
   // Entsorgungskalender: creates a date-list reminder per waste type, or adds the new dates
@@ -397,7 +440,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
             show_in_calendar: true,
           });
           if (error) {
-            showToast(ERROR_TEXT, "error");
+            showToast(errorText, "error");
             continue;
           }
           created++;
@@ -407,7 +450,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
             .update({ schedule: { type: "dates", dates: mergedDates(item) } as unknown as Json })
             .eq("id", item.routineId);
           if (error) {
-            showToast(ERROR_TEXT, "error");
+            showToast(errorText, "error");
             continue;
           }
           updated++;
@@ -416,7 +459,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
       await refresh(true);
       return { created, updated };
     },
-    [householdId, refresh]
+    [householdId, refresh, errorText]
   );
 
   // Takes the Cleaning Plan over: every task becomes a routine and is hidden in the Cleaning Plan
@@ -429,7 +472,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         supabase.from("rooms").select("*").eq("household_id", householdId),
       ]);
       if (tErr || !tasks) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         return 0;
       }
       const roomById = new Map((rooms ?? []).map((r) => [r.id, { name: r.name, icon: r.icon }]));
@@ -475,10 +518,15 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         moved++;
       }
       await Promise.all([refresh(true), loadCleaningOpen()]);
-      if (moved < tasks.length) showToast("Ein paar Aufgaben konnte ich nicht übernehmen. Sie bleiben im Putzplan.", "info");
+      if (moved < tasks.length) {
+        showToast(
+          t("A few tasks could not be moved. They stay in your old cleaning plan.", "Ein paar Aufgaben konnte ich nicht übernehmen. Sie bleiben im alten Putzplan."),
+          "info"
+        );
+      }
       return moved;
     },
-    [householdId, refresh, loadCleaningOpen]
+    [householdId, refresh, loadCleaningOpen, errorText, t]
   );
 
   // Hands one occurrence to someone else. It is locked so the rotation leaves it alone
@@ -489,21 +537,21 @@ export function useRoutines(householdId: string | undefined, userId: string | un
       setOccurrences((prev) => prev.map((o) => (o.id === occ.id ? { ...o, assignedTo: toUserId, locked: true } : o)));
       const { error } = await supabase.from("routine_occurrences").update({ assigned_to: toUserId, locked: true }).eq("id", occ.id);
       if (error) {
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         refresh(false);
         return;
       }
       await refresh(true);
       const routine = routines.find((r) => r.id === occ.routineId);
       offerUndo({
-        label: `„${routine?.title ?? "Routine"}“ getauscht`,
+        label: t(`“${routine?.title ?? "Task"}” handed over`, `„${routine?.title ?? "Aufgabe"}“ abgegeben`),
         undo: async () => {
           await supabase.from("routine_occurrences").update({ assigned_to: before.assignedTo, locked: before.locked }).eq("id", occ.id);
           await refresh(true);
         },
       });
     },
-    [routines, refresh, offerUndo]
+    [routines, refresh, offerUndo, errorText, t]
   );
 
   // Pays a bill: closes the occurrence and, if asked, books it as an expense and/or debits a
@@ -532,12 +580,12 @@ export function useRoutines(householdId: string | undefined, userId: string | un
             amount,
             date: new Date().toISOString(),
             category: routine.expenseCategory || "Rechnungen",
-            note: "Aus Routinen",
+            note: t("From tasks", "Aus Aufgaben"),
           })
           .select("id")
           .single();
         if (error || !data) {
-          showToast(ERROR_TEXT, "error");
+          showToast(errorText, "error");
           return false;
         }
         expenseId = data.id;
@@ -551,7 +599,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
           .single();
         if (error || !data) {
           await rollback();
-          showToast(ERROR_TEXT, "error");
+          showToast(errorText, "error");
           return false;
         }
         txId = data.id;
@@ -571,7 +619,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         .eq("id", occ.id);
       if (error) {
         await rollback();
-        showToast(ERROR_TEXT, "error");
+        showToast(errorText, "error");
         return false;
       }
 
@@ -582,7 +630,7 @@ export function useRoutines(householdId: string | undefined, userId: string | un
 
       await refresh(true);
       offerUndo({
-        label: `„${routine.title}“ bezahlt`,
+        label: t(`“${routine.title}” paid`, `„${routine.title}“ bezahlt`),
         undo: async () => {
           await supabase
             .from("routine_occurrences")
@@ -595,11 +643,11 @@ export function useRoutines(householdId: string | undefined, userId: string | un
       });
       return true;
     },
-    [routines, householdId, userId, refresh, offerUndo]
+    [routines, householdId, userId, refresh, offerUndo, errorText, t]
   );
 
   return {
-    routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, deleteRoutine, resolve, payBill, swap, importCalendar, importCleaningPlan, cleaningOpen,
+    routines, occurrences, doneRecent, paidBills, today, isLoading, undoable, addRoutine, updateRoutine, deleteRoutine, resolve, payBill, swap, importCalendar, importCleaningPlan, cleaningOpen,
     finance: { expensesEnabled, hasVerteilertopf },
     team,
   };

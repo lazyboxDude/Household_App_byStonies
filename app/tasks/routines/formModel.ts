@@ -1,5 +1,6 @@
 // Form state <-> Routine. Kept out of the component so it can be tested.
 
+import type { Bilingual, Lang } from "./i18n.ts";
 import { addDays, occurrencesBetween, parseDateList, weekdayOf } from "./schedule.ts";
 import { equalSplit, splitTotal } from "./settle.ts";
 import type { AmountKind, Assignment, IntervalUnit, LivingMode, RoutineKind, RoutineMode, Schedule, Split } from "./types.ts";
@@ -37,6 +38,9 @@ export interface RoutineFormState {
   // Bills: how the cost is divided
   splitMode: "none" | "equal" | "custom";
   splitCustom: Record<string, string>; // user id -> percent as typed
+  // Where it happens, and what it needs (supplies are stored under their English preset name)
+  roomId: string | null;
+  supplies: string[];
 }
 
 export interface BuiltRoutine {
@@ -57,6 +61,8 @@ export interface BuiltRoutine {
   rotation: string[] | null;
   effort: 1 | 2 | 3 | 5;
   split: Split | null;
+  roomId: string | null;
+  supplies: string[];
 }
 
 // "95", "95.50", "95,50", "1'250.00" -> number; empty or unreadable -> null.
@@ -107,6 +113,8 @@ export function emptyForm(today: string): RoutineFormState {
     effort: 2,
     splitMode: "none",
     splitCustom: {},
+    roomId: null,
+    supplies: [],
   };
 }
 
@@ -132,11 +140,11 @@ export function withKind(f: RoutineFormState, kind: RoutineKind): RoutineFormSta
   return { ...f, kind };
 }
 
-export function formFromTemplate(t: RoutineTemplate, today: string): RoutineFormState {
+export function formFromTemplate(t: RoutineTemplate, today: string, lang: Lang = "de"): RoutineFormState {
   const base: RoutineFormState = {
     ...emptyForm(today),
     kind: t.kind,
-    title: t.title,
+    title: t.title[lang],
     icon: t.icon,
     mode: t.mode,
     leadDays: t.leadDays,
@@ -161,20 +169,23 @@ export function formFromTemplate(t: RoutineTemplate, today: string): RoutineForm
   }
 }
 
-export type BuildResult = { ok: true; routine: BuiltRoutine } | { ok: false; message: string };
+// A failed build carries its message in both languages; the form shows the one the person reads.
+export type BuildResult = { ok: true; routine: BuiltRoutine } | { ok: false; message: Bilingual };
 
 export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): BuildResult {
   const title = f.title.trim();
-  if (!title) return { ok: false, message: "Wie soll die Routine heissen?" };
+  if (!title) return { ok: false, message: { en: "What should it be called?", de: "Wie soll es heissen?" } };
 
   let schedule: Schedule;
   switch (f.repeat) {
     case "interval":
-      if (!Number.isFinite(f.every) || f.every < 1) return { ok: false, message: "Wie oft soll es wiederkommen?" };
+      if (!Number.isFinite(f.every) || f.every < 1) {
+        return { ok: false, message: { en: "How often should it come back?", de: "Wie oft soll es wiederkommen?" } };
+      }
       schedule = { type: "interval", every: Math.floor(f.every), unit: f.unit, anchor: f.startDate };
       break;
     case "weekday":
-      if (f.weekdays.length === 0) return { ok: false, message: "An welchem Wochentag?" };
+      if (f.weekdays.length === 0) return { ok: false, message: { en: "On which weekday?", de: "An welchem Wochentag?" } };
       schedule = {
         type: "weekday",
         weekdays: [...f.weekdays].sort(),
@@ -189,8 +200,12 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
       break;
     case "dates": {
       const { dates, invalid } = parseDateList(f.datesText);
-      if (invalid.length > 0) return { ok: false, message: `Dieses Datum kann ich nicht lesen: ${invalid[0]}` };
-      if (dates.length === 0) return { ok: false, message: "Trag mindestens ein Datum ein, zum Beispiel 12.11.2026." };
+      if (invalid.length > 0) {
+        return { ok: false, message: { en: `I can't read this date: ${invalid[0]}`, de: `Dieses Datum kann ich nicht lesen: ${invalid[0]}` } };
+      }
+      if (dates.length === 0) {
+        return { ok: false, message: { en: "Add at least one date, for example 12.11.2026.", de: "Trag mindestens ein Datum ein, zum Beispiel 12.11.2026." } };
+      }
       schedule = { type: "dates", dates };
       break;
     }
@@ -199,23 +214,32 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
   const isBill = f.kind === "bill";
   const amount = isBill ? parseAmount(f.amountText) : null;
   if (isBill && f.amountKind !== "variable" && amount === null) {
-    return { ok: false, message: f.amountKind === "estimate" ? "Wie viel ist es ungefähr?" : "Wie viel kostet es?" };
+    return {
+      ok: false,
+      message: f.amountKind === "estimate"
+        ? { en: "Roughly how much is it?", de: "Wie viel ist es ungefähr?" }
+        : { en: "How much does it cost?", de: "Wie viel kostet es?" },
+    };
   }
 
   // Who does it (not for bills: they have a payer)
   let rotation: string[] | null = null;
   if (!isBill) {
-    if (f.assignment === "fixed" && !f.assigneeId) return { ok: false, message: "Wer macht es?" };
+    if (f.assignment === "fixed" && !f.assigneeId) return { ok: false, message: { en: "Who does it?", de: "Wer macht es?" } };
     if (f.assignment === "rotation") {
       rotation = (memberIds.length > 0 ? memberIds.filter((m) => f.rotation.includes(m)) : f.rotation);
-      if (rotation.length < 2) return { ok: false, message: "Such mindestens zwei Personen aus, die sich abwechseln." };
+      if (rotation.length < 2) {
+        return { ok: false, message: { en: "Pick at least two people who take turns.", de: "Such mindestens zwei Personen aus, die sich abwechseln." } };
+      }
     }
   }
 
   // How a bill is divided
   let split: Split | null = null;
   if (isBill && f.splitMode === "equal") {
-    if (memberIds.length < 2) return { ok: false, message: "Zum Aufteilen braucht es mindestens zwei Personen im Haushalt." };
+    if (memberIds.length < 2) {
+      return { ok: false, message: { en: "Splitting needs at least two people in the household.", de: "Zum Aufteilen braucht es mindestens zwei Personen im Haushalt." } };
+    }
     split = equalSplit(memberIds);
   }
   if (isBill && f.splitMode === "custom") {
@@ -226,7 +250,7 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
     }
     const total = splitTotal(parsed);
     if (Object.keys(parsed).length < 2 || Math.abs(total - 100) > 0.01) {
-      return { ok: false, message: `Die Prozente ergeben zusammen ${total}. Es sollten 100 sein.` };
+      return { ok: false, message: { en: `The percentages add up to ${total}. They should make 100.`, de: `Die Prozente ergeben zusammen ${total}. Es sollten 100 sein.` } };
     }
     split = parsed;
   }
@@ -256,6 +280,8 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
       rotation,
       effort: isBill ? 2 : f.effort,
       split,
+      roomId: f.roomId,
+      supplies: f.supplies,
     },
   };
 }

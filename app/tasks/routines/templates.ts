@@ -1,11 +1,13 @@
-// Starter pack: typical Swiss household routines, chores and bills. A template only pre-fills the
-// form — the person still picks the weekday that matches their Gemeinde.
+// Starter pack: typical Swiss household reminders, chores and bills. A template only pre-fills the
+// form — the person still picks the weekday that matches their Gemeinde. The title is stored as
+// text in the language the person is using when they pick it.
 
+import type { Bilingual } from "./i18n.ts";
 import type { AmountKind, RoutineKind, RoutineMode, Schedule } from "./types.ts";
 
 export interface RoutineTemplate {
   key: string;
-  title: string;
+  title: Bilingual;
   icon: string;
   kind: RoutineKind;
   mode: RoutineMode;
@@ -19,7 +21,7 @@ export interface RoutineTemplate {
 export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   {
     key: "kehricht",
-    title: "Kehricht rausstellen",
+    title: { en: "Put out the trash", de: "Kehricht rausstellen" },
     icon: "🗑️",
     kind: "reminder",
     mode: "fixed",
@@ -29,7 +31,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "gruenabfuhr",
-    title: "Grünabfuhr",
+    title: { en: "Green waste collection", de: "Grünabfuhr" },
     icon: "🌿",
     kind: "reminder",
     mode: "fixed",
@@ -39,7 +41,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "karton",
-    title: "Kartonsammlung",
+    title: { en: "Cardboard collection", de: "Kartonsammlung" },
     icon: "📦",
     kind: "reminder",
     mode: "fixed",
@@ -49,7 +51,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "papier",
-    title: "Papiersammlung",
+    title: { en: "Paper collection", de: "Papiersammlung" },
     icon: "♻️",
     kind: "reminder",
     mode: "fixed",
@@ -59,7 +61,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "bad",
-    title: "Bad putzen",
+    title: { en: "Clean the bathroom", de: "Bad putzen" },
     icon: "🛁",
     kind: "chore",
     mode: "after_done",
@@ -69,7 +71,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "staubsaugen",
-    title: "Staubsaugen",
+    title: { en: "Vacuum", de: "Staubsaugen" },
     icon: "🧹",
     kind: "chore",
     mode: "after_done",
@@ -79,7 +81,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "pflanzen",
-    title: "Pflanzen giessen",
+    title: { en: "Water the plants", de: "Pflanzen giessen" },
     icon: "🪴",
     kind: "chore",
     mode: "after_done",
@@ -88,9 +90,11 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
     schedule: (today) => ({ type: "interval", every: 4, unit: "day", anchor: today }),
   },
 
+  // Bills. The form does not offer them for now (parked, see docs/tasks-rethink.html), the data
+  // model and the Rechnungen-Planer still understand them.
   {
     key: "miete",
-    title: "Miete",
+    title: { en: "Rent", de: "Miete" },
     icon: "🏠",
     kind: "bill",
     mode: "fixed",
@@ -101,7 +105,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "strom",
-    title: "Strom-Abschlag",
+    title: { en: "Electricity advance", de: "Strom-Abschlag" },
     icon: "💡",
     kind: "bill",
     mode: "fixed",
@@ -112,7 +116,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "strom-abrechnung",
-    title: "Strom: Jahresabrechnung prüfen",
+    title: { en: "Electricity: check the annual statement", de: "Strom: Jahresabrechnung prüfen" },
     icon: "📬",
     kind: "reminder",
     mode: "fixed",
@@ -122,7 +126,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "internet",
-    title: "Internet",
+    title: { en: "Internet", de: "Internet" },
     icon: "🌐",
     kind: "bill",
     mode: "fixed",
@@ -133,7 +137,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "krankenkasse",
-    title: "Krankenkasse",
+    title: { en: "Health insurance", de: "Krankenkasse" },
     icon: "🩺",
     kind: "bill",
     mode: "fixed",
@@ -144,7 +148,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
   },
   {
     key: "serafe",
-    title: "Serafe",
+    title: { en: "Serafe (TV and radio fee)", de: "Serafe" },
     icon: "📺",
     kind: "bill",
     mode: "fixed",

@@ -25,10 +25,11 @@ test("cleaning: a one-time task becomes a single fixed date", () => {
   assert.equal(plan.mode, "fixed");
 });
 
-test("cleaning: title carries the room, supplies and due date are kept", () => {
+test("cleaning: the title stays as written, the room becomes a link, supplies and due date are kept", () => {
   const plan = planCleaningMigration(task({ nextDue: "2026-10-01" }), bathroom, members);
-  assert.deepEqual([plan.title, plan.icon, plan.roomId, plan.supplies, plan.firstDue], ["Bathroom: Bad putzen", "🛁", "room1", ["Sponge"], "2026-10-01"]);
-  assert.equal(planCleaningMigration(task({}), undefined, members).title, "Bad putzen");
+  assert.deepEqual([plan.title, plan.icon, plan.roomId, plan.supplies, plan.firstDue], ["Bad putzen", "🛁", "room1", ["Sponge"], "2026-10-01"]);
+  const noRoom = planCleaningMigration(task({}), undefined, members);
+  assert.deepEqual([noRoom.title, noRoom.icon], ["Bad putzen", "🧹"]);
 });
 
 test("cleaning: a free-text assignee only carries over when it names a member", () => {

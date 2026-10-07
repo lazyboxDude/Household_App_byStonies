@@ -1,3 +1,5 @@
+// PARKED: not mounted anywhere right now (see docs/tasks-rethink.html). The text is German only;
+// translate it with t("English", "Deutsch") before it goes back on a page.
 "use client";
 
 import { useState } from "react";

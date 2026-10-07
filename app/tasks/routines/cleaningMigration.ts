@@ -67,7 +67,9 @@ export function planCleaningMigration(
   const match = wanted ? members.find((m) => m.name.trim().toLowerCase() === wanted) : undefined;
 
   return {
-    title: room ? `${room.name}: ${task.title}` : task.title,
+    // The room is a link of its own now (and a stored room name may be the English preset),
+    // so the title stays exactly what the person wrote.
+    title: task.title,
     icon: room?.icon ?? "🧹",
     schedule,
     mode,

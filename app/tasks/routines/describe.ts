@@ -1,64 +1,89 @@
-// Plain-German one-liner for a routine's rhythm, e.g. "Jede 2. Woche · Do".
+// Plain-language one-liner for a task's rhythm, e.g. "Jede 2. Woche · Do" / "Every 2nd week · Thu".
 
+import { MONTHS_SHORT, WEEKDAYS_LONG, WEEKDAYS_SHORT, ordinalEn, type Lang } from "./i18n.ts";
 import type { Routine, Schedule } from "./types.ts";
 
-const WD = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
-const WD_LONG = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-const MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
-const NTH: Record<number, string> = { 1: "Erster", 2: "Zweiter", 3: "Dritter", 4: "Vierter", [-1]: "Letzter" };
+const NTH: Record<Lang, Record<number, string>> = {
+  de: { 1: "Erster", 2: "Zweiter", 3: "Dritter", 4: "Vierter", [-1]: "Letzter" },
+  en: { 1: "First", 2: "Second", 3: "Third", 4: "Fourth", [-1]: "Last" },
+};
 
-function monthsLabel(months: number[]): string {
+const EVERY_ONE: Record<Lang, Record<string, string>> = {
+  de: { day: "Jeden Tag", week: "Jede Woche", month: "Jeden Monat", year: "Jedes Jahr" },
+  en: { day: "Every day", week: "Every week", month: "Every month", year: "Every year" },
+};
+
+const UNITS: Record<Lang, Record<string, string>> = {
+  de: { day: "Tage", week: "Wochen", month: "Monate", year: "Jahre" },
+  en: { day: "days", week: "weeks", month: "months", year: "years" },
+};
+
+function monthsLabel(months: number[], lang: Lang): string {
+  const names = MONTHS_SHORT[lang];
   const sorted = [...months].sort((a, b) => a - b);
   const contiguous = sorted.every((m, i) => i === 0 || m === sorted[i - 1] + 1);
-  if (sorted.length > 2 && contiguous) return `${MONTHS[sorted[0] - 1]}–${MONTHS[sorted[sorted.length - 1] - 1]}`;
-  return sorted.map((m) => MONTHS[m - 1]).join(", ");
+  if (sorted.length > 2 && contiguous) return `${names[sorted[0] - 1]}–${names[sorted[sorted.length - 1] - 1]}`;
+  return sorted.map((m) => names[m - 1]).join(", ");
 }
 
-function scheduleLabel(s: Schedule): string {
+function scheduleLabel(s: Schedule, lang: Lang): string {
+  const de = lang === "de";
   switch (s.type) {
-    case "interval": {
-      if (s.every === 1) {
-        return { day: "Jeden Tag", week: "Jede Woche", month: "Jeden Monat", year: "Jedes Jahr" }[s.unit];
-      }
-      return `Alle ${s.every} ${{ day: "Tage", week: "Wochen", month: "Monate", year: "Jahre" }[s.unit]}`;
-    }
+    case "interval":
+      if (s.every === 1) return EVERY_ONE[lang][s.unit];
+      return de ? `Alle ${s.every} ${UNITS.de[s.unit]}` : `Every ${s.every} ${UNITS.en[s.unit]}`;
     case "weekday": {
-      const days = s.weekdays.map((d) => WD[d]).join(", ");
-      return s.everyNWeeks && s.everyNWeeks > 1 ? `Jede ${s.everyNWeeks}. Woche · ${days}` : `Jeden ${days}`;
+      const days = s.weekdays.map((d) => WEEKDAYS_SHORT[lang][d]).join(", ");
+      if (s.everyNWeeks && s.everyNWeeks > 1) {
+        return de ? `Jede ${s.everyNWeeks}. Woche · ${days}` : `Every ${ordinalEn(s.everyNWeeks)} week · ${days}`;
+      }
+      return de ? `Jeden ${days}` : `Every ${days}`;
     }
     case "monthday": {
-      const day = s.day === "last" ? "Am letzten Tag des Monats" : `Am ${s.day}. des Monats`;
-      return s.months && s.months.length > 0 ? `${day} · ${monthsLabel(s.months)}` : day;
+      const day = s.day === "last"
+        ? (de ? "Am letzten Tag des Monats" : "On the last day of the month")
+        : (de ? `Am ${s.day}. des Monats` : `On the ${ordinalEn(s.day)} of the month`);
+      return s.months && s.months.length > 0 ? `${day} · ${monthsLabel(s.months, lang)}` : day;
     }
     case "nth_weekday": {
-      const base = `${NTH[s.nth]} ${WD_LONG[s.weekday]} im Monat`;
-      return s.months && s.months.length > 0 ? `${base} · ${monthsLabel(s.months)}` : base;
+      const base = de
+        ? `${NTH.de[s.nth]} ${WEEKDAYS_LONG.de[s.weekday]} im Monat`
+        : `${NTH.en[s.nth]} ${WEEKDAYS_LONG.en[s.weekday]} of the month`;
+      return s.months && s.months.length > 0 ? `${base} · ${monthsLabel(s.months, lang)}` : base;
     }
     case "dates":
-      return `${s.dates.length} feste Daten`;
+      if (de) return s.dates.length === 1 ? "Ein festes Datum" : `${s.dates.length} feste Daten`;
+      return s.dates.length === 1 ? "One fixed date" : `${s.dates.length} fixed dates`;
   }
 }
 
-export function describeRoutine(r: Routine): string {
-  const parts = [scheduleLabel(r.schedule)];
-  if (r.mode === "after_done") parts.push("ab dem Erledigen");
-  if (r.activeMonths && r.activeMonths.length > 0) parts.push(monthsLabel(r.activeMonths));
+// `brief` leaves out how the next date is counted and the season, for places with little room.
+export function describeRoutine(r: Routine, lang: Lang = "de", brief = false): string {
+  const parts = [scheduleLabel(r.schedule, lang)];
+  if (brief) return parts[0];
+  if (r.mode === "after_done") parts.push(lang === "de" ? "ab dem Erledigen" : "counted from when it's done");
+  if (r.activeMonths && r.activeMonths.length > 0) parts.push(monthsLabel(r.activeMonths, lang));
   return parts.join(" · ");
 }
 
-// Who it is for, in a few words: "Mia", "Reihum: Mia, Jonas", "Fair verteilt", "Jonas zahlt · aufgeteilt".
-export function whoLabel(r: Routine, nameOf: (id: string) => string | null): string {
+// Who it is for, in a few words: "Mia", "Abwechselnd: Mia, Jonas", "Fair verteilt", "Jonas zahlt · aufgeteilt".
+export function whoLabel(r: Routine, nameOf: (id: string) => string | null, lang: Lang = "de"): string {
+  const de = lang === "de";
   if (r.kind === "bill") {
     const payer = r.payerId ? nameOf(r.payerId) : null;
-    return [payer ? `${payer} zahlt` : null, r.split ? "aufgeteilt" : null].filter(Boolean).join(" · ");
+    return [payer ? (de ? `${payer} zahlt` : `${payer} pays`) : null, r.split ? (de ? "aufgeteilt" : "split") : null]
+      .filter(Boolean)
+      .join(" · ");
   }
   switch (r.assignment) {
     case "fixed":
       return r.assigneeId ? nameOf(r.assigneeId) ?? "" : "";
-    case "rotation":
-      return `Reihum: ${(r.rotation ?? []).map((id) => nameOf(id)).filter(Boolean).join(", ")}`;
+    case "rotation": {
+      const names = (r.rotation ?? []).map((id) => nameOf(id)).filter(Boolean).join(", ");
+      return de ? `Abwechselnd: ${names}` : `Taking turns: ${names}`;
+    }
     case "fair_share":
-      return "Fair verteilt";
+      return de ? "Fair verteilt" : "Shared fairly";
     default:
       return "";
   }

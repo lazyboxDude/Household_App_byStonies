@@ -1,5 +1,6 @@
-// Turns stored occurrences into the "Diese Woche" agenda. Pure, so it is testable.
+// Turns stored occurrences into the "Heute" agenda. Pure, so it is testable.
 
+import { localeOf, type Lang } from "./i18n.ts";
 import { addDays, daysBetween } from "./schedule.ts";
 import type { Occurrence, Routine } from "./types.ts";
 
@@ -75,9 +76,38 @@ export function buildAgenda(
   );
 }
 
-export function dueLabel(daysUntil: number, dueDate: string, locale = "de-CH"): string {
-  if (daysUntil === 0) return "Heute";
-  if (daysUntil === 1) return "Morgen";
+// "Heute", "Morgen", "Do. 12.11." — what to show next to a task that is still ahead.
+export function dueLabel(daysUntil: number, dueDate: string, lang: Lang = "de"): string {
+  if (daysUntil === 0) return lang === "de" ? "Heute" : "Today";
+  if (daysUntil === 1) return lang === "de" ? "Morgen" : "Tomorrow";
   const d = new Date(`${dueDate}T12:00:00Z`);
-  return d.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString(localeOf(lang), { weekday: "short", day: "numeric", month: "numeric", timeZone: "UTC" });
+}
+
+// For things that were due before today. Matter-of-fact, no alarm: "Seit Mo", "Seit gestern".
+export function waitingLabel(daysUntil: number, dueDate: string, lang: Lang = "de"): string {
+  const de = lang === "de";
+  if (daysUntil >= -1) return de ? "Seit gestern" : "Since yesterday";
+  const d = new Date(`${dueDate}T12:00:00Z`);
+  if (daysUntil >= -6) {
+    const day = d.toLocaleDateString(localeOf(lang), { weekday: "short", timeZone: "UTC" });
+    return de ? `Seit ${day}` : `Since ${day}`;
+  }
+  const date = d.toLocaleDateString(localeOf(lang), { day: "numeric", month: "numeric", timeZone: "UTC" });
+  return de ? `Seit ${date}` : `Since ${date}`;
+}
+
+// The occurrence a person would tick off for this routine right now, or null if none is open.
+// - A chore that was missed shows its latest missed date (completing it catches up the older ones).
+// - A reminder in the past is gone for good: only today or later counts.
+// - A bill is its own payment each time, so the oldest unpaid one comes first.
+export function nextOccurrence(routine: Routine, occurrences: Occurrence[], today: string): Occurrence | null {
+  const open = occurrences
+    .filter((o) => o.routineId === routine.id && o.status === "open")
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  if (open.length === 0) return null;
+  if (routine.kind === "bill") return open[0];
+  const upToToday = open.filter((o) => o.dueDate <= today);
+  if (routine.kind === "chore" && upToToday.length > 0) return upToToday[upToToday.length - 1];
+  return open.find((o) => o.dueDate >= today) ?? null;
 }
