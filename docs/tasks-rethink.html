@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aufgaben &amp; Putzplan neu denken</title>
+<style>
+  :root {
+    --bg: #fafaf8; --surface: #ffffff; --text: #1c1c1a; --muted: #5f5f5a;
+    --line: #e4e3de; --accent: #0f766e; --accent-soft: #e0f2ef;
+    --warn: #b45309; --warn-soft: #fef3c7; --keep: #166534; --keep-soft: #dcfce7;
+    --cut: #991b1b; --cut-soft: #fee2e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --surface: #1d1d1b; --text: #ecece8; --muted: #a3a39c;
+      --line: #33332f; --accent: #5eead4; --accent-soft: #14312d;
+      --warn: #fbbf24; --warn-soft: #3a2d0b; --keep: #86efac; --keep-soft: #14301c;
+      --cut: #fca5a5; --cut-soft: #3b1616;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 1.25rem 1rem 4rem; }
+  h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 .25rem; }
+  h2 { font-size: 1.2rem; margin: 2.2rem 0 .6rem; padding-top: .4rem; border-top: 1px solid var(--line); }
+  h3 { font-size: 1rem; margin: 1.2rem 0 .3rem; }
+  p, li { margin: .35rem 0; }
+  .lead { color: var(--muted); margin-bottom: 1.2rem; }
+  code { background: var(--accent-soft); padding: .05rem .3rem; border-radius: 4px; font-size: .88em; word-break: break-word; }
+  .box { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; margin: .8rem 0; }
+  .box.warn { background: var(--warn-soft); border-color: var(--warn); }
+  .tbl { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; min-width: 30rem; }
+  th, td { text-align: left; vertical-align: top; padding: .45rem .55rem; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: .05rem .5rem; border-radius: 999px; white-space: nowrap; }
+  .keep { background: var(--keep-soft); color: var(--keep); }
+  .park { background: var(--warn-soft); color: var(--warn); }
+  .cut { background: var(--cut-soft); color: var(--cut); }
+  .mock { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; line-height: 1.45; white-space: pre; overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: .8rem 1rem; }
+  ol.phases { padding-left: 1.2rem; }
+  ol.phases > li { margin: .8rem 0; }
+  .q li { margin: .5rem 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Aufgaben &amp; Putzplan neu denken</h1>
+  <p class="lead">Stand 7. Okt. 2026 · Plan, noch kein Code. Basis: aktueller <code>main</code> und PR&nbsp;#45 (Branch <code>claude/brave-goodall-ihm9hv</code>).</p>
+
+  <h2>Was du gesagt hast</h2>
+  <ul>
+    <li>PR&nbsp;#45 retten, was sich lohnt.</li>
+    <li>Zu zweit; Aufgaben sollen sich <strong>abgeben</strong> lassen, Rotation ist nice-to-have.</li>
+    <li>Schmerz: <strong>zu viele Klicks</strong>, <strong>unübersichtlich</strong>, der <strong>Putzplan</strong> ist schlecht umgesetzt.</li>
+    <li>Räume bleiben wichtig, weil Küche, Bad und Zimmer andere Aufgaben haben.</li>
+  </ul>
+
+  <h2>Ausgangslage</h2>
+  <p>Die Tasks-Seite hat auf <code>main</code> zwei Tabs (Aufgaben, Putzplan). PR&nbsp;#45 fügt einen dritten hinzu (Routinen). Die drei Tabs zeigen teils dasselbe, jeder mit eigener Tabelle und eigener Wiederholungslogik.</p>
+
+  <div class="box warn">
+    <strong>Die PR-Beschreibung ist veraltet.</strong> Der Branch enthält mehr als beschrieben: Rotation, Fairness-Waage, Abwesenheiten, Tauschen, Rechnungen mit Ausgleich, Kalender-Import, Push-Erinnerungen und eine Migration vom alten Putzplan. Insgesamt 51 Dateien, rund +6300 Zeilen.
+  </div>
+
+  <h3>Was im PR-Code steckt</h3>
+  <div class="tbl"><table>
+    <tr><th>Baustein</th><th>Datei(en)</th><th>Urteil</th></tr>
+    <tr><td>Wiederholungs-Engine (Intervall, Wochentag, Monatstag, n-ter Wochentag, feste Daten; „nach Erledigung")</td><td><code>schedule.ts</code> + 405 Zeilen Tests</td><td><span class="tag keep">behalten</span> Kern, ersetzt die 30-Tage-Logik</td></tr>
+    <tr><td>Vorkommen (Occurrences) mit Status offen/erledigt/übersprungen</td><td><code>useRoutines.ts</code>, <code>ensure.ts</code></td><td><span class="tag keep">behalten</span> gibt auch die Erledigt-Historie</td></tr>
+    <tr><td>Zuständigkeit: offen, fest, Rotation, „wer am wenigsten trug"; Tauschen sperrt ein Vorkommen</td><td><code>rotation.ts</code>, <code>locked</code></td><td><span class="tag keep">behalten</span> deckt „abgeben" und Rotation ab</td></tr>
+    <tr><td>Räume und Material an der Routine, Übernahme alter Putzplan-Aufgaben</td><td><code>room_id</code>, <code>supplies</code>, <code>cleaningMigration.ts</code></td><td><span class="tag keep">behalten</span> Daten ja, UI fehlt noch</td></tr>
+    <tr><td>Wochenansicht „Diese Woche" mit Erledigen, Überspringen, Undo</td><td><code>agenda.ts</code>, <code>WeekAgenda.tsx</code></td><td><span class="tag keep">behalten</span> wird zur neuen Startansicht</td></tr>
+    <tr><td>Abwesenheiten</td><td><code>routine_absences</code></td><td><span class="tag keep">behalten</span> klein, hilft der Rotation</td></tr>
+    <tr><td>Rechnungen in Routinen, Zahlen, Buchung in Ausgaben</td><td><code>PayPanel.tsx</code>, <code>billPlan.ts</code></td><td><span class="tag park">später</span> Finanzen-Thema, eigener PR</td></tr>
+    <tr><td>Rechnungs-Ausgleich zwischen Personen</td><td><code>settle.ts</code>, <code>routine_settlements</code></td><td><span class="tag park">später</span> für zwei Personen wenig Nutzen</td></tr>
+    <tr><td>Fairness-Waage, Wohnform (Paar/WG)</td><td><code>fairness.ts</code>, <code>routine_settings</code></td><td><span class="tag park">später</span> bei Paaren standardmäßig aus</td></tr>
+    <tr><td>Kalender-Import</td><td><code>calendarImport.ts</code>, <code>ImportPanel.tsx</code></td><td><span class="tag park">später</span> nicht Kern</td></tr>
+    <tr><td>Push-Erinnerungen</td><td><code>useWebPush.ts</code>, <code>pushRun.ts</code>, <code>public/sw.js</code>, <code>vercel.json</code></td><td><span class="tag park">später</span> braucht Keys und Cron, eigener PR</td></tr>
+    <tr><td>Bedienoberfläche (Tab „Routinen", Formular mit vielen Optionen)</td><td><code>RoutinesTab.tsx</code>, <code>RoutineForm.tsx</code> (493 Zeilen)</td><td><span class="tag cut">neu bauen</span> das ist der Klick-Schmerz</td></tr>
+    <tr><td>Alter Putzplan-Tab</td><td><code>CleaningPlanTab.tsx</code> (561 Zeilen)</td><td><span class="tag cut">ersetzen</span> durch Räume-Ansicht</td></tr>
+  </table></div>
+
+  <h3>Was dem PR heute fehlt</h3>
+  <ul>
+    <li><strong>Zweisprachigkeit:</strong> Die Routinen-Texte sind fest auf Deutsch (<code>Diese Woche</code>, <code>Zu den Routinen</code>). <code>main</code> verlangt <code>t("English", "Deutsch")</code> für jeden Text. Im PR kommt <code>useI18n</code> nirgends vor.</li>
+    <li><strong>Räume in der Routinen-Oberfläche:</strong> <code>room_id</code> ist in der Datenbank, aber keine Komponente zeigt oder setzt Räume.</li>
+    <li><strong>Merge-Konflikte</strong> mit <code>main</code> in 5 Dateien: <code>app/tasks/page.tsx</code>, <code>CleaningPlanTab.tsx</code>, <code>BillsPlanner.tsx</code>, <code>.env.local.example</code>, <code>docs/feature-research.html</code>.</li>
+    <li>Gemeinsame Aufgaben und Routinen sind getrennt: Eine einmalige Aufgabe aus dem Tab „Aufgaben" taucht nicht in „Diese Woche" auf.</li>
+  </ul>
+
+  <div class="box">
+    <strong>Datenbank:</strong> Alle vier Routinen-Migrationen sind bereits im Projekt <code>household-app-bystonies</code> eingespielt (<code>routines</code>, <code>routines_bills</code>, <code>routines_team</code>, <code>routines_phase4</code>). Das Schema ist also schon da. Die SQL-Dateien liegen aber nur im PR-Branch, nicht auf <code>main</code>. Beim Zusammenführen müssen sie ins Repo.
+  </div>
+
+  <h2>Neues Konzept</h2>
+  <p><strong>Ein Modell, eine Seite.</strong> Alles, was wiederkehrt oder fällig wird, ist eine Routine mit Vorkommen. Die Seite hat nur noch drei Ansichten statt dreier Tabs mit eigener Logik.</p>
+
+  <div class="mock">Aufgaben                          [ + ]
+┌──────────┬────────┬───────┐
+│  Heute   │ Räume  │ Alle  │
+└──────────┴────────┴───────┘
+
+HEUTE
+ ○ Bad: Dusche putzen        🛁  Du        ⇄
+ ○ Abwasch                   🍳  Partner   ⇄
+ ○ Kehricht rausstellen      🗑️  offen     ⇄
+
+DIESE WOCHE
+ ○ Staubsaugen   Do   🛋️  Du ⇄ Partner
+ ○ Pflanzen      Sa   🌿  Du
+
+[ Neue Aufgabe …                   ]  ← eine Zeile, Rest per Chips</div>
+
+  <h3>1 · „Heute" ist die Startansicht</h3>
+  <ul>
+    <li>Abhaken mit <strong>einem Tipp</strong> (Undo-Hinweis bleibt, wie im PR).</li>
+    <li><strong>⇄ Abgeben:</strong> ein Tipp übergibt die Aufgabe an die andere Person. Bei zwei Personen gibt es keine Auswahl, nur eine kurze Bestätigung mit Rückgängig. Technisch ist das das vorhandene Tauschen (<code>locked</code>).</li>
+    <li>Überfälliges steht oben und ist als einziges farbig hervorgehoben.</li>
+    <li>Einmalige Aufgaben aus der alten Liste stehen in derselben Liste (siehe Entscheidung A unten).</li>
+  </ul>
+
+  <h3>2 · „Räume" ersetzt den Putzplan</h3>
+  <ul>
+    <li>Pro Raum eine Karte: Name, Symbol und ein Zustand <em>sauber · bald dran · überfällig</em>, abgeleitet aus den Vorkommen. Das ist der „Raum-Indikator" aus der Roadmap.</li>
+    <li>Tipp auf eine Karte öffnet die Aufgaben dieses Raums. Dort liegen <strong>Vorschlags-Chips</strong> je Raumtyp (Küche: Herd, Kühlschrank …; Bad: Dusche, WC …), ein Tipp legt die Aufgabe mit sinnvoller Wiederholung an.</li>
+    <li>Raum und Material werden an der Aufgabe gesetzt. Neue Räume lassen sich anlegen, die Standardräume bleiben (Wohnzimmer, Küche, Bad, Schlafzimmer).</li>
+  </ul>
+
+  <h3>3 · „Alle" für Verwaltung</h3>
+  <p>Liste aller Routinen mit Beschreibung („Jede 2. Woche · Do"), Bearbeiten und Löschen. Hierher gehört auch das heutige große Formular, aber nur als „Erweitert".</p>
+
+  <h3>4 · Weniger Klicks beim Anlegen</h3>
+  <ul>
+    <li><strong>Eine Zeile</strong> für den Titel, dazu Chips: Raum, Wiederholung (täglich, wöchentlich, alle 2 Wochen, monatlich, einmalig), Wer. Standard: wöchentlich, „offen".</li>
+    <li><strong>Zuständigkeit für zwei Personen vereinfacht:</strong> <em>Ich · Partner · Abwechselnd · Wer Zeit hat</em>. „Abwechselnd" ist die vorhandene Rotation, „Fair Share" bleibt für WGs.</li>
+    <li>Alle Wiederholungstypen der Engine (n-ter Wochentag, nur bestimmte Monate, feste Daten …) bleiben unter „Erweitert" erreichbar, damit Abfuhrtage weiter möglich sind.</li>
+  </ul>
+
+  <h2>Umsetzung in Schritten</h2>
+  <ol class="phases">
+    <li><strong>Zusammenführen und aufräumen.</strong> PR-Branch in den Arbeitsbranch mergen, die 5 Konflikte lösen, Migrations-SQL ins Repo übernehmen, <code>npm run build</code>, <code>npm run lint</code> und die Tests (<code>schedule.test.ts</code> u.a.) grün bekommen. Parken: Rechnungen/Ausgleich, Kalender-Import, Push, Fairness-Waage werden aus der Oberfläche genommen, der Code bleibt aber liegen, soweit er nichts blockiert.</li>
+    <li><strong>Zweisprachig machen.</strong> Alle Routinen-Texte durch <code>t("English", "Deutsch")</code> ersetzen. Deutsch nach <code>.claude/skills/onboarding-tone</code>.</li>
+    <li><strong>Neue Startansicht „Heute".</strong> <code>WeekAgenda</code> umbauen: ein-Tipp-Erledigen, ⇄ Abgeben, Schnellanlage in einer Zeile.</li>
+    <li><strong>Räume-Ansicht.</strong> Raumkarten mit Zustand, Vorschlags-Chips, Raum und Material an der Aufgabe. Bestehende Putzplan-Aufgaben über die vorhandene Migration übernehmen.</li>
+    <li><strong>Alten Putzplan-Tab entfernen</strong>, sobald die Übernahme getestet ist. Die Tabelle <code>cleaning_tasks</code> bleibt vorerst bestehen, weil die Migration auf sie verweist (<code>migrated_routine_id</code>).</li>
+    <li><strong>Danach, je ein eigener PR:</strong> Rechnungen und Ausgleich, Push-Erinnerungen, Kalender-Import, Fairness-Waage.</li>
+  </ol>
+
+  <h2>Entscheidungen, die ich von dir brauche</h2>
+  <ol class="q">
+    <li><strong>A · Einmalige Aufgaben:</strong> Entweder bleibt die Tabelle <code>tasks</code> (privat/geteilt) vorerst bestehen und erscheint nur in „Heute" als Abschnitt „Ohne Datum", oder alles wird eine Routine mit festem Datum. <em>Empfehlung:</em> erst die Tabelle behalten, weil privat/geteilt dort schon funktioniert und die Migration klein bleibt.</li>
+    <li><strong>B · Branch und PR:</strong> Ich soll auf <code>claude/serene-pascal-3812de</code> arbeiten und dort den PR-Branch hineinmergen. Das ergibt einen neuen PR, der #45 ersetzt (#45 würdest du danach schließen). Alternative: direkt in den Branch von #45 pushen, dafür bräuchte ich dein ausdrückliches Okay.</li>
+    <li><strong>C · Geparkte Teile:</strong> Ist es in Ordnung, Rechnungen/Ausgleich, Push, Kalender-Import und Fairness-Waage erst nach dem Umbau zu behandeln? Falls du eines davon schon nutzt, sag es.</li>
+  </ol>
+
+  <h2>Risiken</h2>
+  <ul>
+    <li>Die Datenbank ist schon auf PR-Stand. Ein Rollback des Codes macht die Tabellen nicht rückgängig, sie bleiben ungenutzt liegen (die Migrationen sind rein additiv).</li>
+    <li>Die Übernahme alter Putzplan-Aufgaben setzt Freitext-Zuständige nur dann auf ein Mitglied, wenn der Name eindeutig passt; sonst werden sie „offen". Das sollte man vor dem Entfernen des Tabs an echten Daten prüfen.</li>
+    <li>Die Routinen-Oberfläche ist bisher ungetestet gegen die neue Startansicht; Browser-Test (Playwright ist vorhanden) gehört in Schritt 3 und 4.</li>
+  </ul>
+</main>
+</body>
+</html>
