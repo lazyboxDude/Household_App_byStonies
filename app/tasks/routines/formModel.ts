@@ -3,13 +3,12 @@
 import type { Bilingual, Lang } from "./i18n.ts";
 import { addDays, occurrencesBetween, parseDateList, weekdayOf } from "./schedule.ts";
 import { equalSplit, splitTotal } from "./settle.ts";
-import type { AmountKind, Assignment, IntervalUnit, LivingMode, RoutineKind, RoutineMode, Schedule, Split } from "./types.ts";
+import type { AmountKind, Assignment, IntervalUnit, LivingMode, Rhythm, Routine, RoutineKind, RoutineMode, Schedule, Split } from "./types.ts";
 import type { RoutineTemplate } from "./templates.ts";
 
-export interface RoutineFormState {
-  kind: RoutineKind;
-  title: string;
-  icon: string;
+// The part of the form that says when something comes back. Shared by the full form and by the
+// panel that changes the rhythm of a task that already exists.
+export interface ScheduleFields {
   repeat: Schedule["type"];
   every: number;
   unit: IntervalUnit;
@@ -23,6 +22,12 @@ export interface RoutineFormState {
   nthWeekday: number;
   datesText: string;
   months: number[]; // empty = all year
+}
+
+export interface RoutineFormState extends ScheduleFields {
+  kind: RoutineKind;
+  title: string;
+  icon: string;
   leadDays: number;
   assigneeId: string | null;
   showInCalendar: boolean;
@@ -172,10 +177,11 @@ export function formFromTemplate(t: RoutineTemplate, today: string, lang: Lang =
 // A failed build carries its message in both languages; the form shows the one the person reads.
 export type BuildResult = { ok: true; routine: BuiltRoutine } | { ok: false; message: Bilingual };
 
-export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): BuildResult {
-  const title = f.title.trim();
-  if (!title) return { ok: false, message: { en: "What should it be called?", de: "Wie soll es heissen?" } };
+export type ScheduleResult = { ok: true; rhythm: Rhythm } | { ok: false; message: Bilingual };
 
+// Reads the "when" part of the form. Bills and everything else that is not a plain interval
+// follow the calendar: "after done" only exists for intervals.
+export function scheduleFromFields(f: ScheduleFields, isBill = false): ScheduleResult {
   let schedule: Schedule;
   switch (f.repeat) {
     case "interval":
@@ -211,7 +217,79 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
     }
   }
 
+  const mode: RoutineMode = f.repeat === "interval" && !isBill ? f.mode : "fixed";
+  return {
+    ok: true,
+    rhythm: {
+      schedule,
+      mode,
+      // monthday / nth_weekday carry their months inside the schedule. The season filter
+      // is only for repeating weekdays and fixed intervals.
+      activeMonths:
+        f.months.length > 0 && mode === "fixed" && (f.repeat === "weekday" || f.repeat === "interval") ? f.months : null,
+    },
+  };
+}
+
+// "12.11.2026" for people who read German, the plain date for everybody else.
+function datesAsText(dates: string[], lang: Lang): string {
+  return dates.map((d) => (lang === "de" ? d.split("-").reverse().join(".") : d)).join("\n");
+}
+
+// The other way round: a task that exists, as the fields the person edits. `nextDue` is the date
+// that is planned right now, so a rhythm counted from "next time" starts out at the real date.
+export function scheduleFieldsFromRoutine(
+  r: Pick<Routine, "schedule" | "mode" | "activeMonths">,
+  today: string,
+  nextDue: string | null,
+  lang: Lang = "de"
+): ScheduleFields {
+  const base = emptyForm(today);
+  const fields: ScheduleFields = {
+    repeat: r.schedule.type,
+    every: base.every,
+    unit: base.unit,
+    mode: r.mode,
+    startDate: nextDue ?? today,
+    weekdays: base.weekdays,
+    everyNWeeks: 1,
+    anchorDate: nextDue ?? today,
+    monthDay: base.monthDay,
+    nth: base.nth,
+    nthWeekday: base.nthWeekday,
+    datesText: "",
+    months: [],
+  };
+  const s = r.schedule;
+  switch (s.type) {
+    case "interval":
+      return { ...fields, every: s.every, unit: s.unit, startDate: nextDue ?? (r.mode === "fixed" ? s.anchor : today), months: r.activeMonths ?? [] };
+    case "weekday":
+      return {
+        ...fields,
+        weekdays: s.weekdays,
+        everyNWeeks: s.everyNWeeks ?? 1,
+        anchorDate: s.anchor ?? nextWeekdayDate(s.weekdays, today),
+        months: r.activeMonths ?? [],
+      };
+    case "monthday":
+      return { ...fields, monthDay: s.day, months: s.months ?? [] };
+    case "nth_weekday":
+      return { ...fields, nth: s.nth, nthWeekday: s.weekday, months: s.months ?? [] };
+    case "dates":
+      return { ...fields, datesText: datesAsText(s.dates, lang) };
+  }
+}
+
+export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): BuildResult {
+  const title = f.title.trim();
+  if (!title) return { ok: false, message: { en: "What should it be called?", de: "Wie soll es heissen?" } };
+
   const isBill = f.kind === "bill";
+  const when = scheduleFromFields(f, isBill);
+  if (!when.ok) return when;
+  const { schedule, mode, activeMonths } = when.rhythm;
+
   const amount = isBill ? parseAmount(f.amountText) : null;
   if (isBill && f.amountKind !== "variable" && amount === null) {
     return {
@@ -255,8 +333,6 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
     split = parsed;
   }
 
-  // "After done" only exists for intervals; bills and everything else follow the calendar.
-  const mode: RoutineMode = f.repeat === "interval" && !isBill ? f.mode : "fixed";
   return {
     ok: true,
     routine: {
@@ -265,10 +341,7 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
       icon: f.icon,
       schedule,
       mode,
-      // monthday / nth_weekday carry their months inside the schedule. The season filter
-      // is only for repeating weekdays and fixed intervals.
-      activeMonths:
-        f.months.length > 0 && mode === "fixed" && (f.repeat === "weekday" || f.repeat === "interval") ? f.months : null,
+      activeMonths,
       leadDays: f.leadDays,
       assigneeId: !isBill && f.assignment === "fixed" ? f.assigneeId : null,
       showInCalendar: f.showInCalendar,
@@ -287,7 +360,7 @@ export function buildRoutine(f: RoutineFormState, memberIds: string[] = []): Bui
 }
 
 // "Die nächsten Termine" preview for the form.
-export function previewDates(r: BuiltRoutine, today: string, count = 3): string[] {
+export function previewDates(r: Rhythm, today: string, count = 3): string[] {
   if (r.mode === "after_done") {
     return r.schedule.type === "interval" ? [r.schedule.anchor > today ? r.schedule.anchor : today] : [];
   }

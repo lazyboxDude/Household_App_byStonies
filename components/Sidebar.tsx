@@ -16,8 +16,13 @@ const NAV_ITEMS: { en: string; de: string; href: string; icon: typeof Home; feat
   { en: "Shopping", de: "Einkauf", href: "/shopping", icon: ShoppingCart, feature: "shopping" },
   { en: "Finances", de: "Finanzen", href: "/expenses", icon: DollarSign, feature: "expenses" },
   { en: "Calendar", de: "Kalender", href: "/calendar", icon: Calendar, feature: "calendar" },
-  { en: "Settings", de: "Einstellungen", href: "/settings", icon: Settings },
 ];
+
+// Settings is not one of the places you go to every day: it sits at the bottom as a gear.
+const SETTINGS_HREF = "/settings";
+
+// A page counts as its section too: /expenses/onboarding belongs to Finances.
+const isIn = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
 
 interface PillRect {
   x: number;
@@ -45,15 +50,25 @@ const Sidebar = () => {
     (item) => !item.feature || !household || household.enabledFeatures.includes(item.feature)
   );
 
-  const activeHref = visibleNavItems.find((item) => item.href === pathname)?.href ?? visibleNavItems[0].href;
+  const settingsActive = isIn(pathname, SETTINGS_HREF);
+  // The sliding highlight follows the page you are on, the gear included (on the phone bar).
+  const activeHref = settingsActive ? SETTINGS_HREF : visibleNavItems.find((item) => isIn(pathname, item.href))?.href ?? null;
 
   useEffect(() => {
     const measure = () => {
-      const el = itemRefs.current[activeHref];
+      const el = activeHref ? itemRefs.current[activeHref] : null;
       const container = containerRef.current;
-      if (!el || !container) return;
+      if (!el || !container) {
+        setPill((p) => (p.ready ? { ...p, ready: false } : p));
+        return;
+      }
       const er = el.getBoundingClientRect();
       const cr = container.getBoundingClientRect();
+      // Hidden at this screen size (the gear on the phone bar, while the sidebar is showing): no highlight.
+      if (er.width === 0) {
+        setPill((p) => (p.ready ? { ...p, ready: false } : p));
+        return;
+      }
       setPill({ x: er.left - cr.left, y: er.top - cr.top, w: er.width, h: er.height, ready: true });
     };
     // Measure after layout settles (fonts/icons) and on resize / orientation change.
@@ -80,6 +95,7 @@ const Sidebar = () => {
 
   return (
     <nav
+      aria-label={t("Main navigation", "Hauptnavigation")}
       className="material-toolbar navbar-safe-bottom fixed bottom-0 left-0 right-0 border-t z-50
                  md:static md:sticky md:top-0 md:left-auto md:right-auto md:bottom-auto
                  md:h-screen md:w-64 md:shrink-0 md:border-t-0 md:border-r"
@@ -110,7 +126,7 @@ const Sidebar = () => {
           />
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            const isActive = activeHref === item.href;
             return (
               <Link
                 key={item.href}
@@ -118,6 +134,7 @@ const Sidebar = () => {
                 ref={(el) => {
                   itemRefs.current[item.href] = el;
                 }}
+                aria-current={isActive ? "page" : undefined}
                 className={`relative z-10 press flex flex-1 md:flex-none min-w-0 flex-col md:flex-row items-center gap-0.5 md:gap-3 px-1.5 py-2 md:px-3.5 md:py-2.5 rounded-xl transition-colors duration-300 ${
                   isActive
                     ? "text-[var(--accent)]"
@@ -131,6 +148,21 @@ const Sidebar = () => {
               </Link>
             );
           })}
+          {/* Phone bar: the gear closes the row, icon only */}
+          <Link
+            href={SETTINGS_HREF}
+            ref={(el) => {
+              itemRefs.current[SETTINGS_HREF] = el;
+            }}
+            aria-label={t("Settings", "Einstellungen")}
+            aria-current={settingsActive ? "page" : undefined}
+            title={t("Settings", "Einstellungen")}
+            className={`md:hidden relative z-10 press flex shrink-0 w-14 flex-col items-center justify-center py-2 rounded-xl transition-colors duration-300 ${
+              settingsActive ? "text-[var(--accent)]" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
+            }`}
+          >
+            <Settings className="w-6 h-6" strokeWidth={settingsActive ? 2.3 : 1.8} />
+          </Link>
         </div>
 
         {/* Desktop user menu, pinned to the bottom of the sidebar */}
@@ -153,7 +185,21 @@ const Sidebar = () => {
                 </div>
               )}
               <span className="text-caption text-[var(--text)] font-medium truncate flex-1">{user.name}</span>
+              <Link
+                href={SETTINGS_HREF}
+                aria-label={t("Settings", "Einstellungen")}
+                aria-current={settingsActive ? "page" : undefined}
+                title={t("Settings", "Einstellungen")}
+                className={`press btn-icon transition-colors shrink-0 ${
+                  settingsActive
+                    ? "text-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "text-[var(--text-tertiary)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]"
+                }`}
+              >
+                <Settings className="w-5 h-5" strokeWidth={settingsActive ? 2.3 : 1.8} />
+              </Link>
               <button
+                type="button"
                 onClick={logout}
                 className="press btn-icon text-[var(--text-tertiary)] hover:text-[var(--danger)] hover:bg-[var(--danger-soft)] transition-colors shrink-0"
                 title={t("Log out", "Abmelden")}

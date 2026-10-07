@@ -273,7 +273,8 @@ test("describeRoutine speaks English too", () => {
   assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "monthday", day: 1 } }), "en"), "On the 1st of the month");
   assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "monthday", day: 22 } }), "en"), "On the 22nd of the month");
   assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "monthday", day: "last" } }), "de"), "Am letzten Tag des Monats");
-  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "dates", dates: ["2026-11-12"] } }), "de"), "Ein festes Datum");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "dates", dates: ["2026-11-12"] } }), "de"), "Einmalig");
+  assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "dates", dates: ["2026-11-12"] } }), "en"), "Once");
   assert.equal(describeRoutine(routine({ mode: "fixed", schedule: { type: "dates", dates: ["2026-11-12", "2026-12-10"] } }), "en"), "2 fixed dates");
   assert.equal(
     describeRoutine(routine({ schedule: { type: "interval", every: 3, unit: "month", anchor: "2026-11-01" }, mode: "fixed" }), "en"),

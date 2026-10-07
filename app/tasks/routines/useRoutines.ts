@@ -12,8 +12,9 @@ import { planCleaningMigration, type CleaningRecurrence } from "./cleaningMigrat
 import { loadsFrom } from "./fairness";
 import { planAssignments, reassignWaiting } from "./rotation";
 import { nextOccurrence } from "./agenda";
+import { planOpenDates, sameRhythm } from "./rhythm";
 import { addDays, nextAfterDone, todayLocalISO } from "./schedule";
-import type { Assignment, Occurrence, Routine } from "./types";
+import type { Assignment, Occurrence, Rhythm, Routine } from "./types";
 import type { BuiltRoutine } from "./formModel";
 import { toOccurrence, toRoutine } from "./rowMappers";
 import { useRoutineTeam } from "./useRoutineTeam";
@@ -31,6 +32,8 @@ export interface RoutinePatch {
   assigneeId?: string | null;
   rotation?: string[] | null;
   supplies?: string[];
+  // How often it comes back. `dueDate` is the next date, when the person picked one themselves.
+  rhythm?: Rhythm & { dueDate?: string | null };
 }
 
 // Where a paid bill is booked. All optional: paying only closes the bill.
@@ -297,8 +300,9 @@ export function useRoutines(householdId: string | undefined, userId: string | un
     [householdId, refresh, errorText]
   );
 
-  // Renames, moves to another room or changes who does it. The plan for who does what runs again
-  // afterwards, so open dates follow the new setting; a hand-over done by hand stays as it is.
+  // Renames, moves to another room, changes who does it or how often it comes back. The plan for
+  // who does what runs again afterwards, so open dates follow the new setting; a hand-over done
+  // by hand stays as it is.
   const updateRoutine = useCallback(
     async (id: string, patch: RoutinePatch): Promise<boolean> => {
       const current = routines.find((r) => r.id === id);
@@ -319,6 +323,19 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         row.assignee_id = next.assigneeId;
         row.rotation = next.rotation;
       }
+      // The same rhythm again (and no new date) is nothing to save.
+      const pickedDue = patch.rhythm?.dueDate ?? null;
+      const rhythmChanged = !!patch.rhythm && (!sameRhythm(current, patch.rhythm) || !!pickedDue);
+      if (patch.rhythm && rhythmChanged) {
+        const { schedule, mode, activeMonths } = patch.rhythm;
+        next.schedule = schedule;
+        next.mode = mode;
+        next.activeMonths = activeMonths;
+        row.schedule = schedule as unknown as Json;
+        row.mode = mode;
+        row.active_months = activeMonths;
+      }
+      if (Object.keys(row).length === 0) return true;
 
       setRoutines((prev) => prev.map((r) => (r.id === id ? next : r)));
       const { error } = await supabase.from("routines").update(row).eq("id", id);
@@ -326,6 +343,42 @@ export function useRoutines(householdId: string | undefined, userId: string | un
         showToast(errorText, "error");
         await refresh(false);
         return false;
+      }
+      if (rhythmChanged) {
+        // What was planned under the old rhythm: dates that no longer belong go, the one that is
+        // waiting is counted again, and the planner below fills in the rest.
+        const open = occurrences.filter((o) => o.routineId === id && o.status === "open");
+        let lastDone: string | null = null;
+        if (next.mode === "after_done" && !pickedDue) {
+          const { data } = await supabase
+            .from("routine_occurrences")
+            .select("done_at")
+            .eq("routine_id", id)
+            .eq("status", "done")
+            .not("done_at", "is", null)
+            .order("done_at", { ascending: false })
+            .limit(1);
+          const at = data?.[0]?.done_at;
+          if (at) lastDone = todayLocalISO(new Date(at));
+        }
+        const plan = planOpenDates({ before: current, after: next, open, today: todayLocalISO(), lastDone, pickedDue });
+        if (plan.remove.length > 0) {
+          await supabase.from("calendar_events").delete().in("source_occurrence_id", plan.remove);
+          await supabase.from("routine_occurrences").delete().in("id", plan.remove);
+        }
+        for (const move of plan.move) {
+          const { error: moveError } = await supabase.from("routine_occurrences").update({ due_date: move.dueDate }).eq("id", move.id);
+          if (moveError) showToast(errorText, "error");
+          else await supabase.from("calendar_events").update({ date: move.dueDate }).eq("source_occurrence_id", move.id);
+        }
+        if (plan.create) {
+          await supabase
+            .from("routine_occurrences")
+            .upsert(
+              { household_id: current.householdId, routine_id: id, due_date: plan.create, assigned_to: next.assigneeId },
+              { onConflict: "routine_id,due_date", ignoreDuplicates: true }
+            );
+        }
       }
       if (patch.assignment !== undefined) {
         // The plan only looks ahead; the date that is already waiting follows the change here.

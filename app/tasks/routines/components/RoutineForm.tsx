@@ -3,17 +3,15 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "../../../context/LanguageContext";
 import { ROOM_PRESETS, SUPPLY_SUGGESTIONS, localizeKnown } from "../../constants";
-import { buildRoutine, emptyForm, formFromTemplate, livingDefaults, nextWeekdayDate, previewDates, type BuiltRoutine, type RoutineFormState } from "../formModel";
-import { MONTHS_SHORT, WEEKDAYS_LONG, WEEKDAYS_SHORT, localeOf, ordinalEn } from "../i18n";
+import { buildRoutine, emptyForm, formFromTemplate, livingDefaults, previewDates, type BuiltRoutine, type RoutineFormState } from "../formModel";
+import { localeOf } from "../i18n";
 import { turnOrder } from "../quickAdd";
-import { parseDateList } from "../schedule";
 import { ROUTINE_TEMPLATES } from "../templates";
-import type { IntervalUnit, LivingMode, RoutineKind } from "../types";
+import type { LivingMode, RoutineKind } from "../types";
 import type { Room } from "../../types";
+import ScheduleEditor from "./ScheduleEditor";
 
 const ICONS = ["🔁", "🗑️", "♻️", "📦", "🌿", "🛁", "🧹", "🪴", "🧺", "🍳", "🐈", "🚗"];
-// Mon first, like a calendar week.
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 // Bills are not offered here for now (parked, see docs/tasks-rethink.html).
 const KINDS: RoutineKind[] = ["chore", "reminder"];
 
@@ -40,21 +38,12 @@ export default function RoutineForm({ today, members, userId, rooms, calendarEna
     title: initial?.title ?? "",
     roomId: initial?.roomId ?? null,
   }));
-  const [anchorTouched, setAnchorTouched] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customSupply, setCustomSupply] = useState("");
 
   const set = <K extends keyof RoutineFormState>(key: K, value: RoutineFormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
-
-  const toggleIn = (key: "weekdays" | "months", n: number) =>
-    setForm((prev) => {
-      const list = prev[key].includes(n) ? prev[key].filter((x) => x !== n) : [...prev[key], n];
-      const next = { ...prev, [key]: list };
-      if (key === "weekdays" && !anchorTouched) next.anchorDate = nextWeekdayDate(list, today);
-      return next;
-    });
 
   const toggleSupply = (supply: string) =>
     setForm((prev) => ({
@@ -71,22 +60,8 @@ export default function RoutineForm({ today, members, userId, rooms, calendarEna
 
   const built = useMemo(() => buildRoutine(form, memberIds), [form, memberIds]);
   const preview = built.ok ? previewDates(built.routine, today) : [];
-  const datesInfo = form.repeat === "dates" ? parseDateList(form.datesText) : null;
   const withOthers = members.length > 1;
 
-  const unitLabels: Record<IntervalUnit, string> = {
-    day: t("days", "Tage"), week: t("weeks", "Wochen"), month: t("months", "Monate"), year: t("years", "Jahre"),
-  };
-  const repeatLabels: Record<RoutineFormState["repeat"], string> = {
-    interval: t("Every few days, weeks or months", "In einem festen Abstand"),
-    weekday: t("On certain weekdays", "An bestimmten Wochentagen"),
-    monthday: t("On a day of the month", "An einem Tag im Monat"),
-    nth_weekday: t("On a weekday of the month", "An einem Wochentag im Monat"),
-    dates: t("On fixed dates", "An festen Daten"),
-  };
-  const nthLabels: [RoutineFormState["nth"], string][] = [
-    [1, t("First", "Erster")], [2, t("Second", "Zweiter")], [3, t("Third", "Dritter")], [4, t("Fourth", "Vierter")], [-1, t("Last", "Letzter")],
-  ];
   const formatDate = (iso: string) =>
     new Date(`${iso}T12:00:00Z`).toLocaleDateString(localeOf(lang), { weekday: "short", day: "numeric", month: "numeric", year: "numeric", timeZone: "UTC" });
 
@@ -131,7 +106,6 @@ export default function RoutineForm({ today, members, userId, rooms, calendarEna
                   roomId: prev.roomId,
                   supplies: prev.supplies,
                 }));
-                setAnchorTouched(false);
                 setMessage(null);
               }}
             >
@@ -188,160 +162,12 @@ export default function RoutineForm({ today, members, userId, rooms, calendarEna
         </div>
       )}
 
-      <div className="space-y-3">
-        <div>
-          <label className="text-caption mb-1 block" htmlFor="routine-repeat">{t("When does it come back?", "Wann kommt es wieder?")}</label>
-          <select
-            id="routine-repeat"
-            className="field"
-            value={form.repeat}
-            onChange={(e) => set("repeat", e.target.value as RoutineFormState["repeat"])}
-          >
-            {Object.entries(repeatLabels).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
-
-        {form.repeat === "interval" && (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">{t("Every", "Alle")}</span>
-              <input
-                type="number"
-                min={1}
-                className="field w-20"
-                aria-label={t("Number", "Anzahl")}
-                value={form.every}
-                onChange={(e) => set("every", Number(e.target.value))}
-              />
-              <select className="field w-32" aria-label={t("Unit", "Einheit")} value={form.unit} onChange={(e) => set("unit", e.target.value as IntervalUnit)}>
-                {Object.entries(unitLabels).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" className="chip justify-center py-2.5 whitespace-normal text-center" data-active={form.mode === "after_done"} onClick={() => set("mode", "after_done")}>
-                {t("Count from when it's done", "Ab dem Erledigen zählen")}
-              </button>
-              <button type="button" className="chip justify-center py-2.5 whitespace-normal text-center" data-active={form.mode === "fixed"} onClick={() => set("mode", "fixed")}>
-                {t("Fixed rhythm", "Fester Rhythmus")}
-              </button>
-            </div>
-            <p className="text-caption">
-              {form.mode === "after_done"
-                ? t("If you do it later, the next round only starts then.", "Machst du es später, startet die nächste Runde erst dann.")
-                : t("The date stays where it is, even if you're a bit late.", "Der Termin bleibt, wo er ist, auch wenn du mal später dran bist.")}
-            </p>
-            <div>
-              <label className="text-caption mb-1 block" htmlFor="routine-start">{t("First time", "Erstes Mal")}</label>
-              <input id="routine-start" type="date" className="field" value={form.startDate} onChange={(e) => set("startDate", e.target.value)} />
-            </div>
-          </>
-        )}
-
-        {form.repeat === "weekday" && (
-          <>
-            <div className="flex flex-wrap gap-2">
-              {WEEK_ORDER.map((n) => (
-                <button key={n} type="button" className="chip" data-active={form.weekdays.includes(n)} onClick={() => toggleIn("weekdays", n)}>
-                  {WEEKDAYS_SHORT[lang][n]}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">{t("Every", "Jede")}</span>
-              <select className="field w-40" aria-label={t("Weekly rhythm", "Wochenrhythmus")} value={form.everyNWeeks} onChange={(e) => set("everyNWeeks", Number(e.target.value))}>
-                <option value={1}>{t("week", "Woche")}</option>
-                {[2, 3, 4].map((n) => (
-                  <option key={n} value={n}>{t(`${ordinalEn(n)} week`, `${n}. Woche`)}</option>
-                ))}
-              </select>
-            </div>
-            {form.everyNWeeks > 1 && (
-              <div>
-                <label className="text-caption mb-1 block" htmlFor="routine-anchor">{t("When is the next one?", "Wann ist das nächste Mal?")}</label>
-                <input
-                  id="routine-anchor"
-                  type="date"
-                  className="field"
-                  value={form.anchorDate}
-                  onChange={(e) => { setAnchorTouched(true); set("anchorDate", e.target.value); }}
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        {form.repeat === "monthday" && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm">{t("On the", "Am")}</span>
-            <select
-              className="field w-40"
-              aria-label={t("Day of the month", "Tag im Monat")}
-              value={String(form.monthDay)}
-              onChange={(e) => set("monthDay", e.target.value === "last" ? "last" : Number(e.target.value))}
-            >
-              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={d}>{lang === "de" ? `${d}.` : ordinalEn(d)}</option>
-              ))}
-              <option value="last">{t("last day", "letzten Tag")}</option>
-            </select>
-            <span className="text-sm">{t("of the month", "des Monats")}</span>
-          </div>
-        )}
-
-        {form.repeat === "nth_weekday" && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <select className="field w-32" aria-label={t("Which one", "Welcher")} value={form.nth} onChange={(e) => set("nth", Number(e.target.value) as RoutineFormState["nth"])}>
-              {nthLabels.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-            <select className="field w-40" aria-label={t("Weekday", "Wochentag")} value={form.nthWeekday} onChange={(e) => set("nthWeekday", Number(e.target.value))}>
-              {WEEK_ORDER.map((n) => <option key={n} value={n}>{WEEKDAYS_LONG[lang][n]}</option>)}
-            </select>
-            <span className="text-sm">{t("of the month", "im Monat")}</span>
-          </div>
-        )}
-
-        {form.repeat === "dates" && (
-          <div>
-            <label className="text-caption mb-1 block" htmlFor="routine-dates">
-              {t("One date per line. You'll find them in your municipality's waste calendar.", "Ein Datum pro Zeile. Du findest sie im Entsorgungskalender deiner Gemeinde.")}
-            </label>
-            <textarea
-              id="routine-dates"
-              className="field min-h-28"
-              value={form.datesText}
-              onChange={(e) => set("datesText", e.target.value)}
-              placeholder={"12.11.2026\n10.12.2026"}
-            />
-            {datesInfo && (datesInfo.dates.length > 0 || datesInfo.invalid.length > 0) && (
-              <p className="text-caption mt-1">
-                {lang === "de"
-                  ? `${datesInfo.dates.length} Datum${datesInfo.dates.length === 1 ? "" : "en"} erkannt`
-                  : `${datesInfo.dates.length} date${datesInfo.dates.length === 1 ? "" : "s"} recognised`}
-                {datesInfo.invalid.length > 0
-                  ? lang === "de" ? `. „${datesInfo.invalid[0]}“ kann ich nicht lesen.` : `. I can't read “${datesInfo.invalid[0]}”.`
-                  : "."}
-              </p>
-            )}
-          </div>
-        )}
-
-        {(form.repeat === "monthday" || form.repeat === "nth_weekday" || form.repeat === "weekday" || (form.repeat === "interval" && form.mode === "fixed")) && (
-          <div>
-            <div className="text-caption mb-1">{t("Only in these months (otherwise all year)", "Nur in diesen Monaten (sonst das ganze Jahr)")}</div>
-            <div className="flex flex-wrap gap-1.5">
-              {MONTHS_SHORT[lang].map((label, i) => (
-                <button key={label} type="button" className="chip" data-active={form.months.includes(i + 1)} onClick={() => toggleIn("months", i + 1)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <ScheduleEditor
+        value={form}
+        onChange={(next) => setForm((prev) => ({ ...prev, ...next }))}
+        today={today}
+        startLabel={t("First time", "Erstes Mal")}
+      />
 
       <div>
         <label className="text-caption mb-1 block" htmlFor="routine-lead">{t("Heads-up beforehand", "Vorher Bescheid sagen")}</label>

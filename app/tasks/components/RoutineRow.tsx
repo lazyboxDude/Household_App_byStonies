@@ -206,7 +206,7 @@ export default function RoutineRow({ routine, occurrence, today, variant, showRo
         </div>
       )}
 
-      {expanded && <RoutineEditPanel routine={routine} occurrence={occurrence} ctx={ctx} />}
+      {expanded && <RoutineEditPanel routine={routine} occurrence={occurrence} today={today} ctx={ctx} />}
     </li>
   );
 }

@@ -16,6 +16,13 @@ export type Schedule =
 // when it was actually done (Bad putzen). after_done only works with "interval".
 export type RoutineMode = "fixed" | "after_done";
 
+// How often a task comes back: the three things that only make sense together.
+export interface Rhythm {
+  schedule: Schedule;
+  mode: RoutineMode;
+  activeMonths: number[] | null; // 1-12, null = all year
+}
+
 // fixed: Miete. estimate: Strom-Abschlag (corrected once the real amount is known).
 // variable: entered when paid.
 export type AmountKind = "fixed" | "estimate" | "variable";

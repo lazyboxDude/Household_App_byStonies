@@ -52,8 +52,8 @@ function scheduleLabel(s: Schedule, lang: Lang): string {
       return s.months && s.months.length > 0 ? `${base} · ${monthsLabel(s.months, lang)}` : base;
     }
     case "dates":
-      if (de) return s.dates.length === 1 ? "Ein festes Datum" : `${s.dates.length} feste Daten`;
-      return s.dates.length === 1 ? "One fixed date" : `${s.dates.length} fixed dates`;
+      if (de) return s.dates.length === 1 ? "Einmalig" : `${s.dates.length} feste Daten`;
+      return s.dates.length === 1 ? "Once" : `${s.dates.length} fixed dates`;
   }
 }
 
