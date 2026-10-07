@@ -61,6 +61,7 @@ export type Database = {
           location: string | null
           photo_url: string | null
           source_cleaning_task_id: string | null
+          source_occurrence_id: string | null
           time: string
           title: string
           type: string
@@ -73,6 +74,7 @@ export type Database = {
           location?: string | null
           photo_url?: string | null
           source_cleaning_task_id?: string | null
+          source_occurrence_id?: string | null
           time?: string
           title: string
           type?: string
@@ -85,6 +87,7 @@ export type Database = {
           location?: string | null
           photo_url?: string | null
           source_cleaning_task_id?: string | null
+          source_occurrence_id?: string | null
           time?: string
           title?: string
           type?: string
@@ -104,6 +107,13 @@ export type Database = {
             referencedRelation: "cleaning_tasks"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "calendar_events_source_occurrence_id_fkey"
+            columns: ["source_occurrence_id"]
+            isOneToOne: true
+            referencedRelation: "routine_occurrences"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cleaning_tasks: {
@@ -113,6 +123,7 @@ export type Database = {
           household_id: string
           id: string
           last_done: string | null
+          migrated_routine_id: string | null
           next_due: string
           recurrence: string
           room_id: string
@@ -125,6 +136,7 @@ export type Database = {
           household_id: string
           id?: string
           last_done?: string | null
+          migrated_routine_id?: string | null
           next_due?: string
           recurrence: string
           room_id: string
@@ -137,6 +149,7 @@ export type Database = {
           household_id?: string
           id?: string
           last_done?: string | null
+          migrated_routine_id?: string | null
           next_due?: string
           recurrence?: string
           room_id?: string
@@ -149,6 +162,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_tasks_migrated_routine_id_fkey"
+            columns: ["migrated_routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
             referencedColumns: ["id"]
           },
           {
@@ -462,6 +482,44 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -487,6 +545,347 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rooms_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_absences: {
+        Row: {
+          created_at: string
+          from_date: string
+          household_id: string
+          id: string
+          to_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_date: string
+          household_id: string
+          id?: string
+          to_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_date?: string
+          household_id?: string
+          id?: string
+          to_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_absences_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_absences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_occurrences: {
+        Row: {
+          amount: number | null
+          assigned_to: string | null
+          created_at: string
+          done_at: string | null
+          done_by: string | null
+          expense_id: string | null
+          due_date: string
+          household_id: string
+          id: string
+          locked: boolean
+          notified_at: string | null
+          routine_id: string
+          split: Json | null
+          status: string
+          vt_tx_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          assigned_to?: string | null
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_date: string
+          expense_id?: string | null
+          household_id: string
+          id?: string
+          locked?: boolean
+          notified_at?: string | null
+          routine_id: string
+          split?: Json | null
+          status?: string
+          vt_tx_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          assigned_to?: string | null
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          due_date?: string
+          expense_id?: string | null
+          household_id?: string
+          id?: string
+          locked?: boolean
+          notified_at?: string | null
+          routine_id?: string
+          split?: Json | null
+          status?: string
+          vt_tx_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_occurrences_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_vt_tx_id_fkey"
+            columns: ["vt_tx_id"]
+            isOneToOne: false
+            referencedRelation: "verteilertopf_tx"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrences_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "routines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_settings: {
+        Row: {
+          fairness_weights: Json | null
+          household_id: string
+          living_mode: string | null
+          updated_at: string
+        }
+        Insert: {
+          fairness_weights?: Json | null
+          household_id: string
+          living_mode?: string | null
+          updated_at?: string
+        }
+        Update: {
+          fairness_weights?: Json | null
+          household_id?: string
+          living_mode?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_settlements: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          from_user: string
+          household_id: string
+          id: string
+          to_user: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          from_user: string
+          household_id: string
+          id?: string
+          to_user: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          from_user?: string
+          household_id?: string
+          id?: string
+          to_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_settlements_from_user_fkey"
+            columns: ["from_user"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_settlements_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_settlements_to_user_fkey"
+            columns: ["to_user"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routines: {
+        Row: {
+          active_months: number[] | null
+          amount: number | null
+          amount_kind: string | null
+          assignee_id: string | null
+          assignment: string
+          created_at: string
+          created_by: string | null
+          effort: number
+          expense_category: string | null
+          household_id: string
+          icon: string
+          id: string
+          kind: string
+          lead_days: number
+          mode: string
+          payer_id: string | null
+          room_id: string | null
+          rotation: string[] | null
+          schedule: Json
+          show_in_calendar: boolean
+          split: Json | null
+          supplies: string[]
+          title: string
+        }
+        Insert: {
+          active_months?: number[] | null
+          amount?: number | null
+          amount_kind?: string | null
+          assignee_id?: string | null
+          assignment?: string
+          created_at?: string
+          created_by?: string | null
+          effort?: number
+          expense_category?: string | null
+          household_id: string
+          icon?: string
+          id?: string
+          kind: string
+          lead_days?: number
+          mode?: string
+          payer_id?: string | null
+          room_id?: string | null
+          rotation?: string[] | null
+          schedule: Json
+          show_in_calendar?: boolean
+          split?: Json | null
+          supplies?: string[]
+          title: string
+        }
+        Update: {
+          active_months?: number[] | null
+          amount?: number | null
+          amount_kind?: string | null
+          assignee_id?: string | null
+          assignment?: string
+          created_at?: string
+          created_by?: string | null
+          effort?: number
+          expense_category?: string | null
+          household_id?: string
+          icon?: string
+          id?: string
+          kind?: string
+          lead_days?: number
+          mode?: string
+          payer_id?: string | null
+          room_id?: string | null
+          rotation?: string[] | null
+          schedule?: Json
+          show_in_calendar?: boolean
+          split?: Json | null
+          supplies?: string[]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routines_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routines_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"

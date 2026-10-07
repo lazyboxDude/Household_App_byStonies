@@ -19,6 +19,7 @@ import { useI18n } from "./context/LanguageContext";
 import { useAuth } from "./context/AuthContext";
 import { supabase } from "./lib/supabase";
 import LandingPage from "./components/LandingPage";
+import RoutinesWidget from "./tasks/routines/components/RoutinesWidget";
 
 interface DashTask {
   id: string;
@@ -282,6 +283,9 @@ export default function Home() {
             )}
           </section>
         )}
+
+        {/* Routinen: what is coming up this week (renders nothing until one exists) */}
+        <RoutinesWidget householdId={householdId} style={{ "--stagger-i": 2 } as React.CSSProperties} />
 
         {/* Active tasks */}
         <section

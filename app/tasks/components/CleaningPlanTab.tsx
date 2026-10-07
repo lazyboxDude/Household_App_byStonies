@@ -49,10 +49,11 @@ function dueStatus(
   return { label: tr(`Due ${date}`, `Fällig ${date}`), className: "bg-[var(--surface-2)] text-[var(--text-secondary)]" };
 }
 
-export default function CleaningPlanTab({ householdId }: { householdId: string }) {
+export default function CleaningPlanTab({ householdId, onOpenRoutines }: { householdId: string; onOpenRoutines?: () => void }) {
   const { t: tr, lang, locale } = useI18n();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [cleaningTasks, setCleaningTasks] = useState<CleaningTask[]>([]);
+  const [movedCount, setMovedCount] = useState(0);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [confirmDeleteRoomId, setConfirmDeleteRoomId] = useState<string | null>(null);
@@ -87,7 +88,16 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
       .from("cleaning_tasks")
       .select("*")
       .eq("household_id", householdId)
+      // Tasks taken over by Routinen live there now; the row stays so deleting the routine brings it back.
+      .is("migrated_routine_id", null)
       .order("created_at", { ascending: true });
+    // How many tasks moved to Routinen (0 if the column does not exist yet).
+    const moved = await supabase
+      .from("cleaning_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", householdId)
+      .not("migrated_routine_id", "is", null);
+    setMovedCount(moved.error ? 0 : moved.count ?? 0);
     if (!error) {
       setCleaningTasks(
         (data ?? []).map((t) => ({
@@ -263,6 +273,16 @@ export default function CleaningPlanTab({ householdId }: { householdId: string }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {movedCount > 0 && (
+        <div className="surface p-4 lg:col-span-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm">
+            {movedCount} {movedCount === 1 ? "Aufgabe läuft" : "Aufgaben laufen"} jetzt unter Routinen und {movedCount === 1 ? "ist" : "sind"} hier ausgeblendet.
+          </p>
+          {onOpenRoutines && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenRoutines}>Zu den Routinen</button>
+          )}
+        </div>
+      )}
       {/* Rooms */}
       <div className="space-y-4">
         <div className="surface p-4">

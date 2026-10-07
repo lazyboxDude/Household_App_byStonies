@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ListChecks, Sparkles } from "lucide-react";
+import { CheckCircle2, ListChecks, Sparkles, Repeat } from "lucide-react";
 import { MascotLoader } from "@/components/Mascot";
 import TaskListTab from "./components/TaskListTab";
 import CleaningPlanTab from "./components/CleaningPlanTab";
+import RoutinesTab from "./routines/components/RoutinesTab";
 import TaskOnboarding from "./components/TaskOnboarding";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../context/LanguageContext";
@@ -20,7 +21,7 @@ interface TaskCounts {
   done: number;
 }
 
-type Tab = "tasks" | "cleaning";
+type Tab = "tasks" | "cleaning" | "routines";
 
 export default function TasksPage() {
   const { household } = useAuth();
@@ -172,15 +173,29 @@ export default function TasksPage() {
         >
           <Sparkles className="w-4 h-4" /> {t("Cleaning Plan", "Putzplan")}
         </button>
+        <button
+          onClick={() => setActiveTab("routines")}
+          className={`press px-4 py-2.5 text-sm font-medium border-b-2 transition-colors duration-300 flex items-center gap-1.5 ${
+            activeTab === "routines"
+              ? "border-orange-600 text-orange-600 dark:text-orange-400"
+              : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text)]"
+          }`}
+        >
+          <Repeat className="w-4 h-4" /> Routinen
+        </button>
       </div>
 
       {activeTab === "tasks" ? (
         <div className="animate-rise">
           <TaskListTab householdId={householdId} />
         </div>
+      ) : activeTab === "cleaning" ? (
+        <div className="animate-rise">
+          <CleaningPlanTab householdId={householdId} onOpenRoutines={() => setActiveTab("routines")} />
+        </div>
       ) : (
         <div className="animate-rise">
-          <CleaningPlanTab householdId={householdId} />
+          <RoutinesTab householdId={householdId} />
         </div>
       )}
     </div>
